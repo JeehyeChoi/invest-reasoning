@@ -34,10 +34,13 @@ export default function HomePage() {
 	const [loading, setLoading] = useState(false)
 
 	useEffect(() => {
+		if (Object.keys(pendingDeletes).length === 0) {
+			return
+		}
 		const intervalId = setInterval(() => {
 			const now = Date.now()
 
-			setRemainingSecondsMap(() => {
+			setRemainingSecondsMap((prev) => {
 				const next: Record<number, number> = {}
 
 				for (const [key, value] of Object.entries(pendingDeletes)) {
@@ -46,7 +49,14 @@ export default function HomePage() {
 					next[index] = seconds
 				}
 
-				return next
+				const prevKeys = Object.keys(prev)
+				const nextKeys = Object.keys(next)
+
+				const isSame =
+					prevKeys.length === nextKeys.length &&
+					prevKeys.every((key) => prev[Number(key)] === next[Number(key)])
+
+				return isSame ? prev : next
 			})
 
 			const expiredIndexes = Object.entries(pendingDeletes)
@@ -82,6 +92,7 @@ export default function HomePage() {
 
 		return () => clearInterval(intervalId)
 	}, [pendingDeletes, editingIndex])
+
 
 	useEffect(() => {
 		const tickers = items
@@ -186,7 +197,7 @@ export default function HomePage() {
 	const handleAnalyze = async () => {
 		try {
 			setLoading(true)
-
+				
 			const res = await fetch("/api/analyze", {
 				method: "POST",
 				headers: {
@@ -200,6 +211,7 @@ export default function HomePage() {
 			})
 
 			const data = await res.json()
+			//console.log("data",{data})
 
 			if (!res.ok) {
 				alert(data.error || "Failed to analyze")
@@ -214,7 +226,6 @@ export default function HomePage() {
 			setLoading(false)
 		}
 	}
-
 
   return (
     <main className="p-6 space-y-6">
@@ -236,31 +247,19 @@ export default function HomePage() {
       <section className="space-y-2">
 				<div className="flex items-center justify-between">
         	<h2 className="text-lg font-semibold">Current Inputs</h2>
-					
-					<div>
+
 					<button
+						type="button"
 						onClick={handleAnalyze}
-						className="p-2 px-4 bg-purple-600 text-white rounded"
+						disabled={loading}
+						className={`p-2 px-4 text-white rounded ${
+							loading ? "bg-gray-400 cursor-not-allowed" : "bg-purple-600"
+						}`}
 					>
-						Analyze Portfolio
+						{loading ? "Analyzing..." : "Analyze Portfolio"}
 					</button>
-
-					<select
-						value={provider}
-						onChange={(e) => setProvider(e.target.value as "claude" | "openai")}
-						className="border rounded p-2"
-					>
-						<option value="claude">Claude</option>
-						<option value="openai">OpenAI</option>
-					</select>
-					</div>
+		
 				</div>
-
-				{analysisResult && (
-					<div className="p-4 border rounded bg-gray-50 whitespace-pre-wrap">
-						{analysisResult}
-					</div>
-				)}
 
         {items.length === 0 ? (
           <p className="text-sm text-gray-500">No portfolio items yet.</p>
@@ -355,6 +354,24 @@ export default function HomePage() {
             </table>
           </div>
         )}
+
+				<div className="p-4 border rounded bg-gray-50 min-h-[120px] flex items-center justify-center">
+					{loading ? (
+						<div className="flex flex-col items-center gap-2 text-gray-600">
+							<div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+							<span>Analyzing...</span>
+						</div>
+					) : analysisResult ? (
+						<div className="whitespace-pre-wrap">{analysisResult}</div>
+					) : (
+						<span className="text-gray-400">
+							Click "Analyze" to get recommendation
+						</span>
+					)}
+				</div>
+
+
+
       </section>
     </main>
   )
