@@ -16,9 +16,12 @@ export const fetchPrices = async (
   })
 
   if (!res.ok) {
-    throw new Error("Failed to fetch prices")
+    const text = await res.text()
+    throw new Error(`Failed to fetch prices: ${res.status} ${text}`)
   }
 
   const data = await res.json()
   return data.prices ?? {}
 }
+
+

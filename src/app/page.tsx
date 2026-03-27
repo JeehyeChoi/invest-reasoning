@@ -8,6 +8,9 @@ import { calculatePortfolio } from "@/features/portfolio/utils/calculatePortfoli
 import { formatNumber, formatPercent } from "@/shared/utils/format"
 import { Pencil, Trash2, RotateCcw } from "lucide-react"
 import { fetchPrices } from "@/backend/clients/prices"
+import { AnalysisResult } from "@/features/analysis/components/AnalysisResult"
+import { AnalysisLoading } from "@/features/analysis/components/AnalysisLoading"
+import { loadPortfolioState, savePortfolioState } from "@/features/portfolio/utils/storage"
 import type { LlmProvider, AnalysisStrategy } from "@/shared/types/analysis"
 
 export default function HomePage() {
@@ -27,11 +30,34 @@ export default function HomePage() {
 		Record<number, number>
 	>({})
 	const [priceMap, setPriceMap] = useState<Record<string, number>>({})
+	const [priceUpdatedAt, setPriceUpdatedAt] = useState<number | null>(null)
+	const [priceError, setPriceError] = useState<string>("")
 
 	const [provider, setProvider] = useState<LlmProvider>("claude")
-	const [strategy, setStrategy] = useState<AnalysisStrategy>("macro")
+	const [strategy, setStrategy] = useState<AnalysisStrategy>("papic")
 	const [analysisResult, setAnalysisResult] = useState<string>("")
 	const [loading, setLoading] = useState(false)
+
+	useEffect(() => {
+		const saved = loadPortfolioState()
+		if (!saved) return
+
+		setItems(saved.items)
+		setProvider(saved.provider)
+		setStrategy(saved.strategy)
+  	setPriceMap(saved.priceMap)
+	  setPriceUpdatedAt(saved.priceUpdatedAt)
+	}, [])
+
+	useEffect(() => {
+		savePortfolioState({
+			items,
+			provider,
+			strategy,
+			priceMap,
+			priceUpdatedAt,
+		})
+	}, [items, provider, strategy, priceMap, priceUpdatedAt])
 
 	useEffect(() => {
 		if (Object.keys(pendingDeletes).length === 0) {
@@ -93,7 +119,6 @@ export default function HomePage() {
 		return () => clearInterval(intervalId)
 	}, [pendingDeletes, editingIndex])
 
-
 	useEffect(() => {
 		const tickers = items
 			.map((item) => item.ticker)
@@ -104,19 +129,22 @@ export default function HomePage() {
 			return
 		}
 
+
 		const loadPrices = async () => {
 			try {
 				const prices = await fetchPrices(tickers)
 				setPriceMap(prices)
+				setPriceUpdatedAt(Date.now())
+				setPriceError("")
 			} catch (err) {
 				console.error(err)
 				setPriceMap({})
+				setPriceError("Price update failed. Showing cached prices.")
 			}
 		}
 
 		loadPrices()
 	}, [items])
-
 
 	const handleAdd = (item: PortfolioItemInput) => {
 		const normalizedTicker = item.ticker.trim().toUpperCase()
@@ -258,8 +286,19 @@ export default function HomePage() {
 					>
 						{loading ? "Analyzing..." : "Analyze Portfolio"}
 					</button>
-		
 				</div>
+
+				<div className="mt-2 text-sm text-gray-500">
+					{priceUpdatedAt
+						? `Prices updated: ${new Date(priceUpdatedAt).toLocaleString("en-US")}`
+						: "Prices not loaded yet."}
+				</div>
+
+				{priceError && (
+					<div className="mt-1 text-sm text-amber-600">
+						{priceError}
+					</div>
+				)}
 
         {items.length === 0 ? (
           <p className="text-sm text-gray-500">No portfolio items yet.</p>
@@ -357,20 +396,15 @@ export default function HomePage() {
 
 				<div className="p-4 border rounded bg-gray-50 min-h-[120px] flex items-center justify-center">
 					{loading ? (
-						<div className="flex flex-col items-center gap-2 text-gray-600">
-							<div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
-							<span>Analyzing...</span>
-						</div>
+						<AnalysisLoading />
 					) : analysisResult ? (
-						<div className="whitespace-pre-wrap">{analysisResult}</div>
+						<AnalysisResult result={analysisResult} />
 					) : (
 						<span className="text-gray-400">
 							Click "Analyze" to get recommendation
 						</span>
 					)}
 				</div>
-
-
 
       </section>
     </main>
