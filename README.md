@@ -1,36 +1,93 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Invest-reasoning
+
+Invest-reasoning Portfolio is a lightweight portfolio management app designed to explore AI-assisted investment analysis workflows.
+
+---
+
+## Demo
+
+- Add portfolio positions (stocks + cash)
+- Track current weights based on live prices
+- Persist data locally
+- Run AI-based portfolio analysis (Claude/OpenAI)
+
+---
+
+## Features
+
+- Portfolio input with flexible fields (shares / avg price / total cost)
+- Automatic calculation of missing values
+- Real-time price fetching via Twelve Data API
+- Current portfolio weight calculation
+- Local storage persistence (state recovery on reload)
+- AI analysis integration (Claude / OpenAI)
+- Strategy-based analysis (macro, valuation, papic)
+
+---
+
+## Tech Stack
+
+- Next.js (App Router)
+- TypeScript
+- React
+- Tailwind CSS
+- Zod (runtime validation)
+- Claude / OpenAI API
+
+---
+
+## Architecture
+
+This project follows a contract-first layered architecture:
+
+- `app/` → UI & routing
+- `features/` → domain-specific logic (portfolio, analysis)
+- `shared/` → shared types and utilities
+- `backend/` → API clients and server-side logic
+
+### Key principles
+
+- Separation of frontend and backend concerns
+- Prompt builder pattern for LLM interaction
+- Runtime validation using Zod
+
+---
+
+## API Flow
+
+1. User inputs portfolio data  
+2. Prices are fetched via `/api/prices`  
+3. Portfolio metrics are calculated  
+4. Analysis request is sent to `/api/analyze`  
+5. LLM returns structured analysis  
+
+---
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+git clone https://github.com/your-repo.git
+cd geo-portfolio
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Create `.env.local`:
 
-## Learn More
+```
+TWELVE_DATA_API_KEY=your_key
+ANTHROPIC_API_KEY=your_key
+OPENAI_API_KEY=your_key
+```
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Future Work
+- Advanced portfolio analysis models (macro / geopolitical / valuation)
+- RAG-based financial knowledge integration
+- Automated data ingestion (news, macro indicators)
+- Multi-strategy comparison UI
