@@ -7,8 +7,9 @@ import { useEffect, useState } from "react"
 type PortfolioInputProps = {
   onAdd: (item: PortfolioItemInput) => void
   onSave?: (item: PortfolioItemInput) => void
+  onCancel?: () => void
   editingItem?: PortfolioItemInput | null
-  isEditing?: boolea
+  isEditing?: boolean
 }
 
 export default function PortfolioInput({
@@ -70,8 +71,8 @@ export default function PortfolioInput({
 
 		if (!isEditing) {
 			if (isCash) {
-				if (!totalCost.trim()) {
-					alert("Total cost is required for cash.")
+				if (!totalCost.trim() && !targetWeight.trim()) {
+					alert("Provide total cost or weight to update cash.")
 					return
 				}
 			} else if (filledCount < 2) {
@@ -80,8 +81,8 @@ export default function PortfolioInput({
 			}
 		} else {
 			if (isCash) {
-				if (!totalCost.trim()) {
-					alert("Total cost is required for cash.")
+				if (!totalCost.trim() && !targetWeight.trim()) {
+					alert("Provide total cost or weight to update cash.")
 					return
 				}
 			} else {
@@ -100,8 +101,10 @@ export default function PortfolioInput({
 		let finalAverageBuyPrice = avgNum
 		let finalTotalCost = totalNum
 
-		if (!isCash) {
-			if (!isEditing) {
+		if (!isEditing) {
+			if (isCash) {
+				finalTotalCost = totalNum
+			} else {
 				// add: 3개 중 2개 입력 → 나머지 1개 계산
 				if (finalShares !== undefined && finalAverageBuyPrice !== undefined) {
 					finalTotalCost = finalShares * finalAverageBuyPrice
@@ -118,6 +121,11 @@ export default function PortfolioInput({
 				) {
 					finalShares = finalTotalCost / finalAverageBuyPrice
 				}
+			}
+		} else {
+			if (isCash) {
+				finalTotalCost =
+					totalNum !== undefined ? totalNum : editingItem?.totalCost
 			} else {
 				// edit: shares + totalCost만 수정 가능, avgBP는 자동 계산
 				finalShares =
@@ -138,7 +146,7 @@ export default function PortfolioInput({
 		const item: PortfolioItemInput = isCash
 			? {
 					ticker,
-					totalCost: totalNum,
+					totalCost: finalTotalCost,
 					targetWeight: targetWeight.trim() === "" ? undefined : Number(targetWeight),
 				}
 			: {
@@ -148,6 +156,8 @@ export default function PortfolioInput({
 					totalCost: finalTotalCost,
 					targetWeight: targetWeight.trim() === "" ? undefined : Number(targetWeight),
 				}
+
+
 
 		if (isEditing && onSave) {
 			onSave(item)

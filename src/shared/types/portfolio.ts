@@ -1,16 +1,13 @@
 // src/shared/types/portfolio.ts
 
+export type PriceMap = Record<string, number>
+
 export interface PortfolioItemInput {
   ticker: string
   shares?: number
   averageBuyPrice?: number
   totalCost?: number
   targetWeight?: number
-}
-
-export interface PriceData {
-  ticker: string
-  currentPrice: number
 }
 
 export interface PortfolioItemComputed {

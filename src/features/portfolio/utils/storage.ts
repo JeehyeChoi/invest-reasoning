@@ -1,5 +1,6 @@
 import type { PortfolioItemInput } from "@/shared/types/portfolio"
 import type { AnalysisStrategy, LlmProvider } from "@/shared/types/analysis"
+import type { PriceMap } from "@/shared/types/portfolio"
 
 const STORAGE_KEY = "geo-portfolio-state"
 
@@ -8,7 +9,7 @@ export type PersistedPortfolioState = {
   items: PortfolioItemInput[]
   provider: LlmProvider
   strategy: AnalysisStrategy
-  priceMap: Record<string, number>
+  priceMap: PriceMap
   priceUpdatedAt: number | null
 }
 

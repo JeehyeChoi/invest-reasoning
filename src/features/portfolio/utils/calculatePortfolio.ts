@@ -1,7 +1,9 @@
-import { PortfolioItemInput } from "@/shared/types/portfolio"
 import { completePortfolioItem } from "@/features/portfolio/utils/completePortfolioItem"
 
-type CalculatedPortfolioItem = PortfolioItemInput & {
+import { PortfolioItemInput } from "@/shared/types/portfolio"
+import type { PriceMap } from "@/shared/types/portfolio"
+
+export type CalculatedPortfolioItem = PortfolioItemInput & {
   currentPrice?: number
   currentValue?: number
   currentWeight?: number
@@ -9,7 +11,7 @@ type CalculatedPortfolioItem = PortfolioItemInput & {
 
 export const calculatePortfolio = (
   items: PortfolioItemInput[],
-  priceMap: Record<string, number>
+  priceMap: PriceMap
 ): CalculatedPortfolioItem[] => {
   const completedItems = items.map((item) => {
     const completed = completePortfolioItem(item)

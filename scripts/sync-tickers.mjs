@@ -46,8 +46,6 @@ function parseOtherListed(text) {
       ticker: row[0],
       name: row[1],
       exchange: row[2],
-      etf: row[4],
-      testIssue: row[6],
     }))
 }
 

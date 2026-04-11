@@ -1,17 +1,37 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import PortfolioInput from "@/features/portfolio/components/PortfolioInput"
-import { PortfolioItemInput, PortfolioItemComputed } from "@/shared/types/portfolio"
-import { completePortfolioItem } from "@/features/portfolio/utils/completePortfolioItem"
-import { calculatePortfolio } from "@/features/portfolio/utils/calculatePortfolio"
-import { formatNumber, formatPercent } from "@/shared/utils/format"
 import { Pencil, Trash2, RotateCcw } from "lucide-react"
-import { fetchPrices } from "@/backend/clients/prices"
+
+import { formatNumber, formatPercent } from "@/shared/utils/format"
+import { PortfolioItemInput, PortfolioItemComputed } from "@/shared/types/portfolio"
+import type { LlmProvider, AnalysisStrategy } from "@/shared/types/analysis"
+import type { PriceMap } from "@/shared/types/portfolio"
+import type { PortfolioAnalysisWorkflowInput } from "@/shared/types/workflow"
+
+import PortfolioInput from "@/features/portfolio/components/PortfolioInput"
+import { calculatePortfolio } from "@/features/portfolio/utils/calculatePortfolio"
+import { completePortfolioItem } from "@/features/portfolio/utils/completePortfolioItem"
+import { loadPortfolioState, savePortfolioState } from "@/features/portfolio/utils/storage"
+
 import { AnalysisResult } from "@/features/analysis/components/AnalysisResult"
 import { AnalysisLoading } from "@/features/analysis/components/AnalysisLoading"
-import { loadPortfolioState, savePortfolioState } from "@/features/portfolio/utils/storage"
-import type { LlmProvider, AnalysisStrategy } from "@/shared/types/analysis"
+import { fetchPrices } from "@/backend/clients/prices"
+
+
+function getNextTotalTargetWeight(
+  items: PortfolioItemInput[],
+  nextItem: PortfolioItemInput,
+  isEditing: boolean
+) {
+  const otherWeightSum = items
+    .filter((portfolioItem) =>
+      isEditing ? portfolioItem.ticker !== nextItem.ticker : true
+    )
+    .reduce((sum, portfolioItem) => sum + (portfolioItem.targetWeight ?? 0), 0)
+
+  return otherWeightSum + (nextItem.targetWeight ?? 0)
+}
 
 export default function HomePage() {
 	const [items, setItems] = useState<PortfolioItemInput[]>([
@@ -29,7 +49,7 @@ export default function HomePage() {
 	const [remainingSecondsMap, setRemainingSecondsMap] = useState<
 		Record<number, number>
 	>({})
-	const [priceMap, setPriceMap] = useState<Record<string, number>>({})
+	const [priceMap, setPriceMap] = useState<PriceMap>({})
 	const [priceUpdatedAt, setPriceUpdatedAt] = useState<number | null>(null)
 	const [priceError, setPriceError] = useState<string>("")
 
@@ -146,6 +166,21 @@ export default function HomePage() {
 		loadPrices()
 	}, [items])
 
+	const getNextTotalTargetWeight = (
+		nextItem: PortfolioItemInput,
+		editingIndexToExclude?: number | null,
+	) => {
+		const otherWeightSum = items
+			.filter((_, index) =>
+				editingIndexToExclude !== undefined && editingIndexToExclude !== null
+					? index !== editingIndexToExclude
+					: true
+			)
+			.reduce((sum, portfolioItem) => sum + (portfolioItem.targetWeight ?? 0), 0)
+
+		return otherWeightSum + (nextItem.targetWeight ?? 0)
+	}
+
 	const handleAdd = (item: PortfolioItemInput) => {
 		const normalizedTicker = item.ticker.trim().toUpperCase()
 
@@ -158,20 +193,28 @@ export default function HomePage() {
 			return
 		}
 
-		setItems((prev) => [
-			...prev,
-			{
-				...item,
-				ticker: normalizedTicker,
-			},
-		])
+		const normalizedItem: PortfolioItemInput = {
+			...item,
+			ticker: normalizedTicker,
+		}
+
+		const nextTotalWeight = getNextTotalTargetWeight(normalizedItem)
+
+		if (nextTotalWeight > 100) {
+			alert(
+				`Total target weight cannot exceed 100%. Current total would be ${nextTotalWeight.toFixed(2)}%.`
+			)
+			return
+		}
+
+		setItems((prev) => [...prev, normalizedItem])
 	}
 
 	const handleDelete = (indexToDelete: number) => {
 		setPendingDeletes((prev) => ({
 			...prev,
 			[indexToDelete]: {
-				expiresAt: Date.now() + 10000,
+				expiresAt: Date.now() + 3000,
 			},
 		}))
 	}
@@ -189,13 +232,14 @@ export default function HomePage() {
 		})
 	}
 
-	const handleUpdate = (indexToUpdate: number, updatedItem: PortfolioItemInput) => {
+	
+	/*const handleUpdate = (indexToUpdate: number, updatedItem: PortfolioItemInput) => {
 		setItems((prev) =>
 			prev.map((item, index) =>
 				index === indexToUpdate ? updatedItem : item
 			)
 		)
-	}
+	}*/
 
 	const handleEdit = (indexToEdit: number) => {
 		setEditingIndex(indexToEdit)
@@ -204,14 +248,33 @@ export default function HomePage() {
 	const handleSave = (updatedItem: PortfolioItemInput) => {
 		if (editingIndex === null) return
 
+		const normalizedItem: PortfolioItemInput = {
+			...updatedItem,
+			ticker: updatedItem.ticker.trim().toUpperCase(),
+		}
+
+		const nextTotalWeight = getNextTotalTargetWeight(
+			normalizedItem,
+			editingIndex,
+		)
+
+		if (nextTotalWeight > 100) {
+			alert(
+				`Total target weight cannot exceed 100%. Current total would be ${nextTotalWeight.toFixed(2)}%.`
+			)
+			setEditingIndex(null)
+			return
+		}
+
 		setItems((prev) =>
 			prev.map((item, index) =>
-				index === editingIndex ? updatedItem : item
+				index === editingIndex ? normalizedItem : item
 			)
 		)
 
 		setEditingIndex(null)
 	}
+
 
 	const handleCancel = () => {
 		setEditingIndex(null)
@@ -222,24 +285,32 @@ export default function HomePage() {
 
 	const calculatedItems = calculatePortfolio(items, priceMap)
 
+	/*console.log("body",{
+			provider,
+			strategy,
+			calculatedPortfolio: calculatedItems,
+	})*/
+
 	const handleAnalyze = async () => {
 		try {
 			setLoading(true)
-				
+	
+			const payload: PortfolioAnalysisWorkflowInput = {
+				provider,
+				strategy,
+				calculatedPortfolio: calculatedItems,
+			}
+
 			const res = await fetch("/api/analyze", {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
 				},
-				body: JSON.stringify({
-					provider,
-					strategy,
-					portfolio: calculatedItems,
-				}),
+				body: JSON.stringify(payload),
 			})
 
+
 			const data = await res.json()
-			//console.log("data",{data})
 
 			if (!res.ok) {
 				alert(data.error || "Failed to analyze")
