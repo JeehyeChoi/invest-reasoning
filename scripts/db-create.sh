@@ -3,11 +3,18 @@ set -e
 
 # env 로드
 if [ -f .env.local ]; then
-  export $(grep -v '^#' .env.local | xargs)
+  set -a
+  source .env.local
+  set +a
 fi
 
 DB_NAME="geo_portfolio"
 DB_OWNER="geo_master"
+
+if [ -z "$DB_PASSWORD" ]; then
+  echo "❌ DB_PASSWORD is not set"
+  exit 1
+fi
 
 echo "Checking user '${DB_OWNER}'..."
 
