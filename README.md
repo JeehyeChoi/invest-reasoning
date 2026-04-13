@@ -1,142 +1,179 @@
-# Invest-reasoning
+# geo-portfolio
 
-A portfolio analysis tool that computes exposure, enriches metadata, and generates structured investment insights using LLM workflows.
+A portfolio reasoning system for long-term investing.
 
----
-
-## Features
-
-- Portfolio input & weight calculation
-- Real-time price fetching
-- Metadata enrichment (company profile, tags)
-- Exposure analysis (sector / industry / tag / country)
-- LLM-based portfolio analysis
-- PostgreSQL-based data persistence
+This project combines structured data pipelines, factor modeling, and LLM-driven workflows to help analyze and reason about investment portfolios — beyond simple tracking.
 
 ---
 
-## Tech Stack
+## ✨ What This Is
 
-- Frontend: Next.js (App Router), React
-- Backend: Next.js API Routes
-- Database: PostgreSQL
-- LLM: Anthropic (Claude)
+Not just a portfolio tracker.
 
----
+This is a **decision-support system** that:
 
-## Project Structure
-
-src/
-  app/                 # Next.js routes
-  backend/
-    workflows/         # portfolio analysis workflow engine
-    services/          # metadata / market / DB logic
-    config/            # env / db config
-  features/
-    portfolio/         # portfolio input + calculation
-    analysis/          # analysis UI + prompts
-  shared/
-    types/             # shared types
-    constants/         # static data
-
-scripts/
-  db-init.sh           # DB initialization
-  db-create.sh         # DB creation
-  sync-tickers.mjs     # ticker sync script
-
-db/
-  init.sql             # database schema
+- understands your portfolio structure
+- evaluates exposure (sector, tags, etc.)
+- suggests rebalancing actions
+- generates structured analysis using LLM workflows
 
 ---
 
-## Getting Started
+## ⚡ Quick Start
 
-git clone https://github.com/your-repo.git
+```bash
+git clone https://github.com/JeehyeChoi/invest-reasoning.git
 cd geo-portfolio
+
 npm install
+cp .env.sample .env.local
+sh scripts/bootstrap.sh
 npm run dev
+```
 
-Open http://localhost:3000
-
----
-
-## Environment Variables
-
-Create `.env.local` in the root directory:
-
-TWELVE_DATA_API_KEY=your_key_here
-FMP_API_KEY=your_key_here
-ANTHROPIC_API_KEY=your_key_here
-
-DB_PASSWORD=your_db_password
-DATABASE_URL=postgresql://geo_master:<password>@localhost:5432/geo_portfolio
-
-Make sure to create .env.local before running the app.
-Use .env.example as a template.
+Open: http://localhost:3000
 
 ---
 
-## Database Setup
+## 🧠 Key Features
 
-Make sure PostgreSQL is running.
+### Portfolio Engine
+- Flexible input (partial data allowed)
+- Edit modes:
+  - total cost basis
+  - average price basis
+- Buy-only rebalancing (based on excess cash)
+- Target weight tracking
+- Status:
+  - On target
+  - Overweight
+  - Rebalancing needed
 
-### 1. Create Database & User
+### Pricing System
+- Batched price fetching (free-tier safe)
+- 8 tickers per request
+- Progressive loading UI
+- Cached fallback on API failure
 
-bash scripts/db-create.sh
+### Analysis Engine
+- Exposure analysis (sector / tag / country)
+- Multi-step LLM workflow:
+  - planning
+  - analysis
+  - verification
+  - report generation
 
-This will:
-- Create database: geo_portfolio
-- Create user: geo_master
-- Set password (from env or script)
-- Grant privileges
+### Data System
+- PostgreSQL-backed structured storage
+- Tag definitions
+- Factor definitions
+- Scenario modeling (early stage)
 
 ---
 
-### 2. Initialize Schema
+## 🏗 Architecture
 
-bash scripts/db-init.sh
-
-This will:
-- Create tables
-- Create indexes
-- Create triggers
-
----
-
-### 3. Verify
-
-psql postgresql://geo_master:<password>@localhost:5432/geo_portfolio
-
-Then:
-
-\dt
+```text
+Portfolio Input
+    ↓
+Price + Metadata Enrichment
+    ↓
+Exposure Analysis
+    ↓
+LLM Workflow (plan → analyze → verify → report)
+    ↓
+Structured Output
+```
 
 ---
 
-## Workflow Overview
+## 📁 Project Structure
 
-1. Resolve metadata (DB + API)
+```text
+src/
+  app/                  # Next.js routes (UI + API)
+  backend/              # workflows / services / agents
+  features/             # portfolio / analysis
+  shared/               # types / utils / constants
+
+db/                     # modular SQL schema
+scripts/                # data + setup pipelines
+lab/                    # design / notes
+```
+
+---
+
+## 🚀 Bootstrap Pipeline
+
+```bash
+sh scripts/bootstrap.sh
+```
+
+Initializes everything:
+
+- database schema
+- ticker + metadata sync
+- tag definitions
+- factor definitions
+
+This is the **required first step** before running the app.
+
+---
+
+## ⚙️ Environment Variables
+
+Create `.env.local` from `.env.sample`:
+
+```bash
+cp .env.sample .env.local
+```
+
+Required:
+
+```env
+TWELVE_DATA_API_KEY=
+FMP_API_KEY=
+ANTHROPIC_API_KEY=
+
+DATABASE_URL=
+DB_PASSWORD=
+```
+
+---
+
+## 🧩 Workflow Overview
+
+Located in:
+
+```text
+backend/workflows/portfolio-analysis/
+```
+
+Steps:
+
+1. Resolve metadata
 2. Infer tags
 3. Compute exposure
 4. Generate analysis plan
 5. Run LLM analysis
-6. Verify and refine
+6. Verify results
 7. Build final report
 
 ---
 
-## Notes
+## 📝 Notes
 
 - `.env.local` should NOT be committed
-- PostgreSQL must be running before starting the app
-- Metadata is cached in DB
+- PostgreSQL must be running before bootstrap
+- Free-tier APIs are rate-limited (batched internally)
+- Cached prices may be used on API failure
 
 ---
 
-## Future Work
+## 🔮 Future Work
 
-- Macro / factor analysis layer
-- Redis caching
+- Factor scoring engine
+- Scenario simulation
 - Portfolio history tracking
-- Better visualization UI
-- Real-time data pipeline
+- Visualization improvements
+- Multi-source price aggregation

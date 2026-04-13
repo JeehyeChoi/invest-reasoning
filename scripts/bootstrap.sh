@@ -6,13 +6,13 @@ echo "🚀 bootstrap start"
 echo "--------------------------"
 echo "-- initialize DB schema --"
 echo "--------------------------"
-#sh scripts/db-init.sh
+sh scripts/db-init.sh
 
 echo " "
 echo "----------------------"
 echo "-- sync source data --"
 echo "----------------------"
-#sh scripts/data-sync.sh
+sh scripts/data-sync.sh
 
 echo " "
 echo "--------------------------------"
