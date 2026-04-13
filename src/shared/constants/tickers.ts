@@ -61,8 +61,18 @@ export const TICKERS: TickerEntry[] = [
     "exchange": "NASDAQ"
   },
   {
+    "ticker": "AACO",
+    "name": "Abony Acquisition Corp. I - Class A Ordinary Share",
+    "exchange": "NASDAQ"
+  },
+  {
     "ticker": "AACOU",
     "name": "Abony Acquisition Corp. I - Units",
+    "exchange": "NASDAQ"
+  },
+  {
+    "ticker": "AACOW",
+    "name": "Abony Acquisition Corp. I - Warrants",
     "exchange": "NASDAQ"
   },
   {
@@ -6746,11 +6756,6 @@ export const TICKERS: TickerEntry[] = [
     "exchange": "N"
   },
   {
-    "ticker": "BOED",
-    "name": "Direxion Daily BA Bear 1X ETF",
-    "exchange": "NASDAQ"
-  },
-  {
     "ticker": "BOEG",
     "name": "Leverage Shares 2X Long BA Daily ETF",
     "exchange": "NASDAQ"
@@ -7059,11 +7064,6 @@ export const TICKERS: TickerEntry[] = [
     "ticker": "BRKC",
     "name": "YieldMax BRK.B Option Income Strategy ETF",
     "exchange": "P"
-  },
-  {
-    "ticker": "BRKD",
-    "name": "Direxion Daily BRKB Bear 1X ETF",
-    "exchange": "NASDAQ"
   },
   {
     "ticker": "BRKR",
@@ -9573,11 +9573,6 @@ export const TICKERS: TickerEntry[] = [
   {
     "ticker": "CIGI",
     "name": "Colliers International Group Inc.  - Subordinate Voting Shares",
-    "exchange": "NASDAQ"
-  },
-  {
-    "ticker": "CIGL",
-    "name": "Concorde International Group Ltd - Class A Ordinary Shares",
     "exchange": "NASDAQ"
   },
   {
@@ -15141,11 +15136,6 @@ export const TICKERS: TickerEntry[] = [
     "exchange": "NASDAQ"
   },
   {
-    "ticker": "ELIS",
-    "name": "Direxion Daily LLY Bear 1X ETF",
-    "exchange": "NASDAQ"
-  },
-  {
     "ticker": "ELLA",
     "name": "Ellington Credit Company 8.50% Notes due 2031",
     "exchange": "N"
@@ -16862,7 +16852,7 @@ export const TICKERS: TickerEntry[] = [
   },
   {
     "ticker": "FAMI",
-    "name": "Farmmi, INC. - Class A Ordinary Share",
+    "name": "Farmmi, Inc. - Class A Ordinary Shares",
     "exchange": "NASDAQ"
   },
   {
@@ -18818,16 +18808,6 @@ export const TICKERS: TickerEntry[] = [
   {
     "ticker": "FRD",
     "name": "Friedman Industries Inc. - Common Stock",
-    "exchange": "NASDAQ"
-  },
-  {
-    "ticker": "FRDD",
-    "name": "Direxion Daily F Bear 1X ETF",
-    "exchange": "NASDAQ"
-  },
-  {
-    "ticker": "FRDU",
-    "name": "Direxion Daily F Bull 2X ETF",
     "exchange": "NASDAQ"
   },
   {
@@ -29206,11 +29186,6 @@ export const TICKERS: TickerEntry[] = [
     "exchange": "NASDAQ"
   },
   {
-    "ticker": "LMBO",
-    "name": "Direxion Daily Crypto Industry Bull 2X ETF",
-    "exchange": "P"
-  },
-  {
     "ticker": "LMBS",
     "name": "First Trust Low Duration Opportunities ETF",
     "exchange": "NASDAQ"
@@ -29248,11 +29223,6 @@ export const TICKERS: TickerEntry[] = [
   {
     "ticker": "LMTL",
     "name": "Direxion Daily LMT Bull 2X ETF",
-    "exchange": "NASDAQ"
-  },
-  {
-    "ticker": "LMTS",
-    "name": "Direxion Daily LMT Bear 1X ETF",
     "exchange": "NASDAQ"
   },
   {
@@ -35776,16 +35746,6 @@ export const TICKERS: TickerEntry[] = [
     "exchange": "N"
   },
   {
-    "ticker": "OOQB",
-    "name": "One One Nasdaq-100 and Bitcoin ETF",
-    "exchange": "NASDAQ"
-  },
-  {
-    "ticker": "OOSB",
-    "name": "One One S&P 500 and Bitcoin ETF",
-    "exchange": "NASDAQ"
-  },
-  {
     "ticker": "OOSP",
     "name": "Obra Opportunistic Structured Products ETF",
     "exchange": "P"
@@ -36521,8 +36481,18 @@ export const TICKERS: TickerEntry[] = [
     "exchange": "P"
   },
   {
+    "ticker": "PALO",
+    "name": "Paloma Acquisition Corp I - Class A Ordinary Shares",
+    "exchange": "NASDAQ"
+  },
+  {
     "ticker": "PALOU",
     "name": "Paloma Acquisition Corp I - Units",
+    "exchange": "NASDAQ"
+  },
+  {
+    "ticker": "PALOW",
+    "name": "Paloma Acquisition Corp I - Warrants",
     "exchange": "NASDAQ"
   },
   {
@@ -40591,11 +40561,6 @@ export const TICKERS: TickerEntry[] = [
     "exchange": "NASDAQ"
   },
   {
-    "ticker": "REKT",
-    "name": "Direxion Daily Crypto Industry Bear 1X ETF",
-    "exchange": "P"
-  },
-  {
     "ticker": "RELL",
     "name": "Richardson Electronics, Ltd. - Common Stock",
     "exchange": "NASDAQ"
@@ -43683,11 +43648,6 @@ export const TICKERS: TickerEntry[] = [
   {
     "ticker": "SHOP",
     "name": "Shopify Inc. - Class A Subordinate Voting Shares",
-    "exchange": "NASDAQ"
-  },
-  {
-    "ticker": "SHPD",
-    "name": "Direxion Daily SHOP Bear 1X ETF",
     "exchange": "NASDAQ"
   },
   {
@@ -47538,6 +47498,11 @@ export const TICKERS: TickerEntry[] = [
   {
     "ticker": "TGLB",
     "name": "T. Rowe Price Global Equity ETF",
+    "exchange": "P"
+  },
+  {
+    "ticker": "TGLR",
+    "name": "Wedbush LAFFER TENGLER New Era Value ETF",
     "exchange": "P"
   },
   {
@@ -53586,11 +53551,6 @@ export const TICKERS: TickerEntry[] = [
     "exchange": "NASDAQ"
   },
   {
-    "ticker": "XOMZ",
-    "name": "Direxion Daily XOM Bear 1X ETF",
-    "exchange": "NASDAQ"
-  },
-  {
     "ticker": "XONE",
     "name": "BondBloxx Bloomberg One Year Target Duration US Treasury ETF",
     "exchange": "P"
@@ -54189,6 +54149,11 @@ export const TICKERS: TickerEntry[] = [
     "ticker": "YOLO",
     "name": "AdvisorShares Pure Cannabis ETF",
     "exchange": "P"
+  },
+  {
+    "ticker": "YOOV",
+    "name": "Concorde International Group Ltd - Class A Ordinary Shares",
+    "exchange": "NASDAQ"
   },
   {
     "ticker": "YORW",

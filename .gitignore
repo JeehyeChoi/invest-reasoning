@@ -41,5 +41,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# generated data (recreated via scripts)
+scripts/data/
+
 # archives
 *.tar.gz
+*_old.*
