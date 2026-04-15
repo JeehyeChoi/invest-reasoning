@@ -1,21 +1,42 @@
 # geo-portfolio
 
-A portfolio reasoning system for long-term investing.
+A portfolio intelligence system for long-term investing.
 
-This project combines structured data pipelines, factor modeling, and LLM-driven workflows to help analyze and reason about investment portfolios — beyond simple tracking.
+This project is evolving from a portfolio tracker into a **data-driven investment reasoning engine**, combining:
+
+- structured financial data pipelines (SEC, APIs)
+- factor-based modeling
+- workflow-based analysis
+- (optional) LLM-assisted reasoning
 
 ---
 
 ## ✨ What This Is
 
-Not just a portfolio tracker.
+Not just a tracker.
 
-This is a **decision-support system** that:
+This is a **multi-layer investment system** that:
 
-- understands your portfolio structure
-- evaluates exposure (sector, tags, etc.)
-- suggests rebalancing actions
-- generates structured analysis using LLM workflows
+- builds a structured dataset (prices, metadata, filings, fundamentals)
+- computes factor signals (growth, quality, etc.)
+- analyzes portfolio exposure
+- supports decision-making workflows
+
+---
+
+## 🧠 System Layers
+
+```text
+Raw Data (SEC / APIs)
+        ↓
+Structured Storage (PostgreSQL)
+        ↓
+Factor Computation (fundamentals / narrative / ETF)
+        ↓
+Portfolio Analysis (exposure / rebalancing)
+        ↓
+(Optionally) LLM Reasoning
+```
 
 ---
 
@@ -35,54 +56,87 @@ Open: http://localhost:3000
 
 ---
 
-## 🧠 Key Features
+## 🧩 Core Modules
 
-### Portfolio Engine
-- Flexible input (partial data allowed)
-- Edit modes:
-  - total cost basis
-  - average price basis
-- Buy-only rebalancing (based on excess cash)
+### 1. Portfolio Engine
+- Flexible portfolio input
+- Buy-only rebalancing logic
 - Target weight tracking
-- Status:
+- Status classification:
   - On target
   - Overweight
   - Rebalancing needed
 
-### Pricing System
-- Batched price fetching (free-tier safe)
-- 8 tickers per request
-- Progressive loading UI
-- Cached fallback on API failure
+---
 
-### Analysis Engine
-- Exposure analysis (sector / tag / country)
-- Multi-step LLM workflow:
-  - planning
-  - analysis
-  - verification
-  - report generation
+### 2. Market Data System
+- Batched price fetching (TwelveData)
+- Rate-limit aware
+- Cached fallback
+- US market status detection (open / closed / holiday)
 
-### Data System
-- PostgreSQL-backed structured storage
-- Tag definitions
-- Factor definitions
-- Scenario modeling (early stage)
+---
+
+### 3. Filings System (SEC)
+- Recent filings discovery
+- Filing parsing (items / exhibits)
+- SEC document fetch
+- CIK-based lookup
+
+---
+
+### 4. Factor System (NEW)
+
+Factor-based modeling structure:
+
+```text
+Factor (e.g. growth)
+    ├── fundamentals_based
+    ├── etf_implied
+    └── narrative_implied
+```
+
+Each factor:
+- consumes structured data
+- produces axis-based scores
+- is stored as snapshots
+
+Example (in progress):
+- revenue growth (fundamentals)
+
+---
+
+### 5. Data Pipeline
+
+Data sources:
+
+- SEC (companyfacts, filings)
+- TwelveData (prices)
+- FMP (fallback / structured financials)
+
+Data is:
+
+- fetched → normalized → stored → reused
 
 ---
 
 ## 🏗 Architecture
 
 ```text
-Portfolio Input
+[ Ingestion ]
+SEC / APIs
     ↓
-Price + Metadata Enrichment
+[ Storage ]
+PostgreSQL (raw + normalized)
     ↓
-Exposure Analysis
+[ Services ]
+data access / transformation
     ↓
-LLM Workflow (plan → analyze → verify → report)
+[ Workflows ]
+factor computation / portfolio analysis
     ↓
-Structured Output
+[ UI / API ]
+Next.js
 ```
 
 ---
@@ -91,14 +145,23 @@ Structured Output
 
 ```text
 src/
-  app/                  # Next.js routes (UI + API)
-  backend/              # workflows / services / agents
-  features/             # portfolio / analysis
-  shared/               # types / utils / constants
+  app/                      # Next.js routes (UI + API)
 
-db/                     # modular SQL schema
-scripts/                # data + setup pipelines
-lab/                    # design / notes
+  backend/
+    clients/               # external API clients (SEC, FMP, TwelveData)
+    services/              # data access + domain logic
+    workflows/             # orchestration pipelines
+
+  features/                # domain features (portfolio, filings, market)
+
+  shared/
+    schemas/               # shared types
+    utils/                 # shared utilities
+    constants/             # shared constants
+
+db/                         # SQL schema
+scripts/                    # setup + bootstrap scripts
+lab/                        # design notes
 ```
 
 ---
@@ -109,24 +172,16 @@ lab/                    # design / notes
 sh scripts/bootstrap.sh
 ```
 
-Initializes everything:
+Initializes:
 
 - database schema
-- ticker + metadata sync
-- tag definitions
+- base metadata
 - factor definitions
-
-This is the **required first step** before running the app.
-
-Note:
-Some metadata sync steps currently depend on external APIs and may require additional setup or rate-limit handling.  
-A portable seeded database may replace part of this workflow in future versions.
+- system setup
 
 ---
 
 ## ⚙️ Environment Variables
-
-Create `.env.local` from `.env.sample`:
 
 ```bash
 cp .env.sample .env.local
@@ -145,23 +200,54 @@ DB_PASSWORD=
 
 ---
 
-## 🧩 Workflow Overview
+## 🔄 Workflows
 
-Located in:
+### Portfolio Analysis
 
 ```text
 backend/workflows/portfolio-analysis/
 ```
 
+- metadata resolution
+- exposure calculation
+- (optional) LLM reasoning
+
+---
+
+### Factor Snapshot (in progress)
+
+```text
+backend/workflows/ticker-factor-snapshot/
+```
+
 Steps:
 
-1. Resolve metadata
-2. Infer tags
-3. Compute exposure
-4. Generate analysis plan
-5. Run LLM analysis
-6. Verify results
-7. Build final report
+1. fetch factor inputs (SEC / DB)
+2. compute metrics (e.g. revenue growth)
+3. compute factor scores
+4. build snapshot
+5. persist snapshot
+
+---
+
+## 🗄 Data Strategy
+
+### Raw vs Computed
+
+- **Raw data**
+  - SEC companyfacts
+  - filings
+- **Computed**
+  - growth metrics
+  - factor scores
+  - portfolio signals
+
+---
+
+### Ingestion Strategy
+
+- bulk ingestion (SEC, planned)
+- incremental fetch (per ticker fallback)
 
 ---
 
@@ -169,15 +255,37 @@ Steps:
 
 - `.env.local` should NOT be committed
 - PostgreSQL must be running before bootstrap
-- Free-tier APIs are rate-limited (batched internally)
-- Cached prices may be used on API failure
+- APIs are rate-limited (batched internally)
+- SEC data requires normalization (taxonomy differences)
 
 ---
 
 ## 🔮 Future Work
 
-- Factor scoring engine
-- Scenario simulation
-- Portfolio history tracking
-- Visualization improvements
-- Multi-source price aggregation
+### Data
+- SEC bulk ingestion pipeline
+- concept normalization layer (critical)
+- full fundamental coverage (not just revenue)
+
+### Factor System
+- full 20-factor implementation
+- multi-axis scoring engine
+- historical factor snapshots
+
+### Portfolio
+- scenario simulation
+- portfolio history tracking
+
+### Analysis
+- LLM workflow separation
+- explainable factor reasoning
+
+---
+
+## 📌 Direction
+
+This project is moving toward:
+
+> **a full investment data + factor + reasoning system**
+
+not just a UI-based portfolio tool.
