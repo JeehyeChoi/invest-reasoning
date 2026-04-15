@@ -15,9 +15,12 @@ import { loadPortfolioState, savePortfolioState } from "@/features/portfolio/uti
 
 import { AnalysisResult } from "@/features/analysis/components/AnalysisResult"
 import { AnalysisLoading } from "@/features/analysis/components/AnalysisLoading"
-import { fetchPrices } from "@/backend/clients/prices"
+import { loadPortfolioPrices } from "@/features/portfolio/services/loadPortfolioPrices"
+import { RecentFilingsPanel } from "@/features/filings/components/RecentFilingsPanel"
+import { MarketStatus } from "@/features/market/components/MarketStatus"
 
 const CASH_TICKER = "__CASH__"
+const BUY_ONLY_TOLERANCE = 0.5
 
 type CalculatedPortfolioRow = ReturnType<typeof calculatePortfolio>[number]
 
@@ -33,22 +36,6 @@ function getItemCurrentValue(item: CalculatedPortfolioRow) {
   }
 
   return item.currentValue ?? 0
-}
-
-const PRICE_BATCH_SIZE = 8
-const PRICE_BATCH_INTERVAL_MS = 60_000
-const BUY_ONLY_TOLERANCE = 1 
-
-function chunkArray<T>(arr: T[], size: number): T[][] {
-  const chunks: T[][] = []
-  for (let i = 0; i < arr.length; i += size) {
-    chunks.push(arr.slice(i, i + size))
-  }
-  return chunks
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 export default function HomePage() {
@@ -69,8 +56,10 @@ export default function HomePage() {
   const [priceMap, setPriceMap] = useState<PriceMap>({})
   const [priceUpdatedAt, setPriceUpdatedAt] = useState<number | null>(null)
   const [priceError, setPriceError] = useState<string>("")
+	const [priceWarning, setPriceWarning] = useState("")
 	const [priceLoading, setPriceLoading] = useState(false)
 	const [priceLoadingMessage, setPriceLoadingMessage] = useState("")
+	const [priceCountdown, setPriceCountdown] = useState<number | null>(null)
 
   const [provider, setProvider] = useState<LlmProvider>("claude")
   const [strategy, setStrategy] = useState<AnalysisStrategy>("papic")
@@ -160,6 +149,23 @@ export default function HomePage() {
   }, [pendingDeletes, editingIndex])
 
 	useEffect(() => {
+		if (priceCountdown === null || priceCountdown <= 0) {
+			return;
+		}
+
+		const timeoutId = window.setTimeout(() => {
+			setPriceCountdown((prev) => {
+				if (prev === null || prev <= 1) {
+					return null;
+				}
+				return prev - 1;
+			});
+		}, 1000);
+
+		return () => window.clearTimeout(timeoutId);
+	}, [priceCountdown]);
+
+	useEffect(() => {
 		const tickers = items
 			.map((item) => item.ticker)
 			.filter((ticker): ticker is string => !!ticker && ticker !== CASH_TICKER)
@@ -174,51 +180,59 @@ export default function HomePage() {
 		}
 
 		const loadPrices = async () => {
-			const uniqueTickers = [...new Set(tickers)]
-			const chunks = chunkArray(uniqueTickers, PRICE_BATCH_SIZE)
-
-			let hasFailure = false
-
 			setPriceLoading(true)
 			setPriceError("")
-			setPriceLoadingMessage(`Loading prices... 0/${uniqueTickers.length}`)
+			setPriceWarning("")
 
-			for (let i = 0; i < chunks.length; i++) {
-				const chunk = chunks[i]
+			try {
+				const { prices, failedTickers, warnings, error } = await loadPortfolioPrices({
+					tickers,
+					onProgress: (progress) => {
+						setPriceLoadingMessage(progress.message)
+					},
+					onBatchComplete: (partialPrices) => {
+						setPriceMap((prev) => ({
+							...prev,
+							...partialPrices,
+						}))
+					},
+					onWarning: (warning) => {
+						setPriceWarning((prev) => (prev ? `${prev}\n${warning}` : warning))
+					},
+					onError: (message) => {
+						setPriceError(message)
+					},
+				})
 
-				try {
-					const prices = await fetchPrices(chunk)
+				setPriceMap((prev) => ({
+					...prev,
+					...prices,
+				}))
 
-					setPriceMap((prev) => ({
-						...prev,
-						...prices,
-					}))
-				} catch (err) {
-					console.error(err)
-					hasFailure = true
-				}
-
-				const completed = Math.min((i + 1) * PRICE_BATCH_SIZE, uniqueTickers.length)
-
-				if (i < chunks.length - 1) {
-					setPriceLoadingMessage(
-						`Loading prices... ${completed}/${uniqueTickers.length}. Waiting for next batch...`
-					)
-					await sleep(PRICE_BATCH_INTERVAL_MS)
+				if (error) {
+					setPriceError(error)
+					setPriceWarning("")
 				} else {
-					setPriceLoadingMessage(`Loading prices... ${completed}/${uniqueTickers.length}`)
+					setPriceError("")
+
+					if (warnings?.length > 0) {
+						setPriceWarning(warnings.join("\n"))
+					} else if (failedTickers.length > 0) {
+						setPriceWarning(`Failed tickers: ${failedTickers.join(", ")}`)
+					} else {
+						setPriceWarning("")
+					}
 				}
-			}
 
-			if (hasFailure) {
-				setPriceError("Some prices could not be updated. Showing available prices.")
-			} else {
-				setPriceError("")
+				setPriceUpdatedAt(Date.now())
+			} catch (error) {
+				console.error(error)
+				setPriceError("Failed to update prices.")
+				setPriceWarning("")
+			} finally {
+				setPriceLoading(false)
+				setPriceLoadingMessage("")
 			}
-
-			setPriceUpdatedAt(Date.now())
-			setPriceLoading(false)
-			setPriceLoadingMessage("")
 		}
 
 		void loadPrices()
@@ -395,6 +409,16 @@ export default function HomePage() {
     return cashRow ? [cashRow, ...suggestedRows] : suggestedRows
   }, [calculatedItems])
 
+	const watchlistTickers = useMemo(() => {
+		return Array.from(
+			new Set(
+				items
+					.map((item) => item.ticker?.trim().toUpperCase())
+					.filter((ticker): ticker is string => !!ticker && ticker !== CASH_TICKER)
+			)
+		);
+	}, [items]);
+
   useEffect(() => {
     const cashItem = calculatedItems.find((item) => item.ticker === CASH_TICKER)
 
@@ -488,11 +512,23 @@ export default function HomePage() {
 				</div>
 
 				{priceLoadingMessage && (
-					<div className="mt-1 text-sm text-slate-600">{priceLoadingMessage}</div>
+					<div className="mt-1 text-sm text-slate-600">
+						{priceCountdown !== null
+							? `Loading prices... Next batch in ${priceCountdown}s...`
+							: priceLoadingMessage}
+					</div>
 				)}
 
 				{priceError && (
-					<div className="mt-1 text-sm text-amber-600">{priceError}</div>
+					<div className="mt-1 text-sm text-red-600 whitespace-pre-line">
+						{priceError}
+					</div>
+				)}
+
+				{priceWarning && (
+					<div className="mt-1 text-sm text-amber-600 whitespace-pre-line">
+						{priceWarning}
+					</div>
 				)}
 
         <div className="rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
@@ -578,6 +614,8 @@ export default function HomePage() {
 													) : (
 														"-"
 													)
+												) : Math.abs(weightGap) <= BUY_ONLY_TOLERANCE ? (
+													<span className="text-emerald-700">On target</span>
 												) : item.buyOnlyAmount && item.buyOnlyAmount > 0 ? (
 													<div className="space-y-1">
 														<div className="text-blue-700">
@@ -589,15 +627,12 @@ export default function HomePage() {
 															</div>
 														)}
 													</div>
-												) : Math.abs(weightGap) <= BUY_ONLY_TOLERANCE ? (
-													<span className="text-emerald-700">On target</span>
 												) : weightGap > 0 ? (
 													<span className="text-amber-700">Overweight</span>
 												) : (
 													<span className="text-blue-700">Rebalancing needed</span>
 												)}
 											</td>
-
 
                       <td className="border p-2">
                         <div className="flex items-center justify-center gap-2">
@@ -638,6 +673,12 @@ export default function HomePage() {
           </div>
         )}
 
+				<MarketStatus />
+
+				<div className="mt-6">
+					<RecentFilingsPanel tickers={watchlistTickers} />
+				</div>
+
         <div className="flex min-h-[120px] items-center justify-center rounded border bg-gray-50 p-4">
           {loading ? (
             <AnalysisLoading />
@@ -648,6 +689,8 @@ export default function HomePage() {
           )}
         </div>
       </section>
+
+
     </main>
   )
 }

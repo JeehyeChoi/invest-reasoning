@@ -1,5 +1,7 @@
-import { fetchUsMarketHolidays } from "@/backend/services/market/fetchUsMarketHolidays";
-import { fetchTickerProfile } from "@/backend/services/metadata/fetchTickerProfile";
+// backend/services/metadata/resolveTickerMetadata.ts
+
+import { fetchFmpTickerProfile } from "@/backend/clients/fmp";
+import { getUsMarketHolidays } from "@/backend/services/market/getUsMarketHolidays";
 import { inferTickerTags } from "@/backend/services/metadata/inferTickerTags";
 import {
   getTickerBundle,
@@ -22,7 +24,7 @@ function normalizeTicker(ticker: string): string {
 export async function resolveTickerMetadata(ticker: string) {
   if (typeof ticker !== "string") {
     throw new Error(
-      `resolveTickerMetadata expected string ticker, got ${typeof ticker}: ${JSON.stringify(ticker)}`,
+      `resolveTickerMetadata expected string ticker, got ${typeof ticker}: ${JSON.stringify(ticker)}`
     );
   }
 
@@ -32,32 +34,31 @@ export async function resolveTickerMetadata(ticker: string) {
     throw new Error("resolveTickerMetadata received an empty ticker");
   }
 
-	const existing = await getTickerBundle(normalizedTicker);
+  const existing = await getTickerBundle(normalizedTicker);
 
-	if (existing) {
-		const tagsMissing = !existing.tags || existing.tags.length === 0;
+  if (existing) {
+    const tagsMissing = !existing.tags || existing.tags.length === 0;
 
-		const holidays = await fetchUsMarketHolidays();
-		const marketDataNeedsRefresh = shouldRefreshDailyMarketData(
-			existing.marketData?.updated_at,
-			holidays,
-		);
+    const holidays = await getUsMarketHolidays();
+    const marketDataNeedsRefresh = shouldRefreshDailyMarketData(
+      existing.marketData?.updated_at,
+      holidays
+    );
 
-		if (!marketDataNeedsRefresh && !tagsMissing) {
-			return {
-				...existing,
-				source: "database" as const,
-			};
-		}
-	}
+    if (!marketDataNeedsRefresh && !tagsMissing) {
+      return {
+        ...existing,
+        source: "database" as const,
+      };
+    }
+  }
 
-  const raw = await fetchTickerProfile(normalizedTicker);
+  const raw = await fetchFmpTickerProfile(normalizedTicker);
 
   const profileRow = mapToProfileRow(raw);
   const classificationRow = mapToClassificationRow(raw);
   const marketDataRow = mapToMarketDataRow(raw);
   const tags = inferTickerTags(raw);
-	//console.log("[infer tags]", ticker, tags);
 
   // FMP profile endpoint returns profile, classification, and market-like fields together.
   // When market data is stale or missing, refresh the full snapshot and re-upsert all derived tables.
@@ -70,7 +71,7 @@ export async function resolveTickerMetadata(ticker: string) {
 
   if (!saved) {
     throw new Error(
-      `Failed to load saved ticker metadata for ${normalizedTicker} after upsert`,
+      `Failed to load saved ticker metadata for ${normalizedTicker} after upsert`
     );
   }
 

@@ -1,5 +1,6 @@
 import type { PortfolioAnalysisWorkflowInput } from "@/shared/types/workflow";
 import type { CalculatedPortfolioItem } from "@/features/portfolio/utils/calculatePortfolio";
+import type { TickerFactorSnapshot } from "@/shared/schemas/factors/snapshot";
 
 export type ResolvedTickerMetadata = {
   profile: Record<string, unknown> | null;
@@ -87,3 +88,4 @@ export interface PortfolioAnalysisWorkflowStep {
     context: PortfolioAnalysisWorkflowContext,
   ): Promise<PortfolioAnalysisWorkflowContext>;
 }
+

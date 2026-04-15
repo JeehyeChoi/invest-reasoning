@@ -118,6 +118,10 @@ Initializes everything:
 
 This is the **required first step** before running the app.
 
+Note:
+Some metadata sync steps currently depend on external APIs and may require additional setup or rate-limit handling.  
+A portable seeded database may replace part of this workflow in future versions.
+
 ---
 
 ## ⚙️ Environment Variables

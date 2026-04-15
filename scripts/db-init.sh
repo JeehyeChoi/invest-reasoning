@@ -18,6 +18,8 @@ psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/factor_definitions.sql"
 psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/factor_score_axis_definitions.sql"
 psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/ticker_factor_score_snapshots.sql"
 
+psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/sec_company_fact_points.sql"
+
 psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/model_versions.sql"
 psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/scenario_definitions.sql"
 psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/scenario_factor_shocks.sql"

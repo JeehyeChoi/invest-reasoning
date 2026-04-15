@@ -7,7 +7,7 @@ const getEnv = (key: string): string => {
 }
 
 export const ENV = {
-  TWELVE_DATA_API_KEY: getEnv("TWELVE_DATA_API_KEY"),
+  TWELVEDATA_API_KEY: getEnv("TWELVEDATA_API_KEY"),
 	FMP_API_KEY: getEnv("FMP_API_KEY"),
   ANTHROPIC_API_KEY: getEnv("ANTHROPIC_API_KEY"),
 	DATABASE_URL: getEnv("DATABASE_URL"),
