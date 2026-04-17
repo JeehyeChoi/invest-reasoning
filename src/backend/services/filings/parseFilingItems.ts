@@ -3,28 +3,31 @@
 import type { FilingItemEntry } from "@/features/filings/schemas/recentFilings";
 import { normalizeFilingText } from "@/backend/utils/filingText";
 
-export function parseFilingItems(rawDocument: string): FilingItemEntry[] {
+export type ParsedFilingItem = FilingItemEntry & {
+  body: string;
+};
+
+export function parseFilingItems(rawDocument: string): ParsedFilingItem[] {
   if (!rawDocument) {
     return [];
   }
 
   const text = normalizeFilingText(rawDocument);
 
-  /**
-   * 줄 단위 파싱:
-   * Item 2.02 Results of Operations and Financial Condition.
-   * Item 9.01 Financial Statements and Exhibits.
-   */
-  const regex = /(?:^|\n)\s*Item\s+(\d+\.\d+)\s+([^\n]+?)\s*(?=\n|$)/gim;
+  const regex =
+    /(?:^|\n)\s*Item\s+(\d+\.\d+)\.?\s*([^\n]*?)\s*(?=\n|$)/gim;
 
-  const seen = new Set<string>();
-  const results: FilingItemEntry[] = [];
+  const matches = Array.from(text.matchAll(regex));
 
-  for (const match of text.matchAll(regex)) {
+  const results: ParsedFilingItem[] = [];
+
+  for (let i = 0; i < matches.length; i++) {
+    const match = matches[i];
+
     const itemCode = match[1]?.trim();
     const rawTitle = match[2]?.trim() ?? "";
 
-    if (!itemCode) {
+    if (!itemCode || match.index === undefined) {
       continue;
     }
 
@@ -33,17 +36,19 @@ export function parseFilingItems(rawDocument: string): FilingItemEntry[] {
       .replace(/\.\s*$/, "")
       .trim();
 
-    const key = `${itemCode}::${itemTitle}`;
+    const start = match.index;
 
-    if (seen.has(key)) {
-      continue;
-    }
+    const end =
+      i + 1 < matches.length && matches[i + 1].index !== undefined
+        ? matches[i + 1].index!
+        : text.length;
 
-    seen.add(key);
+    const body = text.slice(start, end).trim();
 
     results.push({
       itemCode,
       itemTitle: itemTitle || null,
+      body,
     });
   }
 

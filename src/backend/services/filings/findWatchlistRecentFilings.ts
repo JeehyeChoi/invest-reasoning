@@ -13,6 +13,7 @@ import type {
 import { getTickerProfilesByTickers } from "@/backend/services/metadata/tickerReadRepository";
 import { parseFilingItems } from "@/backend/services/filings/parseFilingItems";
 import { parseFilingExhibits } from "@/backend/services/filings/parseFilingExhibits";
+import { parseItem801Signals } from "@/backend/services/filings/parseItem801Signals";
 
 import { normalizeTickers } from "@/shared/utils/tickers";
 
@@ -118,7 +119,17 @@ async function mapRecentSubmissionItems(params: {
 			const rawDocument = await fetchSecDocument(secUrl);
 
 			if (rawDocument) {
-				filingItems = parseFilingItems(rawDocument);
+				const parsedItems = parseFilingItems(rawDocument);
+
+				filingItems = parsedItems.map((item) => ({
+					itemCode: item.itemCode,
+					itemTitle: item.itemTitle,
+					signal:
+						item.itemCode === "8.01"
+							? parseItem801Signals(item.body)
+							: null,
+				}));
+
 				exhibits = parseFilingExhibits(rawDocument);
 			}
 		}

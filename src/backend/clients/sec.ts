@@ -1,8 +1,5 @@
-// backend/clients/sec.ts
-import {
-  normalizeCikForSubmissions,
-  normalizeCikForArchivePath,
-} from "@/backend/utils/sec";
+import { ENV } from "@/backend/config/env";
+import { normalizeCikForSubmissions } from "@/backend/utils/sec";
 import type { SecSubmissionsResponse } from "@/backend/schemas/sec";
 
 const SEC_BASE_URL = "https://data.sec.gov";
@@ -10,8 +7,7 @@ const SEC_BASE_URL = "https://data.sec.gov";
 function buildSecHeaders(): HeadersInit {
   return {
     "Content-Type": "application/json",
-    // ⚠️ 실제 배포 시 반드시 수정
-    "User-Agent": "geo-portfolio dev contact@example.com",
+    "User-Agent": ENV.SEC_USER_AGENT,
     Accept: "application/json",
   };
 }
@@ -33,7 +29,6 @@ export async function fetchFromSec<T = unknown>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-
 export async function fetchSecSubmissions(
   cik: string
 ): Promise<SecSubmissionsResponse> {
@@ -43,7 +38,6 @@ export async function fetchSecSubmissions(
     `/submissions/CIK${normalizedCik}.json`
   );
 }
-
 
 export async function fetchSecCompanyFacts<T = unknown>(
   cik: string

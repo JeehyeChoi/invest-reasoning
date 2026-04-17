@@ -137,20 +137,52 @@ export function RecentFilingsPanel({
 								{filingItems.length > 0 && (
 									<div className="mt-2">
 										<div className="text-xs font-medium text-slate-700">Items</div>
-										<div className="mt-1 flex flex-wrap gap-2">
-											{filingItems.map((fi) => (
-												<span
-													key={`${item.accessionNumber}-item-${fi.itemCode}`}
-													className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-700"
-												>
-													{fi.itemCode}
-													{FILING_ITEM_LABELS[fi.itemCode]
-														? ` · ${FILING_ITEM_LABELS[fi.itemCode]}`
-														: fi.itemTitle
-														? ` · ${fi.itemTitle}`
-														: ""}
-												</span>
-											))}
+										<div className="mt-1 space-y-2">
+											{filingItems.map((fi) => {
+												const dividend =
+													fi.signal?.type === "dividend" &&
+													fi.signal.data &&
+													typeof fi.signal.data === "object"
+														? (fi.signal.data as {
+																previousPerShare?: number | null;
+																currentPerShare?: number | null;
+																annualizedPerShare?: number | null;
+																recordDate?: string | null;
+																paymentDate?: string | null;
+															})
+														: null;
+
+												return (
+													<div
+														key={`${item.accessionNumber}-item-${fi.itemCode}`}
+														className="rounded bg-slate-50 px-2 py-2 text-xs text-slate-700"
+													>
+														<div className="font-medium">
+															{fi.itemCode}
+															{FILING_ITEM_LABELS[fi.itemCode]
+																? ` · ${FILING_ITEM_LABELS[fi.itemCode]}`
+																: fi.itemTitle
+																? ` · ${fi.itemTitle}`
+																: ""}
+														</div>
+
+														{dividend && (
+															<div className="mt-1 text-slate-600">
+																Dividend
+																{typeof dividend.previousPerShare === "number" &&
+																typeof dividend.currentPerShare === "number"
+																	? ` · $${dividend.previousPerShare.toFixed(2)} → $${dividend.currentPerShare.toFixed(2)}`
+																	: ""}
+																{typeof dividend.annualizedPerShare === "number"
+																	? ` · Annualized $${dividend.annualizedPerShare.toFixed(2)}`
+																	: ""}
+																{dividend.recordDate ? ` · Record ${dividend.recordDate}` : ""}
+																{dividend.paymentDate ? ` · Pay ${dividend.paymentDate}` : ""}
+															</div>
+														)}
+													</div>
+												);
+											})}
 										</div>
 									</div>
 								)}

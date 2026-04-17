@@ -1,0 +1,47 @@
+{
+  "alwaysKeepTags": {
+    "dei": [
+      "EntityCommonStockSharesOutstanding",
+      "EntityPublicFloat"
+    ],
+    "us-gaap": [
+      "Revenues",
+      "RevenueFromContractWithCustomerExcludingAssessedTax",
+      "GrossProfit",
+      "OperatingIncomeLoss",
+      "NetIncomeLoss",
+      "IncomeTaxExpenseBenefit",
+      "OperatingExpenses",
+      "ResearchAndDevelopmentExpense",
+      "SellingGeneralAndAdministrativeExpense",
+      "CostOfGoodsAndServicesSold",
+      "Assets",
+      "Liabilities",
+      "StockholdersEquity",
+      "CashAndCashEquivalentsAtCarryingValue",
+      "NetCashProvidedByUsedInOperatingActivities",
+      "NetCashProvidedByUsedInInvestingActivities",
+      "NetCashProvidedByUsedInFinancingActivities",
+      "PaymentsOfDividends",
+      "CommonStockDividendsPerShareDeclared",
+      "ShareBasedCompensation",
+      "DepreciationDepletionAndAmortization",
+      "InterestExpense",
+      "InterestIncomeExpenseNonoperatingNet",
+      "LongTermDebtAndCapitalLeaseObligations",
+      "CommonStocksIncludingAdditionalPaidInCapital",
+      "RetainedEarningsAccumulatedDeficit",
+      "EarningsPerShareBasic",
+      "EarningsPerShareDiluted",
+      "WeightedAverageNumberOfSharesOutstandingBasic",
+      "WeightedAverageNumberOfDilutedSharesOutstanding"
+    ]
+  },
+  "secondaryTags": {
+    "us-gaap": [
+      "NonoperatingIncomeExpense",
+      "ComprehensiveIncomeNetOfTax",
+      "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest"
+    ]
+  }
+}

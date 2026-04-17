@@ -4,17 +4,76 @@ import type { FilingExhibitEntry } from "@/features/filings/schemas/recentFiling
 import { normalizeFilingText } from "@/backend/utils/filingText";
 
 function extractExhibitSection(text: string): string | null {
-  const startMatch = text.match(/Exhibit\s+No\.?\s+Description/i);
+  const sectionStartPatterns = [
+    /\(\s*d\s*\)\s*Exhibits?\.?/i,
+    /Exhibit\s+No\.?\s+Description/i,
+  ];
 
-  if (!startMatch || startMatch.index === undefined) {
+  let startIndex: number | null = null;
+
+  for (const pattern of sectionStartPatterns) {
+    const match = text.match(pattern);
+    if (match && match.index !== undefined) {
+      startIndex = match.index;
+      break;
+    }
+  }
+
+  if (startIndex === null) {
     return null;
   }
 
-  const startIndex = startMatch.index;
-
-  // 보통 exhibit 섹션은 끝쪽에 있고, 다음 큰 섹션이 없을 수도 있음
-  // 일단 시작점부터 끝까지 사용
   return text.slice(startIndex).trim();
+}
+
+function isExhibitHeaderLine(line: string): boolean {
+  return /Exhibit\s+No\.?\s+Description/i.test(line.trim());
+}
+
+function isLikelySectionLine(line: string): boolean {
+  const trimmed = line.trim();
+
+  if (!trimmed) return false;
+
+  return (
+    /^\(\s*[a-z]\s*\)/i.test(trimmed) ||
+    /^Item\s+\d+\.\d+\.?/i.test(trimmed)
+  );
+}
+
+function parseExhibitLine(
+  line: string
+): { exhibitNo: string; description: string } | null {
+  const trimmed = line.trim();
+
+  if (!trimmed || isExhibitHeaderLine(trimmed)) {
+    return null;
+  }
+
+  // 예:
+  // 99.1.    Press release dated April 15, 2026.
+  // 104      Cover Page Interactive Data File ...
+  // 10.1     Material Contract
+  // 101.INS  XBRL Instance Document
+  const match = trimmed.match(
+    /^([0-9]{1,3}(?:\.[0-9A-Z]+)*)\.?\s+(.*)$/i
+  );
+
+  if (!match) {
+    return null;
+  }
+
+  const exhibitNo = match[1]?.trim();
+  const description = match[2]?.trim() ?? "";
+
+  if (!exhibitNo || !description) {
+    return null;
+  }
+
+  return {
+    exhibitNo,
+    description,
+  };
 }
 
 export function parseFilingExhibits(rawDocument: string): FilingExhibitEntry[] {
@@ -29,20 +88,26 @@ export function parseFilingExhibits(rawDocument: string): FilingExhibitEntry[] {
     return [];
   }
 
-  const regex = /(?:^|\n)\s*(\d+(?:\.\d+)?)\s+([^\n]+?)(?=\n|$)/g;
+  const lines = exhibitSection
+    .split("\n")
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
 
   const seen = new Set<string>();
   const results: FilingExhibitEntry[] = [];
 
-  for (const match of exhibitSection.matchAll(regex)) {
-    const exhibitNo = match[1]?.trim();
-    const rawDescription = match[2]?.trim() ?? "";
+  for (const line of lines) {
+    if (isLikelySectionLine(line) && !/^\(\s*d\s*\)\s*Exhibits?\.?/i.test(line)) {
+      break;
+    }
 
-    if (!exhibitNo) {
+    const parsed = parseExhibitLine(line);
+
+    if (!parsed) {
       continue;
     }
 
-    const description = rawDescription
+    const description = parsed.description
       .replace(/\s+/g, " ")
       .replace(/\.\s*$/, "")
       .trim();
@@ -51,7 +116,7 @@ export function parseFilingExhibits(rawDocument: string): FilingExhibitEntry[] {
       continue;
     }
 
-    const key = `${exhibitNo}::${description}`;
+    const key = `${parsed.exhibitNo}::${description}`;
     if (seen.has(key)) {
       continue;
     }
@@ -59,8 +124,8 @@ export function parseFilingExhibits(rawDocument: string): FilingExhibitEntry[] {
     seen.add(key);
 
     results.push({
-      exhibitNo,
-      description: description || null,
+      exhibitNo: parsed.exhibitNo,
+      description,
     });
   }
 

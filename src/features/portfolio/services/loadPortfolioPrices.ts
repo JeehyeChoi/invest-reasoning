@@ -1,6 +1,4 @@
-// features/portfolio/services/loadPortfolioPrices.ts
-
-import { fetchPrices } from "./fetchPrices";
+import { fetchPrices, type PriceRequestItem } from "./fetchPrices";
 
 type PriceMap = Record<string, number>;
 
@@ -19,317 +17,31 @@ export type LoadPortfolioPricesResult = {
   error: string | null;
 };
 
-type LoadPortfolioPricesInput = {
-  tickers: string[];
-  onProgress?: (progress: LoadPortfolioPricesProgress) => void;
-  onBatchComplete?: (partialPrices: PriceMap) => void;
-  onWarning?: (warning: string) => void;
-  onError?: (error: string) => void;
+export type LoadPortfolioPriceItem = {
+  ticker?: string;
+  totalCost?: number | null;
 };
 
-type RequestListener = {
-  id: number;
-  requestedTickers: Set<string>;
-  completedTickers: Set<string>;
-  prices: PriceMap;
-  failedTickers: Set<string>;
-  warnings: string[];
-  error: string | null;
-  total: number;
+type LoadPortfolioPricesInput = {
+  items: LoadPortfolioPriceItem[];
   onProgress?: (progress: LoadPortfolioPricesProgress) => void;
   onBatchComplete?: (partialPrices: PriceMap) => void;
   onWarning?: (warning: string) => void;
   onError?: (error: string) => void;
-  resolve: (result: LoadPortfolioPricesResult) => void;
 };
 
 const PRICE_BATCH_SIZE = 8;
-const PRICE_WINDOW_MS = 60_000;
-const PRICE_TTL_MS = 60_000;
-
-/**
- * 전역 상태
- */
-let requestIdSeq = 0;
-let workerRunning = false;
-
-const fetchedAtByTicker = new Map<string, number>();
-const inFlightTickers = new Set<string>();
-const pendingTickers = new Set<string>();
-const sentTimestamps: number[] = [];
-const listeners = new Map<number, RequestListener>();
-
-function uniqueTickers(tickers: string[]): string[] {
-  return Array.from(
-    new Set(
-      tickers.map((ticker) => ticker.trim().toUpperCase()).filter(Boolean)
-    )
-  );
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function pruneSentTimestamps(now: number): void {
-  while (sentTimestamps.length > 0 && now - sentTimestamps[0] >= PRICE_WINDOW_MS) {
-    sentTimestamps.shift();
-  }
-}
-
-function getRemainingBudget(now: number): number {
-  pruneSentTimestamps(now);
-  return Math.max(0, PRICE_BATCH_SIZE - sentTimestamps.length);
-}
-
-function getWaitMsUntilNextBudget(now: number): number {
-  pruneSentTimestamps(now);
-
-  if (sentTimestamps.length < PRICE_BATCH_SIZE) {
-    return 0;
-  }
-
-  const oldest = sentTimestamps[0];
-  return Math.max(0, PRICE_WINDOW_MS - (now - oldest));
-}
-
-function isFreshTicker(ticker: string, now: number): boolean {
-  const fetchedAt = fetchedAtByTicker.get(ticker);
-  return typeof fetchedAt === "number" && now - fetchedAt < PRICE_TTL_MS;
-}
-
-function notifyProgressForAll(): void {
-  for (const listener of listeners.values()) {
-    const completed = listener.completedTickers.size;
-    const total = listener.total;
-
-    listener.onProgress?.({
-      completed,
-      total,
-      currentBatch: 0,
-      totalBatches: 0,
-      message:
-        total === 0
-          ? "No tickers to load."
-          : `Loading prices... ${completed}/${total}`,
-    });
-  }
-}
-
-function maybeFinishListener(listener: RequestListener): void {
-  if (listener.completedTickers.size < listener.total) {
-    return;
-  }
-
-  listeners.delete(listener.id);
-
-  listener.resolve({
-    prices: listener.prices,
-    failedTickers: Array.from(listener.failedTickers),
-    warnings: listener.warnings,
-    error: listener.error,
-  });
-}
-
-function completeTickerForListener(
-  listener: RequestListener,
-  ticker: string,
-  outcome: {
-    price?: number;
-    warning?: string;
-    error?: string;
-    failed?: boolean;
-  }
-): void {
-  if (!listener.requestedTickers.has(ticker)) {
-    return;
-  }
-
-  if (listener.completedTickers.has(ticker)) {
-    return;
-  }
-
-  listener.completedTickers.add(ticker);
-
-  if (typeof outcome.price === "number" && Number.isFinite(outcome.price)) {
-    listener.prices[ticker] = outcome.price;
-    listener.onBatchComplete?.({ [ticker]: outcome.price });
-  }
-
-  if (outcome.warning) {
-    listener.warnings.push(outcome.warning);
-    listener.onWarning?.(outcome.warning);
-  }
-
-  if (outcome.error) {
-    if (!listener.error) {
-      listener.error = outcome.error;
-    }
-    listener.onError?.(outcome.error);
-  }
-
-  if (outcome.failed) {
-    listener.failedTickers.add(ticker);
-  }
-
-  listener.onProgress?.({
-    completed: listener.completedTickers.size,
-    total: listener.total,
-    currentBatch: 0,
-    totalBatches: 0,
-    message: `Loading prices... ${listener.completedTickers.size}/${listener.total}`,
-  });
-
-  maybeFinishListener(listener);
-}
-
-function buildEligibleTickers(tickers: string[]): string[] {
-  const now = Date.now();
-
-  return tickers.filter((ticker) => {
-    if (inFlightTickers.has(ticker)) {
-      return false;
-    }
-
-    if (isFreshTicker(ticker, now)) {
-      return false;
-    }
-
-    return true;
-  });
-}
-
-async function processQueue(): Promise<void> {
-  if (workerRunning) {
-    return;
-  }
-
-  workerRunning = true;
-
-  try {
-    while (pendingTickers.size > 0) {
-      const now = Date.now();
-      const remainingBudget = getRemainingBudget(now);
-
-      if (remainingBudget <= 0) {
-        const waitMs = getWaitMsUntilNextBudget(now);
-        notifyProgressForAll();
-
-        for (const listener of listeners.values()) {
-          listener.onProgress?.({
-            completed: listener.completedTickers.size,
-            total: listener.total,
-            currentBatch: 0,
-            totalBatches: 0,
-            message: `Loading prices... ${listener.completedTickers.size}/${listener.total}. Waiting ${Math.ceil(
-              waitMs / 1000
-            )}s...`,
-          });
-        }
-
-        await sleep(waitMs);
-        continue;
-      }
-
-      const batch: string[] = [];
-
-      for (const ticker of pendingTickers) {
-        if (batch.length >= remainingBudget) {
-          break;
-        }
-
-        batch.push(ticker);
-      }
-
-      if (batch.length === 0) {
-        await sleep(250);
-        continue;
-      }
-
-      for (const ticker of batch) {
-        pendingTickers.delete(ticker);
-        inFlightTickers.add(ticker);
-      }
-
-      try {
-        const result = await fetchPrices(batch);
-        const fetchedAt = Date.now();
-
-        for (let i = 0; i < batch.length; i += 1) {
-          sentTimestamps.push(fetchedAt);
-        }
-
-        pruneSentTimestamps(fetchedAt);
-
-        for (const ticker of batch) {
-          const price = result.prices[ticker];
-          const tickerWarning =
-            result.warnings.find((warning) => warning.includes(ticker)) ?? null;
-
-          if (typeof price === "number" && Number.isFinite(price)) {
-            fetchedAtByTicker.set(ticker, fetchedAt);
-
-            for (const listener of listeners.values()) {
-              completeTickerForListener(listener, ticker, {
-                price,
-                warning: tickerWarning ?? undefined,
-              });
-            }
-          } else {
-            for (const listener of listeners.values()) {
-              completeTickerForListener(listener, ticker, {
-                warning: tickerWarning ?? undefined,
-                error: result.error ?? undefined,
-                failed: true,
-              });
-            }
-          }
-        }
-
-        if (result.error) {
-          for (const listener of listeners.values()) {
-            if (!listener.error) {
-              listener.error = result.error;
-            }
-            listener.onError?.(result.error);
-          }
-        }
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Failed to fetch prices.";
-
-        const failedBatch = [...batch];
-
-        for (const listener of listeners.values()) {
-          for (const ticker of failedBatch) {
-            completeTickerForListener(listener, ticker, {
-              error: message,
-              failed: true,
-            });
-          }
-        }
-      } finally {
-        for (const ticker of batch) {
-          inFlightTickers.delete(ticker);
-        }
-      }
-    }
-  } finally {
-    workerRunning = false;
-  }
-}
 
 export async function loadPortfolioPrices({
-  tickers,
+  items,
   onProgress,
   onBatchComplete,
   onWarning,
   onError,
 }: LoadPortfolioPricesInput): Promise<LoadPortfolioPricesResult> {
-  const requestedTickers = uniqueTickers(tickers);
-  const eligibleTickers = buildEligibleTickers(requestedTickers);
+  const normalizedItems = normalizePortfolioPriceItems(items);
 
-  if (requestedTickers.length === 0) {
+  if (normalizedItems.length === 0) {
     return {
       prices: {},
       failedTickers: [],
@@ -338,64 +50,110 @@ export async function loadPortfolioPrices({
     };
   }
 
-  return new Promise<LoadPortfolioPricesResult>((resolve) => {
-    const listenerId = ++requestIdSeq;
+  const prioritizedItems = normalizedItems.filter((item) => item.totalCost > 0);
+  const secondaryItems = normalizedItems.filter((item) => item.totalCost <= 0);
 
-    const completedTickers = new Set<string>();
-    const prices: PriceMap = {};
+  const orderedItems = [...prioritizedItems, ...secondaryItems];
+  const batches = chunkArray(orderedItems, PRICE_BATCH_SIZE);
 
-    // fresh ticker는 새 요청 안 하지만, caller가 기존 priceMap을 유지하고 있다는 전제라
-    // 여기서는 완료 처리만 해준다.
-    const now = Date.now();
-    for (const ticker of requestedTickers) {
-      if (isFreshTicker(ticker, now)) {
-        completedTickers.add(ticker);
+  const prices: PriceMap = {};
+  const failedTickers = new Set<string>();
+  const warnings: string[] = [];
+  let error: string | null = null;
+  let completed = 0;
+
+  onProgress?.({
+    completed,
+    total: orderedItems.length,
+    currentBatch: 0,
+    totalBatches: batches.length,
+    message: `Loading prices... ${completed}/${orderedItems.length}`,
+  });
+
+  for (let batchIndex = 0; batchIndex < batches.length; batchIndex += 1) {
+    const batch = batches[batchIndex];
+    const result = await fetchPrices(batch);
+
+    const partialPrices: PriceMap = {};
+
+    for (const item of batch) {
+      const ticker = item.ticker;
+      const price = result.prices[ticker];
+      const tickerWarnings = result.warnings.filter((warning) =>
+        warning.includes(ticker)
+      );
+
+      if (typeof price === "number" && Number.isFinite(price)) {
+        prices[ticker] = price;
+        partialPrices[ticker] = price;
+      } else {
+        failedTickers.add(ticker);
+      }
+
+      for (const warning of tickerWarnings) {
+        warnings.push(warning);
+        onWarning?.(warning);
       }
     }
 
-    const listener: RequestListener = {
-      id: listenerId,
-      requestedTickers: new Set(requestedTickers),
-      completedTickers,
-      prices,
-      failedTickers: new Set<string>(),
-      warnings: [],
-      error: null,
-      total: requestedTickers.length,
-      onProgress,
-      onBatchComplete,
-      onWarning,
-      onError,
-      resolve,
-    };
-
-    listeners.set(listenerId, listener);
-
-    // 이미 fresh/in-flight 아니고 새로 보내야 하는 ticker만 큐에 추가
-    for (const ticker of eligibleTickers) {
-      pendingTickers.add(ticker);
+    if (Object.keys(partialPrices).length > 0) {
+      onBatchComplete?.(partialPrices);
     }
 
-    // fresh ticker만 있고 새 요청이 없으면 바로 종료 가능
-    if (listener.completedTickers.size === listener.total) {
-      listeners.delete(listener.id);
-      resolve({
-        prices: listener.prices,
-        failedTickers: [],
-        warnings: [],
-        error: null,
-      });
-      return;
+    if (result.error && !error) {
+      error = result.error;
+      onError?.(result.error);
     }
 
-    listener.onProgress?.({
-      completed: listener.completedTickers.size,
-      total: listener.total,
-      currentBatch: 0,
-      totalBatches: 0,
-      message: `Loading prices... ${listener.completedTickers.size}/${listener.total}`,
+    completed += batch.length;
+
+    onProgress?.({
+      completed,
+      total: orderedItems.length,
+      currentBatch: batchIndex + 1,
+      totalBatches: batches.length,
+      message: `Loading prices... ${completed}/${orderedItems.length}`,
     });
+  }
 
-    void processQueue();
-  });
+  return {
+    prices,
+    failedTickers: Array.from(failedTickers),
+    warnings,
+    error,
+  };
+}
+
+function normalizePortfolioPriceItems(
+  items: LoadPortfolioPriceItem[]
+): PriceRequestItem[] {
+  const byTicker = new Map<string, number>();
+
+  for (const item of items) {
+    const rawTicker = item.ticker?.trim().toUpperCase();
+
+    if (!rawTicker) {
+      continue;
+    }
+
+    const totalCost = Number(item.totalCost ?? 0);
+    const prev = byTicker.get(rawTicker) ?? 0;
+
+    byTicker.set(rawTicker, prev + totalCost);
+  }
+
+  return Array.from(byTicker.entries()).map(([ticker, totalCost]) => ({
+    ticker,
+    totalCost,
+  }));
+}
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+
+  return chunks;
 }

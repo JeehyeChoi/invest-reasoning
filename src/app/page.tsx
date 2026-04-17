@@ -18,6 +18,7 @@ import { AnalysisLoading } from "@/features/analysis/components/AnalysisLoading"
 import { loadPortfolioPrices } from "@/features/portfolio/services/loadPortfolioPrices"
 import { RecentFilingsPanel } from "@/features/filings/components/RecentFilingsPanel"
 import { MarketStatus } from "@/features/market/components/MarketStatus"
+import { StartupJobsTrigger } from "@/features/startup/components/StartupJobsTrigger"
 
 const CASH_TICKER = "__CASH__"
 const BUY_ONLY_TOLERANCE = 0.5
@@ -186,24 +187,29 @@ export default function HomePage() {
 
 			try {
 				const { prices, failedTickers, warnings, error } = await loadPortfolioPrices({
-					tickers,
+					items: items
+						.filter((item) => item.ticker && item.ticker !== CASH_TICKER)
+						.map((item) => ({
+							ticker: item.ticker,
+							totalCost: item.totalCost ?? 0,
+						})),
 					onProgress: (progress) => {
-						setPriceLoadingMessage(progress.message)
+						setPriceLoadingMessage(progress.message);
 					},
 					onBatchComplete: (partialPrices) => {
 						setPriceMap((prev) => ({
 							...prev,
 							...partialPrices,
-						}))
+						}));
 					},
 					onWarning: (warning) => {
-						setPriceWarning((prev) => (prev ? `${prev}\n${warning}` : warning))
+						setPriceWarning((prev) => (prev ? `${prev}\n${warning}` : warning));
 					},
 					onError: (message) => {
-						setPriceError(message)
+						setPriceError(message);
 					},
-				})
-
+				});
+				
 				setPriceMap((prev) => ({
 					...prev,
 					...prices,
@@ -674,6 +680,7 @@ export default function HomePage() {
         )}
 
 				<MarketStatus />
+				<StartupJobsTrigger />
 
 				<div className="mt-6">
 					<RecentFilingsPanel tickers={watchlistTickers} />

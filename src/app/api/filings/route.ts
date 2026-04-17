@@ -25,7 +25,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("[filings] route error:", error);
 
     return NextResponse.json(
       {
@@ -36,4 +35,3 @@ export async function POST(req: Request) {
     );
   }
 }
-

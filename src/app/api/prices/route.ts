@@ -1,37 +1,33 @@
-// app/api/prices/route.ts
-
 import { NextResponse } from "next/server";
 import { getPrices } from "@/backend/services/market/getPrices";
-import { normalizeTickerInput } from "@/shared/utils/tickers";
 
-type PricesRequestBody = {
-  tickers?: unknown;
+type PricePositionInput = {
+  ticker?: string;
+  totalCost?: number | null;
 };
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as PricesRequestBody;
-		const tickers = normalizeTickerInput(body.tickers);
+    const body = await req.json();
 
-    if (tickers.length === 0) {
-      return NextResponse.json(
-        {
-          prices: {},
-          warnings: [],
-          error: "At least one ticker is required.",
-        },
-        { status: 400 }
-      );
-    }
+    const items =
+      Array.isArray(body?.items)
+        ? body.items
+        : Array.isArray(body?.positions)
+        ? body.positions.map((position: PricePositionInput) => ({
+            ticker: position.ticker,
+            totalCost: Number(position.totalCost ?? 0),
+          }))
+        : Array.isArray(body?.tickers)
+        ? body.tickers.map((ticker: string) => ({
+            ticker,
+            totalCost: 0,
+          }))
+        : [];
 
-    const result = await getPrices({ tickers });
+    const result = await getPrices({ items });
 
-    // ✅ 반드시 shape 보장
-    return NextResponse.json({
-      prices: result.prices ?? {},
-      warnings: result.warnings ?? [],
-      error: result.error ?? null,
-    });
+    return NextResponse.json(result);
   } catch (error) {
     console.error("[prices] route error:", error);
 
@@ -39,10 +35,7 @@ export async function POST(req: Request) {
       {
         prices: {},
         warnings: [],
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to fetch prices.",
+        error: error instanceof Error ? error.message : "Unknown prices error",
       },
       { status: 500 }
     );

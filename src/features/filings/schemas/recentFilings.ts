@@ -29,6 +29,10 @@ export type RecentFilingsResponse = {
 export type FilingItemEntry = {
   itemCode: string;
   itemTitle: string | null;
+  signal?: {
+    type: string;
+    data: unknown;
+  } | null;
 };
 
 export type FilingExhibitEntry = {

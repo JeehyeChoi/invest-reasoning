@@ -1,6 +1,9 @@
-// features/portfolio/services/fetchPrices.ts
-
 type PriceMap = Record<string, number>;
+
+export type PriceRequestItem = {
+  ticker: string;
+  totalCost: number;
+};
 
 export type FetchPricesResult = {
   prices: PriceMap;
@@ -9,9 +12,9 @@ export type FetchPricesResult = {
 };
 
 export async function fetchPrices(
-  tickers: string[]
+  items: PriceRequestItem[]
 ): Promise<FetchPricesResult> {
-  if (tickers.length === 0) {
+  if (items.length === 0) {
     return {
       prices: {},
       warnings: [],
@@ -24,7 +27,7 @@ export async function fetchPrices(
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ tickers }),
+    body: JSON.stringify({ items }),
   });
 
   const data = (await res.json()) as {
@@ -37,8 +40,7 @@ export async function fetchPrices(
     return {
       prices: data.prices ?? {},
       warnings: data.warnings ?? [],
-      error:
-        data.error ?? `Failed to fetch prices: ${res.status}`,
+      error: data.error ?? `Failed to fetch prices: ${res.status}`,
     };
   }
 
