@@ -114,9 +114,33 @@ Data sources:
 - TwelveData (prices)
 - FMP (fallback / structured financials)
 
-Data is:
+### SEC CompanyFacts Bulk Ingestion (LIVE)
 
-- fetched → normalized → stored → reused
+- SEC `companyfacts.zip` 기반 bulk ingestion 구현 완료
+- S&P 500 universe 기준 필터링
+- idempotent ingestion (중복 실행 안전)
+
+Key behavior:
+
+- archive 변경 없으면 ingest skip
+- ingest 완료 상태 유지 (재실행 방지)
+- 실패 시 재실행 가능 (resume-safe)
+
+Pipeline:
+
+```text
+SEC bulk archive
+    ↓
+Scan (CIK filtering + change detection)
+    ↓
+Process (per company facts)
+    ↓
+Flatten → normalize
+    ↓
+Store (PostgreSQL)
+    ↓
+Update ingest state
+```
 
 ---
 
@@ -246,9 +270,8 @@ Steps:
 
 ### Ingestion Strategy
 
-- bulk ingestion (SEC, planned)
-- incremental fetch (per ticker fallback)
-
+- bulk ingestion (SEC companyfacts, implemented)
+- incremental fetch (per ticker fallback, optional)
 ---
 
 ## 📝 Notes
@@ -263,14 +286,14 @@ Steps:
 ## 🔮 Future Work
 
 ### Data
-- SEC bulk ingestion pipeline
+- expand universe (S&P 1500 / ETF-based)
 - concept normalization layer (critical)
-- full fundamental coverage (not just revenue)
+- incremental updates beyond bulk ingestion
 
 ### Factor System
-- full 20-factor implementation
-- multi-axis scoring engine
-- historical factor snapshots
+- revenue growth implementation (next step)
+- multi-factor model expansion
+- factor snapshot persistence
 
 ### Portfolio
 - scenario simulation
