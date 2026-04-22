@@ -24,6 +24,9 @@ psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/sec_bulk_ingest_state.sql"
 
 psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/sec_companyfact_raw.sql"
 psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/sec_companyfact_company_state.sql"
+psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/sec_companyfact_series.sql"
+
+psql -U "$DB_OWNER" -d "$DB_NAME" -f "db/ticker_factor_metrics.sql"
 
 psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/sec_submissions_raw.sql"
 psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/sec_frames_raw.sql"

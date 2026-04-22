@@ -1,8 +1,10 @@
-import { ingestCompanyFactsBulk } from "@/backend/services/sec/ingestCompanyFactsBulk";
+import { ingestCompanyFactsBulk } from "@/backend/services/sec/companyFacts/ingestCompanyFactsBulk";
 import type { SecBulkIngestWorkflowResult } from "./workflow.types";
 
-export async function runSecBulkIngestWorkflow(): Promise<SecBulkIngestWorkflowResult> {
-  const result = await ingestCompanyFactsBulk();
+export async function runSecBulkIngestWorkflow(input: {
+  allowedCiks: Set<string>;
+}): Promise<SecBulkIngestWorkflowResult> {
+  const result = await ingestCompanyFactsBulk({allowedCiks: input.allowedCiks});
 
   return {
     zipFilePath: result.zipFilePath,

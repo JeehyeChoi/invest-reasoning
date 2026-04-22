@@ -1,0 +1,22 @@
+{
+  "version": "heuristic_v1",
+  "factor": "growth",
+  "axis": "fundamentals_based",
+  "metricKey": "revenue",
+  "model": "heuristic",
+  "weights": {
+    "yoy": 0.5,
+    "qoq": 0.2,
+    "consistency": 0.2,
+    "acceleration": 0.1
+  },
+  "thresholds": {
+    "growthMinScore": 0.15,
+    "strongGrowthMinScore": 0.3,
+    "minPositiveYoy": 0
+  },
+  "meta": {
+    "description": "Heuristic revenue growth scoring based on YoY, QoQ, consistency, and acceleration",
+    "createdAt": "2026-04"
+  }
+}

@@ -76,7 +76,10 @@ function parseExhibitLine(
   };
 }
 
-export function parseFilingExhibits(rawDocument: string): FilingExhibitEntry[] {
+export function parseFilingExhibits(
+  rawDocument: string,
+	filingKey?: string,
+): FilingExhibitEntry[] {
   if (!rawDocument) {
     return [];
   }
@@ -116,7 +119,7 @@ export function parseFilingExhibits(rawDocument: string): FilingExhibitEntry[] {
       continue;
     }
 
-    const key = `${parsed.exhibitNo}::${description}`;
+		const key = `${filingKey ?? "unknown"}::${parsed.exhibitNo}::${description}`;
     if (seen.has(key)) {
       continue;
     }

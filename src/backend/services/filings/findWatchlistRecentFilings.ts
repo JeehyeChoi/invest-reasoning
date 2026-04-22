@@ -130,7 +130,7 @@ async function mapRecentSubmissionItems(params: {
 							: null,
 				}));
 
-				exhibits = parseFilingExhibits(rawDocument);
+				exhibits = parseFilingExhibits(rawDocument, secUrl);
 			}
 		}
 

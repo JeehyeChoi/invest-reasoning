@@ -1,5 +1,5 @@
 import { ENV } from "@/backend/config/env";
-import type { RawTickerProfile } from "@/backend/schemas/tickerProfile";
+import type { RawTickerProfile } from "@/backend/schemas/tickers/tickerProfile";
 import type { FmpUsMarketHolidayRecord } from "@/backend/schemas/fmp";
 
 /**

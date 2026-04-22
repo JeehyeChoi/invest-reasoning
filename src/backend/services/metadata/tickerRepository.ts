@@ -4,7 +4,7 @@ import type {
   TickerMarketDataRow,
   TickerProfileRow,
   TickerTagRow,
-} from "@/backend/schemas/tickerProfile";
+} from "@/backend/schemas/tickers/tickerProfile";
 
 export async function getTickerBundle(ticker: string) {
   const profileRes = await db.query(

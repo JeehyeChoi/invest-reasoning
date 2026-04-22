@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Pencil, Trash2, RotateCcw } from "lucide-react"
 
@@ -574,7 +575,20 @@ export default function HomePage() {
 
                   return (
                     <tr key={`${item.ticker}-${index}`} className="hover:bg-gray-50">
-                      <td className="border p-2 font-medium">{isCash ? "Cash" : item.ticker}</td>
+											<td className="border p-2 font-medium">
+												{isCash ? (
+													"Cash"
+												) : (
+													<Link
+														href={`/tickers/${item.ticker}`}
+														target="_blank"
+														rel="noopener noreferrer"
+														className="underline underline-offset-2 hover:text-blue-600 cursor-pointer"
+													>
+														{item.ticker}
+													</Link>
+												)}
+											</td>
 
                       <td className="border p-2">{isCash ? "N/A" : item.shares ?? "-"}</td>
 

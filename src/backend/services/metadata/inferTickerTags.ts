@@ -1,4 +1,4 @@
-import type { RawTickerProfile, TickerTagRow } from "@/backend/schemas/tickerProfile";
+import type { RawTickerProfile, TickerTagRow } from "@/backend/schemas/tickers/tickerProfile";
 
 const SECTOR_TAG_MAP: Record<string, string> = {
   Technology: "tech",

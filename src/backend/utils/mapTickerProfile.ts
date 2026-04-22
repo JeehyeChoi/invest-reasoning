@@ -3,7 +3,7 @@ import type {
   TickerClassificationRow,
   TickerMarketDataRow,
   TickerProfileRow,
-} from "@/backend/schemas/tickerProfile";
+} from "@/backend/schemas/tickers/tickerProfile";
 
 export function mapToProfileRow(raw: RawTickerProfile): TickerProfileRow {
   return {

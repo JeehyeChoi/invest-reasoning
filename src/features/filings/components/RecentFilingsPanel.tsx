@@ -138,7 +138,7 @@ export function RecentFilingsPanel({
 									<div className="mt-2">
 										<div className="text-xs font-medium text-slate-700">Items</div>
 										<div className="mt-1 space-y-2">
-											{filingItems.map((fi) => {
+											{filingItems.map((fi, index) => {
 												const dividend =
 													fi.signal?.type === "dividend" &&
 													fi.signal.data &&
@@ -154,7 +154,7 @@ export function RecentFilingsPanel({
 
 												return (
 													<div
-														key={`${item.accessionNumber}-item-${fi.itemCode}`}
+														key={`${item.accessionNumber}-item-${fi.itemCode}-${index}`}
 														className="rounded bg-slate-50 px-2 py-2 text-xs text-slate-700"
 													>
 														<div className="font-medium">
