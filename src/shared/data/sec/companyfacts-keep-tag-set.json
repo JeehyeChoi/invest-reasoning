@@ -9,7 +9,8 @@
       "Revenues",
       "RevenueFromContractWithCustomerExcludingAssessedTax",
       "SalesRevenueNet",
-
+      "SalesRevenueGoodsNet",
+      "SalesRevenueServicesNet",
       "GrossProfit",
 
       "OperatingIncomeLoss",

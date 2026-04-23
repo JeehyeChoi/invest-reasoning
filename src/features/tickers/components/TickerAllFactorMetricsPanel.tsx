@@ -8,8 +8,12 @@ import {
 
 export function TickerAllFactorMetricsPanel({
   factorMetrics,
+  selectedMetricKey,
+  onSelectMetric,
 }: {
   factorMetrics: TickerOverviewFactorMetric[];
+  selectedMetricKey?: string | null;
+  onSelectMetric?: (metricKey: string) => void;
 }) {
   return (
     <Panel title="All Factor Metrics">
@@ -27,19 +31,32 @@ export function TickerAllFactorMetricsPanel({
           </thead>
           <tbody>
             {factorMetrics.length > 0 ? (
-              factorMetrics.map((item, index) => (
-                <tr
-                  key={`${item.factor}-${item.axis}-${item.metricKey}-${index}`}
-                  className="bg-white"
-                >
-                  <Td>{formatLabel(item.factor)}</Td>
-                  <Td>{formatLabel(item.axis)}</Td>
-                  <Td>{formatLabel(item.metricKey)}</Td>
-                  <Td>{formatModelLabel(item.model)}</Td>
-                  <Td>{formatScore(item.score)}</Td>
-                  <Td>{item.effectiveDate ?? "-"}</Td>
-                </tr>
-              ))
+              factorMetrics.map((item, index) => {
+                const isSelected = item.metricKey === selectedMetricKey;
+
+                return (
+                  <tr
+                    key={`${item.factor}-${item.axis}-${item.metricKey}-${index}`}
+                    className={isSelected ? "bg-[#ffffcc] cursor-pointer" : "bg-white cursor-pointer"}
+                    onClick={() => onSelectMetric?.(item.metricKey)}
+                  >
+                    <Td>{formatLabel(item.factor)}</Td>
+                    <Td>{formatLabel(item.axis)}</Td>
+                    <Td>
+                      <span className={isSelected ? "font-bold underline" : undefined}>
+                        {formatLabel(item.metricKey)}
+                      </span>
+                    </Td>
+                    <Td>{formatModelLabel(item.model)}</Td>
+                    <Td>
+                      <span className={isSelected ? "font-bold" : undefined}>
+                        {formatScore(item.score)}
+                      </span>
+                    </Td>
+                    <Td>{item.effectiveDate ?? "-"}</Td>
+                  </tr>
+                );
+              })
             ) : (
               <tr className="bg-white">
                 <Td colSpan={6}>No factor metrics found.</Td>

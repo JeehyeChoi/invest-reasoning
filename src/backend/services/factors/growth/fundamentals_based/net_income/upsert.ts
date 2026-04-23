@@ -1,11 +1,11 @@
 import { db } from "@/backend/config/db";
-import type { GrowthMetricSignals } from "@/backend/schemas/factors/growth";
+import type { GrowthMetricSignalsExtended } from "@/backend/schemas/factors/growth";
 
 type UpsertInput = {
   ticker: string;
   cik: string | null;
   effectiveDate: string | null;
-  metrics: GrowthMetricSignals;
+  metrics: GrowthMetricSignalsExtended;
   sourcePointCount: number;
   sourceWindowEnd: string | null;
   model: "heuristic" | "quantitative" | "modeling";
@@ -74,7 +74,7 @@ export async function upsert({
     cik,
     "growth",
     "fundamentals_based",
-    "revenue",
+    "net_income",
     model,
     effectiveDate,
     metrics.score,

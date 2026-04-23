@@ -5,27 +5,52 @@ import type { CompanyFactType } from "@/backend/services/sec/companyFacts/series
 export type CompanyFactsSeriesTagMeta = {
   metricKey: string;
   factType: CompanyFactType;
+	priority?: number;
 };
 
 export const COMPANY_FACTS_SERIES_TAG_META: Record<
   string,
   CompanyFactsSeriesTagMeta
 > = {
-  // revenue
-  Revenues: {
-    metricKey: "revenue",
-    factType: "flow",
-  },
-  RevenueFromContractWithCustomerExcludingAssessedTax: {
-    metricKey: "revenue",
-    factType: "flow",
-  },
-  SalesRevenueNet: {
-    metricKey: "revenue",
-    factType: "flow",
-  },
+	// revenue
+	Revenues: {
+		metricKey: "revenue",
+		factType: "flow",
+		priority: 1,
+	},
+	RevenueFromContractWithCustomerExcludingAssessedTax: {
+		metricKey: "revenue",
+		factType: "flow",
+		priority: 2,
+	},
+	SalesRevenueNet: {
+		metricKey: "revenue",
+		factType: "flow",
+		priority: 3,
+	},
+	SalesRevenueGoodsNet: {
+		metricKey: "revenue",
+		factType: "flow",
+		priority: 4,
+	},
+	SalesRevenueServicesNet: {
+		metricKey: "revenue",
+		factType: "flow",
+		priority: 5,
+	},
 
-  // profitability
+	// profitability
+	NetIncomeLoss: {
+		metricKey: "net_income",
+		factType: "flow",
+		priority: 1,
+	},
+	ProfitLoss: {
+		metricKey: "net_income",
+		factType: "flow",
+		priority: 2,
+	},
+
   GrossProfit: {
     metricKey: "gross_profit",
     factType: "flow",
@@ -36,14 +61,6 @@ export const COMPANY_FACTS_SERIES_TAG_META: Record<
   },
   IncomeFromOperations: {
     metricKey: "operating_income",
-    factType: "flow",
-  },
-  NetIncomeLoss: {
-    metricKey: "net_income",
-    factType: "flow",
-  },
-  ProfitLoss: {
-    metricKey: "net_income",
     factType: "flow",
   },
   IncomeTaxExpenseBenefit: {

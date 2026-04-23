@@ -14,6 +14,6 @@ export async function runDataPipelineRefreshWorkflow() {
   );
 
   await runSecBulkIngestWorkflow({ allowedCiks });
-  //await runSecCompanyFactsSeriesWorkflow({ tickerCikMap });
+  await runSecCompanyFactsSeriesWorkflow({ tickerCikMap });
   await runTickerFactorSnapshotsWorkflow({ tickers, tickerCikMap });
 }

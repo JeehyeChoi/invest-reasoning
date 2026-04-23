@@ -37,8 +37,8 @@ CREATE TABLE public.sec_companyfact_series (
       )
     ),
 
-	CONSTRAINT sec_companyfact_series_unique_point
-  	UNIQUE (cik, metric_key, period_type, display_frame)
+  CONSTRAINT sec_companyfact_series_unique_point
+    UNIQUE (cik, metric_key, period_type, display_frame, start, "end")
 );
 
 CREATE INDEX idx_sec_companyfact_series_cik_metric_period_end

@@ -1,12 +1,17 @@
-import type { RevenueGrowthMetrics } from "@/backend/schemas/factors/growth";
+import type { FactorKey, FactorScoreAxisKey } from "@/backend/schemas/factor";
+import type { GrowthMetricSignalsExtended } from "@/backend/schemas/factors/growth";
+import type { SecMetricKey } from "@/backend/schemas/sec/metrics";
 
-export type TickerFactorInputs = {
-  growth?: {
-    fundamentalsBased?: {
-      revenue?: RevenueGrowthMetrics | null;
-    };
-  };
-};
+type FactorAxisMetricMap = Partial<
+  Record<SecMetricKey, GrowthMetricSignalsExtended | null>
+>;
+
+export type TickerFactorInputs = Partial<
+  Record<
+    FactorKey,
+    Partial<Record<FactorScoreAxisKey, FactorAxisMetricMap>>
+  >
+>;
 
 export type TickerFactorSnapshotWorkflowState = {
   tickers: string[];
@@ -14,8 +19,8 @@ export type TickerFactorSnapshotWorkflowState = {
     tickerCikMap?: Record<string, string | null>;
   };
   factorInputs: Record<string, TickerFactorInputs>;
-  factorScores: Record<string, unknown>; // TODO: replace with typed factor score shape
-  snapshots: unknown[]; // TODO: replace with typed snapshot shape
+  factorScores: Record<string, unknown>;
+  snapshots: unknown[];
 };
 
 export type TickerFactorSnapshotStepResult = {

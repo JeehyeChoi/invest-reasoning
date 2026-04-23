@@ -1,8 +1,8 @@
 export const SEC_METRIC_KEYS = [
   "revenue",
-  "gross_profit",
-  "operating_income",
   "net_income",
+  "operating_income",
+  "gross_profit",
   "income_tax_expense",
   "operating_expenses",
   "research_and_development_expense",

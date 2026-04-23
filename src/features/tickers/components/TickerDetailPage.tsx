@@ -24,6 +24,7 @@ export function TickerDetailPage({ ticker }: Props) {
   const [data, setData] = useState<TickerOverview | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedMetricKey, setSelectedMetricKey] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -59,6 +60,30 @@ export function TickerDetailPage({ ticker }: Props) {
 
   const title = useMemo(() => ticker.toUpperCase(), [ticker]);
 
+  const headlineMetric = useMemo(() => {
+    if (!data) return null;
+    return pickHeadlineMetric(data.factorMetrics);
+  }, [data]);
+
+  useEffect(() => {
+    if (!headlineMetric?.metricKey) {
+      setSelectedMetricKey(null);
+      return;
+    }
+
+    setSelectedMetricKey((current) => current ?? headlineMetric.metricKey);
+  }, [headlineMetric]);
+
+  const selectedMetric = useMemo(() => {
+    if (!data) return null;
+    if (!selectedMetricKey) return headlineMetric;
+
+    return (
+      data.factorMetrics.find((metric) => metric.metricKey === selectedMetricKey) ??
+      headlineMetric
+    );
+  }, [data, selectedMetricKey, headlineMetric]);
+
   if (isLoading) {
     return (
       <main className="min-h-screen bg-[#008080] p-4 text-black">
@@ -87,8 +112,6 @@ export function TickerDetailPage({ ticker }: Props) {
     );
   }
 
-  const headlineMetric = pickHeadlineMetric(data.factorMetrics);
-
   return (
     <main className="min-h-screen bg-[#008080] p-4 text-black">
       <WindowFrame title={`${data.ticker} — Overview`}>
@@ -99,17 +122,27 @@ export function TickerDetailPage({ ticker }: Props) {
           </section>
 
           <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-						<TickerHeadlineChartPanel ticker={data.ticker} metric={headlineMetric} />
-            <TickerMetricBreakdownPanel metric={headlineMetric} />
+            <TickerHeadlineChartPanel
+              ticker={data.ticker}
+              metric={selectedMetric}
+            />
+            <TickerMetricBreakdownPanel metric={selectedMetric} />
           </section>
 
           <section>
-            <TickerAllFactorMetricsPanel factorMetrics={data.factorMetrics} />
+            <TickerAllFactorMetricsPanel
+              factorMetrics={data.factorMetrics}
+              selectedMetricKey={selectedMetricKey}
+              onSelectMetric={setSelectedMetricKey}
+            />
           </section>
 
           <div className="border border-black bg-[#c0c0c0] px-2 py-1 text-xs">
             <span className="font-mono">
               STATUS: READY | TICKER={data.ticker} | METRICS={data.factorMetrics.length}
+              {selectedMetric?.metricKey
+                ? ` | SELECTED=${selectedMetric.metricKey}`
+                : ""}
             </span>
           </div>
         </div>

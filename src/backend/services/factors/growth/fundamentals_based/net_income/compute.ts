@@ -1,16 +1,18 @@
-import type { GrowthMetricSignals } from "@/backend/schemas/factors/growth";
+import type { GrowthMetricSignalsExtended } from "@/backend/schemas/factors/growth";
 import { normalizeSeries } from "@/backend/services/factors/growth/fundamentals_based/normalizeSeries";
 
-type RevenueGrowthConfig = {
+type NetIncomeGrowthConfig = {
   weights: {
     yoy: number;
     qoq: number;
     consistency: number;
     acceleration: number;
+    turnaround?: number;
+    lossNarrowing?: number;
   };
 };
 
-type RevenuePoint = {
+type NetIncomePoint = {
   end: string;
   filed: string | null;
   val: number;
@@ -26,10 +28,18 @@ function safeGrowth(current: number, base: number): number {
   return (current - base) / Math.abs(base);
 }
 
+function isTurnaround(current: number, base: number): boolean {
+  return base < 0 && current > 0;
+}
+
+function isLossNarrowing(current: number, base: number): boolean {
+  return base < 0 && current < 0 && current > base;
+}
+
 export function compute(
-  series: RevenuePoint[],
-  config: RevenueGrowthConfig,
-): GrowthMetricSignals | null {
+  series: NetIncomePoint[],
+  config: NetIncomeGrowthConfig,
+): GrowthMetricSignalsExtended | null {
   const normalized = normalizeSeries(series);
 
   if (normalized.length < 5) {
@@ -61,13 +71,19 @@ export function compute(
   const acceleration =
     yoyList.length >= 2 ? yoyList[yoyList.length - 1] - yoyList[0] : 0;
 
+  const turnaround = isTurnaround(latest.val, prevYear.val);
+  const lossNarrowing = isLossNarrowing(latest.val, prevYear.val);
+  const profitabilityState = latest.val >= 0 ? "profit" : "loss";
+
   const { weights } = config;
 
   const score =
     weights.yoy * yoy +
     weights.qoq * qoq +
     weights.consistency * consistencyScore +
-    weights.acceleration * acceleration;
+    weights.acceleration * acceleration +
+    (weights.turnaround ?? 0) * (turnaround ? 1 : 0) +
+    (weights.lossNarrowing ?? 0) * (lossNarrowing ? 1 : 0);
 
   return {
     yoy,
@@ -75,5 +91,8 @@ export function compute(
     consistency: consistencyScore,
     acceleration,
     score,
+    turnaround,
+    lossNarrowing,
+    profitabilityState,
   };
 }

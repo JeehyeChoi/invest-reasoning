@@ -3,12 +3,23 @@ import { db } from "@/backend/config/db";
 import type { TickerOverview } from "@/backend/schemas/tickers/tickerOverview";
 
 import revenueDisplay from "@/backend/config/factors/growth/fundamentals_based/revenue/display.json";
-import { interpret as interpretGrowthRevenue } from "@/backend/services/factors/growth/fundamentals_based/revenue/interpret";
-import { normalize as normalizeGrowthRevenue } from "@/backend/services/factors/growth/fundamentals_based/revenue/normalize";
+import netIncomeDisplay from "@/backend/config/factors/growth/fundamentals_based/net_income/display.json";
+import revenueHeuristic from "@/backend/config/factors/growth/fundamentals_based/revenue/heuristic.json";
+import netIncomeHeuristic from "@/backend/config/factors/growth/fundamentals_based/net_income/heuristic.json";
+import { interpretGrowthMetrics } from "@/backend/services/factors/growth/fundamentals_based/interpretGrowthMetrics";
+import { normalizeGrowthMetrics } from "@/backend/services/factors/growth/fundamentals_based/normalizeGrowthMetrics";
 
 type TickerProfileRow = {
   ticker: string;
   company_name: string | null;
+  description: string | null;
+  website: string | null;
+  ceo: string | null;
+  ipo_date: Date | string | null;
+  full_time_employees: number | string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
 };
 
 type TickerClassificationRow = {
@@ -49,21 +60,29 @@ export async function getTickerOverview(
     throw new Error("getTickerOverview received an empty ticker");
   }
 
-  const profileQuery = `
-    SELECT
-      p.ticker,
-      p.company_name,
-      c.sector,
-      c.industry,
-      m.market_cap
-    FROM ticker_profiles p
-    LEFT JOIN ticker_classifications c
-      ON c.ticker = p.ticker
-    LEFT JOIN ticker_market_data m
-      ON m.ticker = p.ticker
-    WHERE p.ticker = $1
-    LIMIT 1
-  `;
+	const profileQuery = `
+		SELECT
+			p.ticker,
+			p.company_name,
+			p.description,
+			p.website,
+			p.ceo,
+			p.ipo_date,
+			p.full_time_employees,
+			p.city,
+			p.state,
+			p.zip,
+			c.sector,
+			c.industry,
+			m.market_cap
+		FROM ticker_profiles p
+		LEFT JOIN ticker_classifications c
+			ON c.ticker = p.ticker
+		LEFT JOIN ticker_market_data m
+			ON m.ticker = p.ticker
+		WHERE p.ticker = $1
+		LIMIT 1
+	`;
 
 	const factorMetricsQuery = `
 		SELECT DISTINCT ON (factor, axis, metric_key, model)
@@ -102,13 +121,21 @@ export async function getTickerOverview(
 
   return {
     ticker: normalizedTicker,
-    company: {
-      ticker: profile.ticker,
-      companyName: profile.company_name ?? null,
-      sector: profile.sector ?? null,
-      industry: profile.industry ?? null,
-      marketCap: toNullableNumber(profile.market_cap),
-    },
+		company: {
+			ticker: profile.ticker,
+			companyName: profile.company_name ?? null,
+			description: profile.description ?? null,
+			website: profile.website ?? null,
+			ceo: profile.ceo ?? null,
+			ipoDate: profile.ipo_date ? toIsoDate(profile.ipo_date) : null,
+			fullTimeEmployees: toNullableNumber(profile.full_time_employees),
+			city: profile.city ?? null,
+			state: profile.state ?? null,
+			zip: profile.zip ?? null,
+			sector: profile.sector ?? null,
+			industry: profile.industry ?? null,
+			marketCap: toNullableNumber(profile.market_cap),
+		},
     factorMetrics: factorMetricsResult.rows.map((row) => {
       const factor = row.factor as TickerOverview["factorMetrics"][number]["factor"];
       const axis = row.axis as TickerOverview["factorMetrics"][number]["axis"];
@@ -122,34 +149,85 @@ export async function getTickerOverview(
           ? (row.metrics as Record<string, unknown>)
           : null;
 
-      const isGrowthRevenue =
+      const isGrowthFundamentalsMetric =
         factor === "growth" &&
         axis === "fundamentals_based" &&
-        metricKey === "revenue";
+        (metricKey === "revenue" || metricKey === "net_income");
 
-      const normalizedMetrics = isGrowthRevenue
-        ? normalizeGrowthRevenue(rawMetrics)
+      const normalizedMetrics = isGrowthFundamentalsMetric
+        ? normalizeGrowthMetrics(rawMetrics)
         : null;
 
-      const interpretation = isGrowthRevenue
-        ? interpretGrowthRevenue(normalizedMetrics)
+      const interpretation = isGrowthFundamentalsMetric
+        ? interpretGrowthMetrics(normalizedMetrics)
         : null;
 
-      const display = isGrowthRevenue ? revenueDisplay : null;
+      const display =
+        metricKey === "revenue"
+          ? revenueDisplay
+          : metricKey === "net_income"
+            ? netIncomeDisplay
+            : null;
 
-      return {
-        factor,
-        axis,
-        metricKey,
-        model,
-        effectiveDate: row.effective_date ? toIsoDate(row.effective_date) : null,
-        score: toNullableNumber(row.score),
-        metrics: rawMetrics,
-        interpretation,
-        display,
-      };
+			const heuristic =
+				metricKey === "revenue"
+					? revenueHeuristic
+					: metricKey === "net_income"
+						? netIncomeHeuristic
+						: null;
+
+			const formulaText = buildFormulaText({
+				display,
+				heuristic,
+			});
+
+			return {
+				factor,
+				axis,
+				metricKey,
+				model,
+				effectiveDate: row.effective_date ? toIsoDate(row.effective_date) : null,
+				score: toNullableNumber(row.score),
+				metrics: rawMetrics,
+				interpretation,
+				display: display
+					? {
+							...display,
+							formula: {
+								...display.formula,
+								text: formulaText,
+							},
+						}
+					: null,
+			};
     }),
   };
+}
+
+function buildFormulaText({
+  display,
+  heuristic,
+}: {
+  display: any;
+  heuristic: any;
+}): string | null {
+  if (!display || !heuristic) return null;
+
+  const order = display.metricOrder ?? [];
+  const labels = display.metricLabels ?? {};
+  const coefficients = heuristic?.coefficients ?? heuristic?.weights ?? {};
+
+  const keys = order.filter((key: string) => coefficients[key] != null);
+
+  if (keys.length === 0) return null;
+
+  return keys
+    .map((key: string) => {
+      const coef = coefficients[key];
+      const label = labels[key] ?? key;
+      return `${coef}·${label}`;
+    })
+    .join(" + ");
 }
 
 function toIsoDate(value: Date | string): string {

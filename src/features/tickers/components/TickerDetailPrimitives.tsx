@@ -55,7 +55,7 @@ export function Field({
   valueClassName,
 }: {
   label: string;
-  value: string;
+  value: ReactNode;
   valueClassName?: string;
 }) {
   return (

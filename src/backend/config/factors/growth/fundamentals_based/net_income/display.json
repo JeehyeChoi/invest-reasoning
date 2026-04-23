@@ -1,0 +1,30 @@
+{
+  "headlineTitle": "Growth",
+  "chart": {
+    "type": "timeseries",
+    "metricKey": "net_income",
+    "title": "Net Income Trend"
+  },
+	"metricOrder": [
+		"yoy",
+		"qoq",
+		"consistency",
+		"acceleration",
+		"turnaround",
+		"lossNarrowing",
+		"score"
+	],
+	"metricLabels": {
+		"yoy": "YoY Growth",
+		"qoq": "QoQ Growth",
+		"consistency": "Consistency",
+		"acceleration": "Acceleration",
+		"turnaround": "Turnaround Signal",
+		"lossNarrowing": "Loss Narrowing",
+		"score": "Composite Score"
+	},
+  "formula": {
+    "type": "weighted_sum",
+    "show": true
+  }
+}

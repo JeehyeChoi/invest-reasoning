@@ -1,4 +1,4 @@
-import { run as runGrowthFundamentalsRevenue } from "@/backend/workflows/ticker-factor-snapshot/steps/growth/fundamentals_based/revenue/run";
+import { FACTOR_BLUEPRINTS } from "@/backend/config/factors/blueprints";
 
 import type { FactorKey, FactorScoreAxisKey } from "@/backend/schemas/factor";
 import type { SecMetricKey } from "@/backend/schemas/sec/metrics";
@@ -8,22 +8,12 @@ import type {
   TickerFactorSnapshotWorkflowState,
 } from "./workflow.types";
 
-import type {
-  StepContext,
-  StepRunnerMap,
-} from "./workflow.step.types";
+import type { StepContext } from "./workflow.step.types";
+import { STEP_RUNNERS } from "./stepRunners";
 
 type RunTickerFactorSnapshotsWorkflowInput = {
   tickers: string[];
   tickerCikMap?: Record<string, string | null>;
-};
-
-const stepRunners: StepRunnerMap = {
-  growth: {
-    fundamentals_based: {
-      revenue: runGrowthFundamentalsRevenue,
-    },
-  },
 };
 
 export async function runTickerFactorSnapshotsWorkflow(
@@ -45,17 +35,23 @@ export async function runTickerFactorSnapshotsWorkflow(
 
   const warnings: string[] = [];
 
-  for (const factor of Object.keys(stepRunners) as FactorKey[]) {
-    const axisMap = stepRunners[factor];
-    if (!axisMap) continue;
+  for (const factor of Object.keys(FACTOR_BLUEPRINTS) as FactorKey[]) {
+    const factorBlueprint = FACTOR_BLUEPRINTS[factor];
+    if (!factorBlueprint) continue;
 
-    for (const axis of Object.keys(axisMap) as FactorScoreAxisKey[]) {
-      const metricMap = axisMap[axis];
-      if (!metricMap) continue;
+    for (const axis of Object.keys(factorBlueprint) as FactorScoreAxisKey[]) {
+      const axisBlueprint = factorBlueprint[axis];
+      if (!axisBlueprint) continue;
 
-      for (const metricKey of Object.keys(metricMap) as SecMetricKey[]) {
-        const runner = metricMap[metricKey];
-        if (!runner) continue;
+      for (const metricKey of axisBlueprint.metricKeys as SecMetricKey[]) {
+        const runner = STEP_RUNNERS[factor]?.[axis]?.[metricKey];
+
+        if (!runner) {
+          warnings.push(
+            `[runTickerFactorSnapshotsWorkflow] missing runner for factor=${factor} axis=${axis} metric=${metricKey}`,
+          );
+          continue;
+        }
 
         const context: StepContext = {
           factor,

@@ -1,0 +1,29 @@
+{
+  "version": "heuristic_v1",
+  "factor": "growth",
+  "axis": "fundamentals_based",
+  "metricKey": "net_income",
+  "model": "heuristic",
+  "weights": {
+    "yoy": 0.35,
+    "qoq": 0.15,
+    "consistency": 0.15,
+    "acceleration": 0.1,
+    "turnaround": 0.15,
+    "lossNarrowing": 0.1
+  },
+  "thresholds": {
+    "growthMinScore": 0.1,
+    "strongGrowthMinScore": 0.25,
+    "minPositiveYoy": -0.05,
+    "minConsistencyScore": 0
+  },
+  "flags": {
+    "useTurnaround": true,
+    "useLossNarrowing": true
+  },
+  "meta": {
+    "description": "Net income growth scoring with early support for turnaround and loss narrowing signals.",
+    "createdAt": "2026-04"
+  }
+}

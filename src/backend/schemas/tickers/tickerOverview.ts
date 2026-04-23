@@ -5,6 +5,14 @@ import type { FactorModelFamily } from "@/backend/config/factors/active";
 export type TickerOverviewCompany = {
   ticker: string;
   companyName: string | null;
+  description: string | null;
+  website: string | null;
+  ceo: string | null;
+  ipoDate: string | null;
+  fullTimeEmployees: number | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
   sector: string | null;
   industry: string | null;
   marketCap: number | null;
@@ -22,6 +30,7 @@ export type TickerOverviewMetricDisplay = {
   formula: {
     type: string;
     show: boolean;
+	  text?: string | null;
   } | null;
 };
 
@@ -42,3 +51,5 @@ export type TickerOverview = {
   company: TickerOverviewCompany | null;
   factorMetrics: TickerOverviewFactorMetric[];
 };
+
+
