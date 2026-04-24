@@ -12,23 +12,24 @@ export function normalizeQuarterliesByContinuity(
     (row) => row.period_type !== "quarterly" || !row.display_frame,
   );
 
-  const byFrame = new Map<string, BuiltTagSeriesRow[]>();
+  const byPeriod = new Map<string, BuiltTagSeriesRow[]>();
 
   for (const row of rows) {
     if (row.period_type !== "quarterly" || !row.display_frame) {
       continue;
     }
 
-    const current = byFrame.get(row.display_frame) ?? [];
-    current.push(row);
-    byFrame.set(row.display_frame, current);
+		const key = buildQuarterContinuityKey(row);
+		const current = byPeriod.get(key) ?? [];
+		current.push(row);
+		byPeriod.set(key, current);
   }
 
   const selectedQuarterlies: BuiltTagSeriesRow[] = [];
-  const frames = Array.from(byFrame.keys()).sort();
+	const periodKeys = Array.from(byPeriod.keys()).sort();
 
-  for (const frame of frames) {
-    const candidates = byFrame.get(frame) ?? [];
+	for (const periodKey of periodKeys) {
+		const candidates = byPeriod.get(periodKey) ?? [];
 
     if (candidates.length === 1) {
       selectedQuarterlies.push(candidates[0]);
@@ -147,4 +148,11 @@ function dateKeyToTime(value: string | Date | null | undefined): number {
   }
 
   return new Date(`${key}T00:00:00.000Z`).getTime();
+}
+
+function buildQuarterContinuityKey(row: BuiltTagSeriesRow): string {
+  const start = row.start ? String(row.start).slice(0, 10) : "null";
+  const end = String(row.end).slice(0, 10);
+
+  return `${start}:${end}`;
 }

@@ -3,6 +3,10 @@ export const SEC_METRIC_KEYS = [
   "net_income",
   "operating_income",
   "gross_profit",
+  "operating_cash_flow",
+	"capex",
+
+
   "income_tax_expense",
   "operating_expenses",
   "research_and_development_expense",

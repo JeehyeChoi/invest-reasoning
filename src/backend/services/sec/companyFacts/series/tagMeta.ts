@@ -51,18 +51,53 @@ export const COMPANY_FACTS_SERIES_TAG_META: Record<
 		priority: 2,
 	},
 
+	OperatingIncomeLoss: {
+		metricKey: "operating_income",
+		factType: "flow",
+		priority: 1,
+	},
+	IncomeFromOperations: {
+		metricKey: "operating_income",
+		factType: "flow",
+		priority: 2,
+	},
   GrossProfit: {
     metricKey: "gross_profit",
     factType: "flow",
+		priority: 1,
   },
-  OperatingIncomeLoss: {
-    metricKey: "operating_income",
-    factType: "flow",
-  },
-  IncomeFromOperations: {
-    metricKey: "operating_income",
-    factType: "flow",
-  },
+
+	// cash flow
+	NetCashProvidedByUsedInOperatingActivities: {
+		metricKey: "operating_cash_flow",
+		factType: "flow",
+		priority: 1,
+	},
+	NetCashProvidedByUsedInOperatingActivitiesContinuingOperations: {
+		metricKey: "operating_cash_flow",
+		factType: "flow",
+		priority: 2,
+	},
+
+	// capital expenditure
+	PaymentsToAcquirePropertyPlantAndEquipment: {
+		metricKey: "capex",
+		factType: "flow",
+		priority: 1,
+	},
+	PaymentsToAcquireProductiveAssets: {
+		metricKey: "capex",
+		factType: "flow",
+		priority: 2,
+	},
+
+
+
+
+
+
+
+ //-------- not yet --------//
   IncomeTaxExpenseBenefit: {
     metricKey: "income_tax_expense",
     factType: "flow",
@@ -125,14 +160,7 @@ export const COMPANY_FACTS_SERIES_TAG_META: Record<
   },
 
   // cash flow
-  NetCashProvidedByUsedInOperatingActivities: {
-    metricKey: "operating_cash_flow",
-    factType: "flow",
-  },
-  NetCashProvidedByUsedInOperatingActivitiesContinuingOperations: {
-    metricKey: "operating_cash_flow",
-    factType: "flow",
-  },
+
   NetCashProvidedByUsedInInvestingActivities: {
     metricKey: "investing_cash_flow",
     factType: "flow",

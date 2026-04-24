@@ -2,7 +2,7 @@
   "version": "heuristic_v1",
   "factor": "growth",
   "axis": "fundamentals_based",
-  "metricKey": "net_income",
+  "metricKey": "operating_income",
   "model": "heuristic",
   "compute": {
     "mode": "extended"
@@ -12,8 +12,8 @@
     "qoq": 0.15,
     "consistency": 0.15,
     "acceleration": 0.1,
-    "turnaround": 0.15,
-    "lossNarrowing": 0.1
+    "marginExpansion": 0.15,
+    "turnaround": 0.1
   },
   "thresholds": {
     "growthMinScore": 0.1,
@@ -22,11 +22,12 @@
     "minConsistencyScore": 0
   },
   "flags": {
+    "useMarginExpansion": true,
     "useTurnaround": true,
-    "useLossNarrowing": true
+    "useLossNarrowing": false
   },
   "meta": {
-    "description": "Net income growth scoring with early support for turnaround and loss narrowing signals.",
+    "description": "Operating income growth scoring focused on core operating leverage, consistency, acceleration, and turnaround signals.",
     "createdAt": "2026-04"
   }
 }

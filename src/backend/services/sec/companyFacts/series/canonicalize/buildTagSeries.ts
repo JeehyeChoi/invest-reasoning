@@ -41,18 +41,19 @@ function isBuildablePoint(
 function dedupeByPeriodLatest<
   T extends FlatCompanyFactRow & { end: string; val: number },
 >(points: T[]): T[] {
-  const byPeriod = new Map<string, T>();
+  const byTagPeriod = new Map<string, T>();
 
   for (const point of points) {
     const key = [
+      point.tag,
       toDateKey(point.start),
       toDateKey(point.end),
     ].join("__");
 
-    const existing = byPeriod.get(key);
+    const existing = byTagPeriod.get(key);
 
     if (!existing) {
-      byPeriod.set(key, point);
+      byTagPeriod.set(key, point);
       continue;
     }
 
@@ -65,12 +66,13 @@ function dedupeByPeriodLatest<
       : 0;
 
     if (pointFiled >= existingFiled) {
-      byPeriod.set(key, point);
+      byTagPeriod.set(key, point);
     }
   }
 
-  return Array.from(byPeriod.values());
+  return Array.from(byTagPeriod.values());
 }
+
 
 function toDateKey(value: string | Date | null | undefined): string {
   if (!value) {

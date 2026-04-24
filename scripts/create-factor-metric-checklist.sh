@@ -35,7 +35,7 @@ mark_required_grep() {
   local pattern="$2"
 
   if [ -f "$file" ] && grep -q "$pattern" "$file"; then
-    echo "[x]"
+    echo "[v]"
   else
     echo "[ ]"
   fi
@@ -46,7 +46,7 @@ mark_required_fixed() {
   local text="$2"
 
   if [ -f "$file" ] && grep -Fq "$text" "$file"; then
-    echo "[x]"
+    echo "[v]"
   else
     echo "[ ]"
   fi
@@ -56,7 +56,7 @@ mark_file_exists() {
   local file="$1"
 
   if [ -f "$file" ]; then
-    echo "[x]"
+    echo "[v]"
   else
     echo "[ ]"
   fi
@@ -66,7 +66,7 @@ mark_dir_exists() {
   local dir="$1"
 
   if [ -d "$dir" ]; then
-    echo "[x]"
+    echo "[v]"
   else
     echo "[ ]"
   fi
@@ -77,7 +77,7 @@ mark_optional_grep() {
   local pattern="$2"
 
   if [ -f "$file" ] && grep -q "$pattern" "$file"; then
-    echo "[x]"
+    echo "[v]"
   else
     echo "[ ]"
   fi
@@ -94,11 +94,12 @@ mark_api_series_ok() {
 
   if echo "$response" | grep -Fq "\"metricKey\":\"${metric_key}\"" \
     && echo "$response" | grep -Fq "\"points\":["; then
-    echo "[x]"
+    echo "[v]"
   else
     echo "[ ]"
   fi
 }
+
 mark_db_row_exists() {
   local ticker="$1"
   local factor="$2"
@@ -141,10 +142,51 @@ mark_db_row_exists() {
   result="$(echo "$result" | tr -d '[:space:]')"
 
   if [ -n "$result" ] && [ "$result" != "0" ]; then
-    echo "[x]"
+    echo "[v]"
   else
     echo "[ ]"
   fi
+}
+
+mark_required_all_fixed() {
+  local file="$1"
+  shift
+
+  if [ ! -f "$file" ]; then
+    echo "[ ]"
+    return
+  fi
+
+  for pattern in "$@"; do
+    if ! grep -qF "$pattern" "$file"; then
+      echo "[ ]"
+      return
+    fi
+  done
+
+  echo "[v]"
+}
+
+mark_blueprint_registered() {
+  local file="$1"
+  local factor="$2"
+  local axis="$3"
+  local metric_key="$4"
+
+  if node scripts/check-blueprint-metric.mjs "$file" "$factor" "$axis" "$metric_key"; then
+    echo "[v]"
+  else
+    echo "[ ]"
+  fi
+}
+
+to_pascal_case() {
+  echo "$1" | awk -F_ '{
+    for (i=1; i<=NF; i++) {
+      $i=toupper(substr($i,1,1)) substr($i,2)
+    }
+    printf "%s", $0
+  }' OFS=""
 }
 
 CONFIG_DIR="src/backend/config/factors/${FACTOR}/fundamentals_based/${METRIC_KEY}"
@@ -178,9 +220,11 @@ TAG_META_MARK=$(mark_required_grep \
 
 FACTOR_SCHEMA_MARK=$(mark_file_exists "src/backend/schemas/factors/${FACTOR}.ts")
 
-BLUEPRINTS_MARK=$(mark_required_grep \
+BLUEPRINTS_MARK=$(mark_blueprint_registered \
   "src/backend/config/factors/blueprints.ts" \
-  "\"${METRIC_KEY}\""
+  "$FACTOR" \
+  "fundamentals_based" \
+  "$METRIC_KEY"
 )
 
 ACTIVE_MARK=$(mark_optional_grep \
@@ -193,10 +237,41 @@ RUNNER_IMPL_MARK=$(mark_required_fixed \
   "export const run = buildMetricRunner({"
 )
 
+FACTOR_NAME="$(to_pascal_case "$FACTOR")"
+AXIS_NAME="FundamentalsBased"
+METRIC_NAME="$(to_pascal_case "$METRIC_KEY")"
+
+RUN_ALIAS="run${FACTOR_NAME}${AXIS_NAME}${METRIC_NAME}"
 STEP_RUNNER_MARK=$(mark_required_fixed \
   "src/backend/workflows/ticker-factor-snapshot/stepRunners.ts" \
-  "${METRIC_KEY}:"
+  "$RUN_ALIAS"
 )
+
+RESOLVE_PATH="${SERVICE_DIR}/resolve.ts"
+COMPUTE_PATH="${SERVICE_DIR}/compute.ts"
+UPSERT_PATH="${SERVICE_DIR}/upsert.ts"
+
+RESOLVE_MARK=$(mark_required_all_fixed \
+  "$RESOLVE_PATH" \
+  "resolveFlowMetricSeries" \
+  "export async function resolve" \
+  "metricKey: \"${METRIC_KEY}\""
+)
+
+COMPUTE_MARK=$(mark_required_all_fixed \
+  "$COMPUTE_PATH" \
+  "computeSeriesGrowth" \
+  "export function compute" \
+  "config.compute?.mode"
+)
+
+UPSERT_MARK=$(mark_required_all_fixed \
+  "$UPSERT_PATH" \
+  "upsertMetric" \
+  "export async function upsert" \
+  "metricKey: \"${METRIC_KEY}\""
+)
+
 
 API_MARK=$(mark_api_series_ok "$VERIFY_TICKER" "$METRIC_KEY")
 
@@ -222,13 +297,20 @@ cat > "$OUT_FILE" <<EOF
 ## Registration checks (critical)
 - ${SEC_METRICS_MARK} src/backend/schemas/sec/metrics.ts
 - ${TAG_META_MARK} src/backend/services/sec/companyFacts/series/tagMeta.ts
-- ${BLUEPRINTS_MARK} src/backend/config/factors/blueprints.ts
+- ${BLUEPRINTS_MARK} blueprint includes ${FACTOR}/fundamentals_based/${METRIC_KEY}
 
 ## Schema checks (contextual)
 - ${FACTOR_SCHEMA_MARK} src/backend/schemas/factors/${FACTOR}.ts
 
 ## Optional / model-selection checks
 - ${ACTIVE_MARK} src/backend/config/factors/active.ts (only if metric-specific model override is needed)
+
+## Service Implementation (required before runtime)
+- ${RESOLVE_MARK} resolve.ts implemented
+- ${COMPUTE_MARK} compute.ts implemented
+- ${UPSERT_MARK} upsert.ts implemented
+- [ ] interpret compatibility checked
+  (via interpretGrowthMetrics.ts)
 
 ## Workflow registration
 - ${STEP_RUNNER_MARK} step runner registered in src/backend/workflows/ticker-factor-snapshot/stepRunners.ts

@@ -1,0 +1,30 @@
+{
+  "headlineTitle": "Growth",
+  "chart": {
+    "type": "timeseries",
+    "metricKey": "operating_income",
+    "title": "Operating Income Trend"
+  },
+  "metricOrder": [
+    "yoy",
+    "qoq",
+    "consistency",
+    "acceleration",
+    "marginExpansion",
+    "turnaround",
+    "score"
+  ],
+  "metricLabels": {
+    "yoy": "YoY Growth",
+    "qoq": "QoQ Growth",
+    "consistency": "Consistency",
+    "acceleration": "Acceleration",
+    "marginExpansion": "Operating Leverage",
+    "turnaround": "Turnaround Signal",
+    "score": "Composite Score"
+  },
+  "formula": {
+    "type": "weighted_sum",
+    "show": true
+  }
+}

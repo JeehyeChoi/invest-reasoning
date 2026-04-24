@@ -1,0 +1,24 @@
+{
+  "headlineTitle": "Growth",
+  "chart": {
+    "type": "timeseries",
+    "metricKey": "capex",
+    "title": "CapEx Trend"
+  },
+  "metricOrder": [
+    "yoy",
+    "qoq",
+    "consistency",
+    "score"
+  ],
+  "metricLabels": {
+    "yoy": "YoY Change",
+    "qoq": "QoQ Change",
+    "consistency": "Stability",
+    "score": "Composite Score"
+  },
+  "formula": {
+    "type": "weighted_sum",
+    "show": true
+  }
+}

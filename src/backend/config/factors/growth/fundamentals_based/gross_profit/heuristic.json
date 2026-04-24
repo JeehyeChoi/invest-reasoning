@@ -1,0 +1,27 @@
+{
+  "version": "heuristic_v1",
+  "factor": "growth",
+  "axis": "fundamentals_based",
+  "metricKey": "gross_profit",
+  "model": "heuristic",
+  "compute": {
+    "mode": "basic"
+  },
+  "weights": {
+    "yoy": 0.45,
+    "qoq": 0.15,
+    "consistency": 0.25,
+    "acceleration": 0.15
+  },
+  "thresholds": {
+    "growthMinScore": 0.1,
+    "strongGrowthMinScore": 0.25,
+    "minPositiveYoy": 0,
+    "minConsistencyScore": 0
+  },
+  "flags": {},
+  "meta": {
+    "description": "Gross profit growth scoring based on YoY growth, QoQ momentum, consistency, and acceleration.",
+    "createdAt": "2026-04"
+  }
+}

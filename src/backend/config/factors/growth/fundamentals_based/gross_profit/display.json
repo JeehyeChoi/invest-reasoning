@@ -1,0 +1,26 @@
+{
+  "headlineTitle": "Growth",
+  "chart": {
+    "type": "timeseries",
+    "metricKey": "gross_profit",
+    "title": "Gross Profit Trend"
+  },
+  "metricOrder": [
+    "yoy",
+    "qoq",
+    "consistency",
+    "acceleration",
+    "score"
+  ],
+  "metricLabels": {
+    "yoy": "YoY Growth",
+    "qoq": "QoQ Growth",
+    "consistency": "Consistency",
+    "acceleration": "Acceleration",
+    "score": "Composite Score"
+  },
+  "formula": {
+    "type": "weighted_sum",
+    "show": true
+  }
+}

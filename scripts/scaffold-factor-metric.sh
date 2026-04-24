@@ -71,10 +71,13 @@ create_file_if_missing "${METRIC_CONFIG_DIR}/heuristic.json"
 create_file_if_missing "${METRIC_SERVICE_DIR}/resolve.ts"
 create_file_if_missing "${METRIC_SERVICE_DIR}/compute.ts"
 create_file_if_missing "${METRIC_SERVICE_DIR}/upsert.ts"
-create_file_if_missing "${METRIC_SERVICE_DIR}/interpret.ts"
 
 sh ./scripts/create-workflow-step-run.sh "$FACTOR" "$METRIC_KEY"
+sh ./scripts/create-factor-metric-resolve.sh "$FACTOR" "$METRIC_KEY"
+sh ./scripts/create-factor-metric-compute.sh "$FACTOR" "$METRIC_KEY"
+sh ./scripts/create-factor-metric-upsert.sh "$FACTOR" "$METRIC_KEY"
 
+bash ./scripts/generate-step-runners.sh
 
 echo
 echo "Creating checklist..."

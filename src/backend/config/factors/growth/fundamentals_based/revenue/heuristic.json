@@ -4,6 +4,9 @@
   "axis": "fundamentals_based",
   "metricKey": "revenue",
   "model": "heuristic",
+  "compute": {
+    "mode": "basic"
+  },
   "weights": {
     "yoy": 0.5,
     "qoq": 0.2,

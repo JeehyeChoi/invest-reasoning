@@ -1,0 +1,27 @@
+{
+  "version": "heuristic_v1",
+  "factor": "growth",
+  "axis": "fundamentals_based",
+  "metricKey": "operating_cash_flow",
+  "model": "heuristic",
+  "compute": {
+    "mode": "basic"
+  },
+  "weights": {
+    "yoy": 0.4,
+    "qoq": 0.1,
+    "consistency": 0.3,
+    "acceleration": 0.2
+  },
+  "thresholds": {
+    "growthMinScore": 0.1,
+    "strongGrowthMinScore": 0.25,
+    "minPositiveYoy": 0,
+    "minConsistencyScore": 0.05
+  },
+  "flags": {},
+  "meta": {
+    "description": "Operating cash flow growth emphasizing consistency and sustainability over short-term volatility.",
+    "createdAt": "2026-04"
+  }
+}

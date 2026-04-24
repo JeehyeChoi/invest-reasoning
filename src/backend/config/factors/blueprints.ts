@@ -17,7 +17,7 @@ export type FactorBlueprintMap = Partial<{
 export const FACTOR_BLUEPRINTS: FactorBlueprintMap = {
   growth: {
     fundamentals_based: {
-      metricKeys: ["revenue", "net_income", "operating_income", "operating_cash_flow"],
+      metricKeys: ["revenue", "net_income", "operating_income", "gross_profit", "operating_cash_flow", "capex"],
       primaryMetricKey: "revenue",
     },
     etf_implied: {

@@ -1,13 +1,14 @@
 import { db } from "@/backend/config/db";
 
 import type { TickerOverview } from "@/backend/schemas/tickers/tickerOverview";
-
-import revenueDisplay from "@/backend/config/factors/growth/fundamentals_based/revenue/display.json";
-import netIncomeDisplay from "@/backend/config/factors/growth/fundamentals_based/net_income/display.json";
-import revenueHeuristic from "@/backend/config/factors/growth/fundamentals_based/revenue/heuristic.json";
-import netIncomeHeuristic from "@/backend/config/factors/growth/fundamentals_based/net_income/heuristic.json";
 import { interpretGrowthMetrics } from "@/backend/services/factors/growth/fundamentals_based/interpretGrowthMetrics";
 import { normalizeGrowthMetrics } from "@/backend/services/factors/growth/fundamentals_based/normalizeGrowthMetrics";
+
+import {
+  resolveFactorConfigForModel,
+  resolveFactorDisplay,
+  type FactorModelFamily,
+} from "@/backend/config/factors/active";
 
 type TickerProfileRow = {
   ticker: string;
@@ -136,7 +137,8 @@ export async function getTickerOverview(
 			industry: profile.industry ?? null,
 			marketCap: toNullableNumber(profile.market_cap),
 		},
-    factorMetrics: factorMetricsResult.rows.map((row) => {
+    factorMetrics: await Promise.all(
+      factorMetricsResult.rows.map(async (row) => {
       const factor = row.factor as TickerOverview["factorMetrics"][number]["factor"];
       const axis = row.axis as TickerOverview["factorMetrics"][number]["axis"];
       const metricKey =
@@ -149,32 +151,29 @@ export async function getTickerOverview(
           ? (row.metrics as Record<string, unknown>)
           : null;
 
-      const isGrowthFundamentalsMetric =
-        factor === "growth" &&
-        axis === "fundamentals_based" &&
-        (metricKey === "revenue" || metricKey === "net_income");
+			const isGrowthFundamentalsMetric =
+				factor === "growth" && axis === "fundamentals_based";
 
-      const normalizedMetrics = isGrowthFundamentalsMetric
-        ? normalizeGrowthMetrics(rawMetrics)
-        : null;
+			const normalizedMetrics = isGrowthFundamentalsMetric
+				? normalizeGrowthMetrics(rawMetrics)
+				: null;
 
-      const interpretation = isGrowthFundamentalsMetric
-        ? interpretGrowthMetrics(normalizedMetrics)
-        : null;
+			const interpretation = isGrowthFundamentalsMetric
+				? interpretGrowthMetrics(normalizedMetrics, metricKey)
+				: null;
 
-      const display =
-        metricKey === "revenue"
-          ? revenueDisplay
-          : metricKey === "net_income"
-            ? netIncomeDisplay
-            : null;
+			const display = isGrowthFundamentalsMetric
+				? await safeResolveFactorDisplay({ factor, axis, metricKey })
+				: null;
 
-			const heuristic =
-				metricKey === "revenue"
-					? revenueHeuristic
-					: metricKey === "net_income"
-						? netIncomeHeuristic
-						: null;
+			const heuristic = isGrowthFundamentalsMetric
+				? await safeResolveFactorConfigForModel({
+						factor,
+						axis,
+						metricKey,
+						model: model as FactorModelFamily,
+					})
+				: null;
 
 			const formulaText = buildFormulaText({
 				display,
@@ -200,7 +199,7 @@ export async function getTickerOverview(
 						}
 					: null,
 			};
-    }),
+    })),
   };
 }
 
@@ -245,4 +244,38 @@ function toNullableNumber(value: unknown): number | null {
 
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
+}
+
+async function safeResolveFactorDisplay(input: {
+  factor: any;
+  axis: any;
+  metricKey: any;
+}) {
+  try {
+    return await resolveFactorDisplay(input);
+  } catch {
+    return null;
+  }
+}
+
+async function safeResolveFactorConfigForModel(input: {
+  factor: any;
+  axis: any;
+  metricKey: any;
+  model: FactorModelFamily;
+}) {
+  try {
+    const { config } = await resolveFactorConfigForModel(
+      {
+        factor: input.factor,
+        axis: input.axis,
+        metricKey: input.metricKey,
+      },
+      input.model,
+    );
+
+    return config;
+  } catch {
+    return null;
+  }
 }

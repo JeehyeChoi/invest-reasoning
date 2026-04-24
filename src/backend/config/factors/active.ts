@@ -51,6 +51,40 @@ function buildFactorConfigPath(
   );
 }
 
+function buildFactorDisplayPath(input: FactorConfigResolveInput): string {
+  return path.join(
+    process.cwd(),
+    "src",
+    "backend",
+    "config",
+    "factors",
+    input.factor,
+    input.axis,
+    input.metricKey,
+    "display.json",
+  );
+}
+
+export async function resolveFactorDisplay(input: FactorConfigResolveInput) {
+  const filePath = buildFactorDisplayPath(input);
+  const raw = await fs.readFile(filePath, "utf-8");
+
+  return JSON.parse(raw);
+}
+
+export async function resolveFactorConfigForModel(
+  input: FactorConfigResolveInput,
+  model: FactorModelFamily,
+) {
+  const filePath = buildFactorConfigPath(input, model);
+  const raw = await fs.readFile(filePath, "utf-8");
+
+  return {
+    model,
+    config: JSON.parse(raw),
+  };
+}
+
 export async function resolveFactorConfig(
   input: FactorConfigResolveInput,
 ) {

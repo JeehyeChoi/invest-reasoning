@@ -1,0 +1,26 @@
+{
+  "headlineTitle": "Growth",
+  "chart": {
+    "type": "timeseries",
+    "metricKey": "operating_cash_flow",
+    "title": "Operating Cash Flow Trend"
+  },
+  "metricOrder": [
+    "yoy",
+    "qoq",
+    "consistency",
+    "acceleration",
+    "score"
+  ],
+  "metricLabels": {
+    "yoy": "YoY Growth",
+    "qoq": "QoQ Growth",
+    "consistency": "Consistency",
+    "acceleration": "Acceleration",
+    "score": "Composite Score"
+  },
+  "formula": {
+    "type": "weighted_sum",
+    "show": true
+  }
+}

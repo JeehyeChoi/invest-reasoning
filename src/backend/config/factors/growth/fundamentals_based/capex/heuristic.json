@@ -1,0 +1,26 @@
+{
+  "version": "heuristic_v1",
+  "factor": "growth",
+  "axis": "fundamentals_based",
+  "metricKey": "capex",
+  "model": "heuristic",
+  "compute": {
+    "mode": "basic"
+  },
+  "weights": {
+    "yoy": 0.25,
+    "qoq": 0.15,
+    "consistency": 0.6
+  },
+  "thresholds": {
+    "growthMinScore": 0.05,
+    "strongGrowthMinScore": 0.2,
+    "minPositiveYoy": null,
+    "minConsistencyScore": 0.1
+  },
+  "flags": {},
+  "meta": {
+    "description": "CapEx evaluation focused on stability rather than directional growth, reflecting investment variability.",
+    "createdAt": "2026-04"
+  }
+}

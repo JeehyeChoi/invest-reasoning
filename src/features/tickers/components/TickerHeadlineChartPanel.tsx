@@ -28,7 +28,7 @@ export function TickerHeadlineChartPanel({
   const [series, setSeries] = useState<TickerMetricSeries | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [range, setRange] = useState<ChartRange>("5Y");
+  const [range, setRange] = useState<ChartRange>("MAX");
 
   const chartMetricKey: SecMetricKey | null = useMemo(() => {
     const candidate = metric?.display?.chart?.metricKey ?? metric?.metricKey ?? null;
