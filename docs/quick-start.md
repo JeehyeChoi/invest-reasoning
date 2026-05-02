@@ -1,10 +1,10 @@
-# Quick Start (Development)
+# Quick Start
 
-This guide covers how to run the project locally and add new factor metrics.
+This guide covers the current local development flow for Geo Portfolio: install
+dependencies, configure the database, initialize baseline data, run the app, and
+add factor metrics.
 
----
-
-## 1. Setup
+## 1. Install
 
 ```bash
 git clone <repo>
@@ -12,87 +12,177 @@ cd geo-portfolio
 npm install
 ```
 
----
-
-## 2. Environment Variables
+## 2. Configure Environment
 
 Create a local environment file:
 
 ```bash
-cp .env.sample .env.local
+cp .env.example .env.local
 ```
 
-Fill in required values:
+Fill in the values needed for the workflows you plan to run:
 
-- Database connection settings
-- Financial Modeling Prep (FMP) API key
-- Twelve Data API key
-- Any other required service keys
+- `DATABASE_URL`
+- `DB_PASSWORD`
+- `SEC_DATA_DIR`
+- `FMP_API_KEY`
+- `TWELVE_DATA_API_KEY`
+- `ANTHROPIC_API_KEY`
 
----
+The app expects PostgreSQL locally. The default helper scripts create/use:
 
-## 3. Run
+```text
+database: geo_portfolio
+owner:    geo_master
+```
+
+## 3. Prepare Database
+
+Create the local database and owner:
+
+```bash
+./scripts/db/create.sh
+```
+
+Initialize schemas:
+
+```bash
+./scripts/db/init.sh
+```
+
+The schema script applies the SQL files under `db/`, including ticker core,
+factor definitions, SEC Company Facts tables, signal tables, FRED macro tables,
+and scenario tables.
+
+## 4. Bootstrap Local Metadata
+
+Run the bootstrap script:
+
+```bash
+./scripts/bootstrap.sh
+```
+
+This currently imports:
+
+- classification tag definitions
+- factor definitions
+
+Database creation and schema initialization are kept as explicit steps above;
+`scripts/bootstrap.sh` does not run them by default.
+
+## 5. Run The App
 
 ```bash
 npm run dev
 ```
 
-The system will automatically:
+The local app runs through Next.js. User-facing live data should flow through:
 
-- initialize data (if needed)
-- run factor workflows
-- compute metrics
+```text
+page
+  -> feature component
+  -> feature service fetcher
+  -> API route
+  -> backend service
+  -> database / external client / workflow
+```
 
----
+Useful local API routes include:
 
-## 4. Adding a New Metric
+- `/api/internal/data-pipeline/status`
+- `/api/internal/data-pipeline/refresh`
+- `/api/internal/sec-bulk-ingest/state`
+- `/api/tickers/[ticker]/overview`
+- `/api/tickers/[ticker]/series/[metricKey]`
+- `/api/market/cluster/overview`
+- `/api/macro/fred/series/refresh`
 
-Use the scaffold script:
+See `docs/frontend-backend-flow.md` for the project layering policy.
+
+## 6. Run Checks
 
 ```bash
-sh ./scripts/factors/scaffold-factor-metric.sh <factor> <metric_key>
+npm run lint
+npm run build
+```
+
+## 7. Inspect SEC Data
+
+Useful inspection scripts:
+
+```bash
+node scripts/sec/inspect-companyfacts.mjs
+node scripts/sec/inspect-submissions.mjs
+node scripts/sec/inspect-frames.mjs
+node scripts/sec/export-company-raw-tag-inventory.mjs
+```
+
+SEC bulk data is expected under:
+
+```text
+data/sec/bulk
+```
+
+This location can be overridden with `SEC_DATA_DIR`.
+
+## 8. Add A Factor Metric
+
+Create the metric config scaffold:
+
+```bash
+./scripts/factors/scaffold-factor-metric.sh <factor> <metric_key>
 ```
 
 Example:
 
 ```bash
-sh ./scripts/factors/scaffold-factor-metric.sh growth operating_cash_flow
+./scripts/factors/scaffold-factor-metric.sh growth operating_cash_flow
 ```
 
-This will generate:
+The scaffold creates factor axis directories and metric config files under:
 
-- `resolve.ts`
-- `compute.ts`
-- `upsert.ts`
-- `run.ts`
-- step runner registration
+```text
+src/backend/config/factors/<factor>/fundamentals_based/<metric_key>/
+```
 
----
+Expected config files:
 
-## 5. Required Manual Steps
+- `display.json`
+- `interpretation.json`
 
-After scaffolding, you must update:
+The scaffold also writes a checklist to `tmp/<factor>-<metric_key>-checklist.md`.
 
-- `tagMeta.ts`  
-  → map SEC tags to the new metric
+## 9. Register A Metric
 
-- `blueprints.ts`  
-  → include the metric under the correct factor/axis
+After scaffolding, review and update the relevant registration points:
 
-- `heuristic.json`  
-  → define scoring weights and compute mode
+- `src/shared/sec/metrics.ts`: add the metric key to the shared SEC metric type
+- `src/backend/services/sec/companyFacts/series/tagMeta.ts`: map SEC tags to the metric
+- `src/backend/config/factors/blueprints.ts`: register the metric under the factor axis
+- `src/backend/config/factors/<factor>/fundamentals_based/<metric_key>/display.json`: define display metadata
+- `src/backend/config/factors/<factor>/fundamentals_based/<metric_key>/interpretation.json`: define signal interpretation metadata
 
-- `display.json`  
-  → define UI metadata
+For sign-sensitive metrics such as capex, also review `metricProfiles` in
+`src/backend/config/factors/blueprints.ts`.
 
-- `interpretGrowthMetrics.ts`  
-  → add or adjust interpretation logic if needed
+## 10. Current Growth Metrics
 
----
+The current growth fundamentals blueprint includes:
 
-## 6. Notes
+- `revenue`
+- `net_income`
+- `operating_income`
+- `gross_profit`
+- `operating_cash_flow`
+- `capex_cash`
+- `capex_incurred`
 
-- Missing data is expected (not all companies report all metrics)
-- Metrics are based on canonical SEC tags
-- Derived metrics (e.g. free cash flow) are not yet implemented
-- Some helper scripts (`.mjs`, DB setup scripts) are still evolving and may require manual inspection
+## Notes
+
+- Missing company data is expected because reporting structures vary.
+- Metric series are built from SEC facts and canonical tag mappings.
+- Derived metrics need explicit build logic in the SEC Company Facts series layer.
+- `npm run dev` starts the app; it does not automatically initialize the database
+  or run every data workflow.
+- Some workflows require populated SEC/FMP/Twelve Data/FRED inputs before the UI
+  has meaningful data to display.
