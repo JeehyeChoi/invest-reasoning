@@ -50,13 +50,13 @@ The system will automatically:
 Use the scaffold script:
 
 ```bash
-sh ./scripts/scaffold-factor-metric.sh <factor> <metric_key>
+sh ./scripts/factors/scaffold-factor-metric.sh <factor> <metric_key>
 ```
 
 Example:
 
 ```bash
-sh ./scripts/scaffold-factor-metric.sh growth operating_cash_flow
+sh ./scripts/factors/scaffold-factor-metric.sh growth operating_cash_flow
 ```
 
 This will generate:

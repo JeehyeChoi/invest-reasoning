@@ -1,7 +1,35 @@
-CREATE TABLE IF NOT EXISTS ticker_profiles (
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TABLE IF NOT EXISTS ticker_identities (
   ticker TEXT PRIMARY KEY,
 
+  cik TEXT,
   company_name TEXT,
+  exchange TEXT,
+  exchange_full_name TEXT,
+
+  source TEXT NOT NULL,
+
+  fetched_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_ticker_identities_cik
+ON ticker_identities(cik);
+
+CREATE INDEX IF NOT EXISTS idx_ticker_identities_exchange
+ON ticker_identities(exchange);
+
+CREATE TABLE IF NOT EXISTS ticker_company_profiles (
+  ticker TEXT PRIMARY KEY
+    REFERENCES ticker_identities(ticker) ON DELETE CASCADE,
+
   description TEXT,
   website TEXT,
   ceo TEXT,
@@ -22,18 +50,16 @@ CREATE TABLE IF NOT EXISTS ticker_profiles (
   updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS ticker_classifications (
+CREATE TABLE IF NOT EXISTS ticker_company_classifications (
   ticker TEXT PRIMARY KEY
-    REFERENCES ticker_profiles(ticker) ON DELETE CASCADE,
+    REFERENCES ticker_identities(ticker) ON DELETE CASCADE,
 
   sector TEXT,
   industry TEXT,
+  sic TEXT,
+  sic_description TEXT,
 
-  exchange TEXT,
-  exchange_full_name TEXT,
   currency TEXT,
-
-  cik TEXT,
   cusip TEXT,
   isin TEXT,
 
@@ -48,9 +74,18 @@ CREATE TABLE IF NOT EXISTS ticker_classifications (
   updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS ticker_market_data (
+CREATE INDEX IF NOT EXISTS idx_ticker_company_classifications_sector
+ON ticker_company_classifications(sector);
+
+CREATE INDEX IF NOT EXISTS idx_ticker_company_classifications_industry
+ON ticker_company_classifications(industry);
+
+CREATE INDEX IF NOT EXISTS idx_ticker_company_classifications_sic
+ON ticker_company_classifications(sic);
+
+CREATE TABLE IF NOT EXISTS ticker_market_snapshots (
   ticker TEXT PRIMARY KEY
-    REFERENCES ticker_profiles(ticker) ON DELETE CASCADE,
+    REFERENCES ticker_identities(ticker) ON DELETE CASCADE,
 
   price NUMERIC,
   market_cap NUMERIC,
@@ -63,64 +98,37 @@ CREATE TABLE IF NOT EXISTS ticker_market_data (
 
   volume BIGINT,
   average_volume BIGINT,
+  snapshot_date DATE,
+
+  source TEXT NOT NULL,
 
   fetched_at TIMESTAMP NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS ticker_tags (
-  id BIGSERIAL PRIMARY KEY,
+CREATE INDEX IF NOT EXISTS idx_ticker_market_snapshots_snapshot_date
+ON ticker_market_snapshots(snapshot_date);
 
-  ticker TEXT NOT NULL
-    REFERENCES ticker_profiles(ticker) ON DELETE CASCADE,
-
-  tag TEXT NOT NULL,
-  source_rule TEXT,
-
-  inferred_at TIMESTAMP NOT NULL DEFAULT NOW(),
-
-  UNIQUE (ticker, tag)
-);
-
-CREATE INDEX IF NOT EXISTS idx_ticker_tags_ticker
-ON ticker_tags(ticker);
-
-CREATE INDEX IF NOT EXISTS idx_ticker_tags_tag
-ON ticker_tags(tag);
-
-CREATE INDEX IF NOT EXISTS idx_ticker_classifications_sector
-ON ticker_classifications(sector);
-
-CREATE INDEX IF NOT EXISTS idx_ticker_classifications_industry
-ON ticker_classifications(industry);
-
-CREATE INDEX IF NOT EXISTS idx_ticker_classifications_exchange
-ON ticker_classifications(exchange);
-
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS set_ticker_profiles_updated_at ON ticker_profiles;
-CREATE TRIGGER set_ticker_profiles_updated_at
-BEFORE UPDATE ON ticker_profiles
+DROP TRIGGER IF EXISTS set_ticker_identities_updated_at ON ticker_identities;
+CREATE TRIGGER set_ticker_identities_updated_at
+BEFORE UPDATE ON ticker_identities
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 
-DROP TRIGGER IF EXISTS set_ticker_classifications_updated_at ON ticker_classifications;
-CREATE TRIGGER set_ticker_classifications_updated_at
-BEFORE UPDATE ON ticker_classifications
+DROP TRIGGER IF EXISTS set_ticker_company_profiles_updated_at ON ticker_company_profiles;
+CREATE TRIGGER set_ticker_company_profiles_updated_at
+BEFORE UPDATE ON ticker_company_profiles
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 
-DROP TRIGGER IF EXISTS set_ticker_market_data_updated_at ON ticker_market_data;
-CREATE TRIGGER set_ticker_market_data_updated_at
-BEFORE UPDATE ON ticker_market_data
+DROP TRIGGER IF EXISTS set_ticker_company_classifications_updated_at ON ticker_company_classifications;
+CREATE TRIGGER set_ticker_company_classifications_updated_at
+BEFORE UPDATE ON ticker_company_classifications
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 
-
+DROP TRIGGER IF EXISTS set_ticker_market_snapshots_updated_at ON ticker_market_snapshots;
+CREATE TRIGGER set_ticker_market_snapshots_updated_at
+BEFORE UPDATE ON ticker_market_snapshots
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();

@@ -3,28 +3,29 @@ set -e
 
 echo "🚀 bootstrap start"
 
-echo "--------------------------"
+echo "------------------------"
+echo "-- prepare database --"
+echo "------------------------"
+#sh scripts/db/create.sh
+
+echo " "
+echo "----------------------------"
 echo "-- initialize DB schema --"
-echo "--------------------------"
-#sh scripts/db-init.sh
-
-echo " "
-echo "----------------------"
-echo "-- sync source data --"
-echo "----------------------"
-#sh scripts/data-sync.sh
+echo "----------------------------"
+#sh scripts/db/init.sh
 
 echo " "
 echo "--------------------------------"
-echo "-- initialize tag definitions --"
+echo "-- initialize classification tag definitions --"
 echo "--------------------------------"
-sh scripts/tag-init.sh
+node scripts/bootstrap/classification-tags/extract-definition-candidates.mjs
+node scripts/bootstrap/classification-tags/import-definitions.mjs
 
 echo " "
 echo "-----------------------------------"
 echo "-- initialize factor definitions --"
 echo "-----------------------------------"
-sh scripts/factor-init.sh
+node scripts/bootstrap/factors/import-definitions.mjs
 
 echo " "
 echo "✅ bootstrap done"

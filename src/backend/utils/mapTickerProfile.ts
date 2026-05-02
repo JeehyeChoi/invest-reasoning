@@ -3,7 +3,7 @@ import type {
   TickerClassificationRow,
   TickerMarketDataRow,
   TickerProfileRow,
-} from "@/backend/schemas/tickers/tickerProfile";
+} from "@/backend/services/metadata/types";
 
 export function mapToProfileRow(raw: RawTickerProfile): TickerProfileRow {
   return {
@@ -57,5 +57,6 @@ export function mapToMarketDataRow(raw: RawTickerProfile): TickerMarketDataRow {
     price_change_percentage: raw.changePercentage ?? null,
     volume: raw.volume ?? null,
     average_volume: raw.averageVolume ?? null,
+    source: "fmp",
   };
 }

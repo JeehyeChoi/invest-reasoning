@@ -44,7 +44,8 @@ next-env.d.ts
 # generated data (recreated via scripts)
 scripts/data/
 tmp/
-
+data/
+lab/
 # archives
 *.tar.gz
 *_old.*

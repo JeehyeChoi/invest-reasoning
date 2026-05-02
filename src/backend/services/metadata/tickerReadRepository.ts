@@ -1,5 +1,5 @@
 import { db } from "@/backend/config/db";
-import { normalizeTickers } from "@/shared/utils/tickers";
+import { normalizeTickers } from "@/shared/tickers/utils";
 
 export type TickerProfileSummary = {
   ticker: string;
@@ -26,10 +26,8 @@ export async function getTickerProfilesByTickers(
     SELECT
       p.ticker,
       p.company_name,
-      c.cik
-    FROM ticker_profiles p
-    LEFT JOIN ticker_classifications c
-      ON c.ticker = p.ticker
+      p.cik
+    FROM ticker_identities p
     WHERE p.ticker = ANY($1::text[])
   `;
 

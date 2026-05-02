@@ -1,6 +1,6 @@
 import { ENV } from "@/backend/config/env";
 import { normalizeCikForSubmissions } from "@/backend/utils/sec";
-import type { SecSubmissionsResponse } from "@/backend/schemas/sec";
+import type { SecSubmissionsResponse } from "@/backend/clients/sec/types";
 
 const SEC_BASE_URL = "https://data.sec.gov";
 

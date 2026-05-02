@@ -4,11 +4,33 @@ import type {
   TickerMarketDataRow,
   TickerProfileRow,
   TickerTagRow,
-} from "@/backend/schemas/tickers/tickerProfile";
+} from "@/backend/services/metadata/types";
 
 export async function getTickerBundle(ticker: string) {
   const profileRes = await db.query(
-    `SELECT * FROM ticker_profiles WHERE ticker = $1`,
+    `
+    SELECT
+      i.ticker,
+      i.company_name,
+      p.description,
+      p.website,
+      p.ceo,
+      p.country,
+      p.state,
+      p.city,
+      p.zip,
+      p.address,
+      p.phone,
+      p.full_time_employees,
+      p.ipo_date,
+      COALESCE(p.source, i.source) AS source,
+      COALESCE(p.fetched_at, i.fetched_at) AS fetched_at,
+      COALESCE(p.updated_at, i.updated_at) AS updated_at
+    FROM ticker_identities i
+    LEFT JOIN ticker_company_profiles p
+      ON p.ticker = i.ticker
+    WHERE i.ticker = $1
+    `,
     [ticker],
   );
 
@@ -17,12 +39,34 @@ export async function getTickerBundle(ticker: string) {
   }
 
   const classificationRes = await db.query(
-    `SELECT * FROM ticker_classifications WHERE ticker = $1`,
+    `
+    SELECT
+      i.ticker,
+      c.sector,
+      c.industry,
+      i.exchange,
+      i.exchange_full_name,
+      c.currency,
+      i.cik,
+      c.cusip,
+      c.isin,
+      c.is_etf,
+      c.is_fund,
+      c.is_adr,
+      c.is_actively_trading,
+      COALESCE(c.source, i.source) AS source,
+      COALESCE(c.fetched_at, i.fetched_at) AS fetched_at,
+      COALESCE(c.updated_at, i.updated_at) AS updated_at
+    FROM ticker_identities i
+    LEFT JOIN ticker_company_classifications c
+      ON c.ticker = i.ticker
+    WHERE i.ticker = $1
+    `,
     [ticker],
   );
 
   const marketDataRes = await db.query(
-    `SELECT * FROM ticker_market_data WHERE ticker = $1`,
+    `SELECT * FROM ticker_market_snapshots WHERE ticker = $1`,
     [ticker],
   );
 
@@ -45,19 +89,33 @@ export async function getTickerBundle(ticker: string) {
 export async function upsertTickerProfile(row: TickerProfileRow) {
   await db.query(
     `
-    INSERT INTO ticker_profiles (
-      ticker, company_name, description, website, ceo,
+    INSERT INTO ticker_identities (
+      ticker, company_name, source, fetched_at, updated_at
+    )
+    VALUES ($1, $2, $3, NOW(), NOW())
+    ON CONFLICT (ticker)
+    DO UPDATE SET
+      company_name = EXCLUDED.company_name,
+      source = EXCLUDED.source,
+      fetched_at = NOW()
+    `,
+    [row.ticker, row.company_name, row.source],
+  );
+
+  await db.query(
+    `
+    INSERT INTO ticker_company_profiles (
+      ticker, description, website, ceo,
       country, state, city, zip, address, phone,
       full_time_employees, ipo_date, source, fetched_at, updated_at
     )
     VALUES (
-      $1,$2,$3,$4,$5,
-      $6,$7,$8,$9,$10,$11,
-      $12,$13,$14,NOW(),NOW()
+      $1,$2,$3,$4,
+      $5,$6,$7,$8,$9,$10,
+      $11,$12,$13,NOW(),NOW()
     )
     ON CONFLICT (ticker)
     DO UPDATE SET
-      company_name = EXCLUDED.company_name,
       description = EXCLUDED.description,
       website = EXCLUDED.website,
       ceo = EXCLUDED.ceo,
@@ -74,7 +132,6 @@ export async function upsertTickerProfile(row: TickerProfileRow) {
     `,
     [
       row.ticker,
-      row.company_name,
       row.description,
       row.website,
       row.ceo,
@@ -94,24 +151,47 @@ export async function upsertTickerProfile(row: TickerProfileRow) {
 export async function upsertTickerClassification(row: TickerClassificationRow) {
   await db.query(
     `
-    INSERT INTO ticker_classifications (
-      ticker, sector, industry, exchange, exchange_full_name,
-      currency, cik, is_etf, is_fund, is_adr, is_actively_trading,
+    INSERT INTO ticker_identities (
+      ticker, cik, exchange, exchange_full_name, source, fetched_at, updated_at
+    )
+    VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+    ON CONFLICT (ticker)
+    DO UPDATE SET
+      cik = COALESCE(EXCLUDED.cik, ticker_identities.cik),
+      exchange = COALESCE(EXCLUDED.exchange, ticker_identities.exchange),
+      exchange_full_name = COALESCE(
+        EXCLUDED.exchange_full_name,
+        ticker_identities.exchange_full_name
+      ),
+      source = EXCLUDED.source,
+      fetched_at = NOW()
+    `,
+    [
+      row.ticker,
+      row.cik,
+      row.exchange,
+      row.exchange_full_name,
+      row.source,
+    ],
+  );
+
+  await db.query(
+    `
+    INSERT INTO ticker_company_classifications (
+      ticker, sector, industry, currency,
+      is_etf, is_fund, is_adr, is_actively_trading,
       source, fetched_at, updated_at
     )
     VALUES (
-      $1,$2,$3,$4,$5,
-      $6,$7,$8,$9,$10,$11,
-      $12,NOW(),NOW()
+      $1,$2,$3,$4,
+      $5,$6,$7,$8,
+      $9,NOW(),NOW()
     )
     ON CONFLICT (ticker)
     DO UPDATE SET
       sector = EXCLUDED.sector,
       industry = EXCLUDED.industry,
-      exchange = EXCLUDED.exchange,
-      exchange_full_name = EXCLUDED.exchange_full_name,
       currency = EXCLUDED.currency,
-      cik = EXCLUDED.cik,
       is_etf = EXCLUDED.is_etf,
       is_fund = EXCLUDED.is_fund,
       is_adr = EXCLUDED.is_adr,
@@ -123,10 +203,7 @@ export async function upsertTickerClassification(row: TickerClassificationRow) {
       row.ticker,
       row.sector,
       row.industry,
-      row.exchange,
-      row.exchange_full_name,
       row.currency,
-      row.cik,
       row.is_etf,
       row.is_fund,
       row.is_adr,
@@ -139,14 +216,14 @@ export async function upsertTickerClassification(row: TickerClassificationRow) {
 export async function upsertTickerMarketData(row: TickerMarketDataRow) {
   await db.query(
     `
-    INSERT INTO ticker_market_data (
+    INSERT INTO ticker_market_snapshots (
       ticker, price, market_cap, beta, last_dividend,
       fifty_two_week_range, price_change, price_change_percentage,
-      volume, average_volume, fetched_at, updated_at
+      volume, average_volume, snapshot_date, source, fetched_at, updated_at
     )
     VALUES (
       $1,$2,$3,$4,$5,
-      $6,$7,$8,$9,$10,NOW(),NOW()
+      $6,$7,$8,$9,$10,CURRENT_DATE,$11,NOW(),NOW()
     )
     ON CONFLICT (ticker)
     DO UPDATE SET
@@ -159,6 +236,8 @@ export async function upsertTickerMarketData(row: TickerMarketDataRow) {
       price_change_percentage = EXCLUDED.price_change_percentage,
       volume = EXCLUDED.volume,
       average_volume = EXCLUDED.average_volume,
+      snapshot_date = EXCLUDED.snapshot_date,
+      source = EXCLUDED.source,
       fetched_at = NOW()
     `,
     [
@@ -172,6 +251,7 @@ export async function upsertTickerMarketData(row: TickerMarketDataRow) {
       row.price_change_percentage,
       row.volume,
       row.average_volume,
+      row.source,
     ],
   );
 }

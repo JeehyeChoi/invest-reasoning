@@ -1,5 +1,5 @@
 import { db } from "@/backend/config/db"; 
-import { normalizeTickers } from "@/shared/utils/tickers";
+import { normalizeTickers } from "@/shared/tickers/utils";
 
 type TickerCikRow = {
   ticker: string;
@@ -19,7 +19,7 @@ export async function getTickerCikMap(
     SELECT
       ticker,
       cik
-    FROM ticker_classifications
+    FROM ticker_identities
     WHERE ticker = ANY($1::text[])
   `;
 

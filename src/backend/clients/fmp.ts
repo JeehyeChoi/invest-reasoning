@@ -1,6 +1,9 @@
 import { ENV } from "@/backend/config/env";
-import type { RawTickerProfile } from "@/backend/schemas/tickers/tickerProfile";
-import type { FmpUsMarketHolidayRecord } from "@/backend/schemas/fmp";
+import type {
+  FmpSp500ConstituentRecord,
+  FmpTickerProfileRecord,
+  FmpUsMarketHolidayRecord,
+} from "@/backend/clients/fmp/types";
 
 /**
  * ----------------------------------------
@@ -18,7 +21,9 @@ async function fetchFmpJson<T>(
   });
 
   if (!res.ok) {
-    throw new Error(`${errorMessage}: ${res.status}`);
+    const error = new Error(`${errorMessage}: ${res.status}`);
+    (error as Error & { status?: number }).status = res.status;
+    throw error;
   }
 
   return (await res.json()) as T;
@@ -32,14 +37,14 @@ async function fetchFmpJson<T>(
 
 export async function fetchFmpTickerProfile(
   ticker: string
-): Promise<RawTickerProfile> {
+): Promise<FmpTickerProfileRecord> {
   const normalizedTicker = ticker.trim().toUpperCase();
 
   const url =
     `https://financialmodelingprep.com/stable/profile` +
     `?symbol=${normalizedTicker}&apikey=${ENV.FMP_API_KEY}`;
 
-  const json = await fetchFmpJson<RawTickerProfile[]>(
+  const json = await fetchFmpJson<FmpTickerProfileRecord[]>(
     url,
     `FMP profile request failed for ${normalizedTicker}`
   );
@@ -71,6 +76,31 @@ export async function fetchFmpUsMarketHolidays(): Promise<
 
   if (!Array.isArray(json)) {
     throw new Error("Invalid holiday response from FMP");
+  }
+
+  return json;
+}
+
+/**
+ * ----------------------------------------
+ * API: S&P 500 Constituents
+ * ----------------------------------------
+ */
+
+export async function fetchFmpSp500Constituents(): Promise<
+  FmpSp500ConstituentRecord[]
+> {
+  const url =
+    `https://financialmodelingprep.com/stable/sp500-constituent` +
+    `?apikey=${ENV.FMP_API_KEY}`;
+
+  const json = await fetchFmpJson<FmpSp500ConstituentRecord[]>(
+    url,
+    "FMP S&P 500 constituents request failed"
+  );
+
+  if (!Array.isArray(json)) {
+    throw new Error("Invalid S&P 500 constituents response from FMP");
   }
 
   return json;
