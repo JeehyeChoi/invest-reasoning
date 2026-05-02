@@ -97,7 +97,7 @@ Useful local API routes include:
 - `/api/market/cluster/overview`
 - `/api/macro/fred/series/refresh`
 
-See `docs/frontend-backend-flow.md` for the project layering policy.
+See `docs/developer/frontend-backend-flow.md` for the project layering policy.
 
 ## 6. Run Checks
 

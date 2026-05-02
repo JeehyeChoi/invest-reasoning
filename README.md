@@ -73,7 +73,7 @@ page
   -> database / external client / workflow
 ```
 
-See `docs/frontend-backend-flow.md` for the detailed layering policy.
+See `docs/developer/frontend-backend-flow.md` for the detailed layering policy.
 
 ## Project Layout
 
@@ -94,7 +94,7 @@ db
   Database schema and migration-style SQL files
 
 docs
-  Architecture notes, workflow guides, and project policies
+  User docs, developer notes, operating policies, and reference material
 
 scripts
   Bootstrap, database, SEC inspection, and factor scaffolding scripts
@@ -178,8 +178,10 @@ node scripts/sec/inspect-frames.mjs
 
 ## Documentation
 
-- `docs/quick-start.md`: development setup and adding metrics
-- `docs/frontend-backend-flow.md`: frontend/API/backend boundary rules
-- `docs/backend-structure-policy.md`: backend organization policy
-- `docs/scripts-data-policy.md`: scripts and data ownership policy
-- `docs/ticker-factor-metric-clustering.md`: clustering workflow notes
+- `docs/README.md`: documentation map
+- `docs/developer/quick-start.md`: development setup and adding metrics
+- `docs/developer/frontend-backend-flow.md`: frontend/API/backend boundary rules
+- `docs/developer/ticker-factor-metric-clustering.md`: clustering workflow notes
+- `docs/operations/backend-structure-policy.md`: backend organization policy
+- `docs/operations/scripts-data-policy.md`: scripts and data ownership policy
+- `docs/operations/naming-policy.md`: naming conventions and philosophy

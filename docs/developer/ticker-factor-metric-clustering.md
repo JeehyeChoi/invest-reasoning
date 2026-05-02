@@ -19,14 +19,16 @@ ticker_factor_metric_signals
 - comparison set: `usa/all`
 - normalization: `z_score`
 - clustering method: deterministic `kmeans`
-- default cluster count: `6`
+- default cluster count: automatic silhouette-based selection
 
 ## Vector Construction
 
-Each `(factor, axis, metric_key, signal_key)` becomes one feature dimension.
-The clustering service reads the latest position row per ticker and feature,
-filters sparse features, imputes missing values to neutral `0`, and drops
-tickers with low vector coverage.
+By default, each `signal_key` becomes one feature dimension after aggregating
+the ticker's metric-level values by median. The clustering service reads the
+latest position row per ticker and feature, filters sparse features, imputes
+missing values to neutral `0`, clips extreme z-scores, and drops tickers with
+low vector coverage. Metric-level dimensions remain available through
+`metric_signal` vector mode.
 
 ## Why Positions Are Used
 
