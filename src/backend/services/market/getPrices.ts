@@ -1,7 +1,7 @@
 import { ENV } from "@/backend/config/env";
 import { fetchTwelveDataPrice } from "@/backend/clients/twelveData";
 import { getTwelveDataRequestQueue } from "@/backend/services/market/twelveDataRequestQueue";
-import { normalizeTickers } from "@/shared/utils/tickers";
+import { normalizeTickers } from "@/shared/tickers/utils";
 
 type PriceMap = Record<string, number>;
 

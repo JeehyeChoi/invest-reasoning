@@ -1,7 +1,7 @@
 import { completePortfolioItem } from "@/features/portfolio/utils/completePortfolioItem"
 
-import { PortfolioItemInput } from "@/shared/types/portfolio"
-import type { PriceMap } from "@/shared/types/portfolio"
+import { PortfolioItemInput } from "@/shared/portfolio/types"
+import type { PriceMap } from "@/shared/portfolio/types"
 
 export type CalculatedPortfolioItem = PortfolioItemInput & {
   currentPrice?: number

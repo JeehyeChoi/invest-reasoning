@@ -1,32 +1,21 @@
-import {
-  portfolioAnalysisWorkflowInputSchema,
-} from "./workflow.schemas";
+import { PortfolioAnalysisRequestSchema } from "@/shared/analysis/portfolioAnalysisContract";
 import type {
   PortfolioAnalysisWorkflowStep,
   PortfolioAnalysisWorkflowContext,
 } from "./workflow.types";
-import type { PortfolioAnalysisWorkflowInput } from "@/shared/types/workflow"
 
 import { resolveMetadataStep } from "./steps/resolveMetadataStep"
 import { computeExposureStep } from "./steps/computeExposureStep"
-//import { generatePlanStep } from "./steps/generatePlanStep"
-//import { runAnalysisStep } from "./steps/runAnalysisStep"
-//import { verifyAnalysisStep } from "./steps/verifyAnalysisStep"
-//import { buildReportStep } from "./steps/buildReportStep"
 
 export async function runPortfolioAnalysisWorkflow(
-  rawInput: PortfolioAnalysisWorkflowInput,
+  rawInput: unknown,
 ): Promise<PortfolioAnalysisWorkflowContext> {
-  const input = portfolioAnalysisWorkflowInputSchema.parse(rawInput);
+  const input = PortfolioAnalysisRequestSchema.parse(rawInput);
   //console.log("[workflow:start] input:", input);
 	
   const steps: PortfolioAnalysisWorkflowStep[] = [
 	  resolveMetadataStep,
     computeExposureStep,
-    /*generatePlanStep,
-    runAnalysisStep,
-    verifyAnalysisStep,
-    buildReportStep,*/
   ];
 	
 	

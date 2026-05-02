@@ -1,16 +1,31 @@
 import { NextResponse } from "next/server";
-import { runDataPipelineRefreshWorkflow } from "@/backend/workflows/data-pipeline-refresh/runDataPipelineRefreshWorkflow";
+import { runDataPipelineRefreshJob } from "@/backend/workflows/data-pipeline-refresh/runDataPipelineRefreshJob";
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
-    void runDataPipelineRefreshWorkflow();
+    const body = await request.json().catch(() => ({}));
 
-    return NextResponse.json({ ok: true });
+    const result = await runDataPipelineRefreshJob({
+      jobs: body.jobs,
+      rebuild: body.rebuild,
+      rebuildMode: body.rebuildMode,
+      companyScope: body.companyScope,
+      universeRefreshMode: body.universeRefreshMode,
+      universeKeys: body.universeKeys,
+      tickerCoreSyncMode: body.tickerCoreSyncMode,
+      tickerCoreMaxRequests: body.tickerCoreMaxRequests,
+    });
+
+    if (result.status === "already_running") {
+      return NextResponse.json(result, { status: 409 });
+    }
+
+    return NextResponse.json(result);
   } catch (error) {
     console.error("Data pipeline refresh trigger failed:", error);
 
     return NextResponse.json(
-      { ok: false, error: "trigger_failed" },
+      { ok: false, status: "trigger_failed" },
       { status: 500 },
     );
   }

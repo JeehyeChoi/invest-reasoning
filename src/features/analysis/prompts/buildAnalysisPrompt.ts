@@ -1,4 +1,4 @@
-import type { PortfolioItemComputed } from "@/shared/types/portfolio"
+import type { PortfolioItemComputed } from "@/shared/portfolio/types"
 
 type AnalysisStrategy = "papic" | "macro" | "valuation"
 

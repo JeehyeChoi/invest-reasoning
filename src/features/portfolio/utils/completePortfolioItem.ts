@@ -1,4 +1,4 @@
-import { PortfolioItemInput } from "@/shared/types/portfolio"
+import { PortfolioItemInput } from "@/shared/portfolio/types"
 
 export const completePortfolioItem = (item: PortfolioItemInput) => {
   let { shares, averageBuyPrice, totalCost } = item

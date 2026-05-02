@@ -1,6 +1,6 @@
-import type { PortfolioItemInput } from "@/shared/types/portfolio"
-import type { AnalysisStrategy, LlmProvider } from "@/shared/types/analysis"
-import type { PriceMap } from "@/shared/types/portfolio"
+import type { PortfolioItemInput } from "@/shared/portfolio/types"
+import type { AnalysisStrategy, LlmProvider } from "@/shared/analysis/types"
+import type { PriceMap } from "@/shared/portfolio/types"
 
 const STORAGE_KEY = "geo-portfolio-state"
 

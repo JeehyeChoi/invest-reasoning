@@ -5,8 +5,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchRecentFilings } from "@/features/filings/services/fetchRecentFilings";
 import type { RecentFilingItem } from "@/features/filings/schemas/recentFilings";
-import { DEFAULT_FILINGS_LOOKBACK_DAYS } from "@/shared/constants/filings";
-import { FILING_FORM_LABELS, FILING_ITEM_LABELS, FILING_EXHIBIT_LABELS } from "@/shared/constants/filings";
+import { DEFAULT_FILINGS_LOOKBACK_DAYS } from "@/shared/filings/constants";
+import { FILING_FORM_LABELS, FILING_ITEM_LABELS, FILING_EXHIBIT_LABELS } from "@/shared/filings/constants";
 import type { FilingItemEntry, FilingExhibitEntry } from "../schemas/recentFilings";
 
 type RecentFilingsPanelProps = {

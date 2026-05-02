@@ -1,9 +1,11 @@
 import { runPortfolioAnalysisWorkflow } from "@/backend/workflows/portfolio-analysis/runPortfolioAnalysisWorkflow"
+import { PortfolioAnalysisRequestSchema } from "@/shared/analysis/portfolioAnalysisContract"
 
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const workflowResult = await runPortfolioAnalysisWorkflow(body)
+    const input = PortfolioAnalysisRequestSchema.parse(body)
+    const workflowResult = await runPortfolioAnalysisWorkflow(input)
 
 		return Response.json({
 			result: workflowResult.artifacts?.exposure ?? "No report available yet",

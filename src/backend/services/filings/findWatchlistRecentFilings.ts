@@ -3,8 +3,8 @@
 import { fetchSecSubmissions } from "@/backend/clients/sec";
 import { fetchSecDocument } from "@/backend/clients/secDocument";
 import { normalizeCikForArchivePath } from "@/backend/utils/sec";
-import { DEFAULT_FILING_FORMS, DEFAULT_FILINGS_LOOKBACK_DAYS, type FilingForm } from "@/shared/constants/filings";
-import type { SecSubmissionsResponse } from "@/backend/schemas/sec";
+import { DEFAULT_FILING_FORMS, DEFAULT_FILINGS_LOOKBACK_DAYS, type FilingForm } from "@/shared/filings/constants";
+import type { SecSubmissionsResponse } from "@/backend/clients/sec/types";
 import type {
   FilingExhibitEntry,
   FilingItemEntry,
@@ -15,7 +15,7 @@ import { parseFilingItems } from "@/backend/services/filings/parseFilingItems";
 import { parseFilingExhibits } from "@/backend/services/filings/parseFilingExhibits";
 import { parseItem801Signals } from "@/backend/services/filings/parseItem801Signals";
 
-import { normalizeTickers } from "@/shared/utils/tickers";
+import { normalizeTickers } from "@/shared/tickers/utils";
 
 function isAllowedForm(form: string, forms: FilingForm[]): form is FilingForm {
   return forms.includes(form as FilingForm);

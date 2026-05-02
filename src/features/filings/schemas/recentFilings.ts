@@ -1,5 +1,5 @@
 // features/filings/schemas/recentFilings.ts
-import type { FilingForm } from "@/shared/constants/filings";
+import type { FilingForm } from "@/shared/filings/constants";
 
 export type RecentFilingsRequest = {
   tickers: string[];

@@ -1,7 +1,7 @@
 "use client";
 
-import { TICKERS } from "@/shared/constants/tickers";
-import { PortfolioItemInput } from "@/shared/types/portfolio";
+import { TICKERS } from "@/shared/tickers/constants";
+import { PortfolioItemInput } from "@/shared/portfolio/types";
 import { useEffect, useMemo, useState } from "react";
 
 type PortfolioInputProps = {

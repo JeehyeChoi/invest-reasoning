@@ -1,8 +1,8 @@
 // features/filings/utils/normalizeFilingsRequest.ts
 
-import type { FilingForm } from "@/shared/constants/filings";
-import { DEFAULT_FILING_FORMS } from "@/shared/constants/filings";
-import { normalizeTickerInput } from "@/shared/utils/tickers";
+import type { FilingForm } from "@/shared/filings/constants";
+import { DEFAULT_FILING_FORMS } from "@/shared/filings/constants";
+import { normalizeTickerInput } from "@/shared/tickers/utils";
 
 export function normalizeFilingsRequest(input: unknown) {
   const body = (input ?? {}) as {

@@ -1,6 +1,6 @@
-import type { PortfolioAnalysisWorkflowInput } from "@/shared/types/workflow";
+import type { PortfolioAnalysisRequest } from "@/shared/analysis/portfolioAnalysisContract";
 import type { CalculatedPortfolioItem } from "@/features/portfolio/utils/calculatePortfolio";
-import type { TickerFactorSnapshot } from "@/shared/schemas/factors/snapshot";
+import type { TickerFactorSnapshot } from "@/shared/factors/snapshot";
 
 export type ResolvedTickerMetadata = {
   profile: Record<string, unknown> | null;
@@ -51,7 +51,7 @@ export type FinalReportArtifact = {
 };
 
 export interface PortfolioAnalysisWorkflowContext {
-  input: PortfolioAnalysisWorkflowInput;
+  input: PortfolioAnalysisRequest;
   artifacts: {
     metadata?: MetadataArtifact;
     exposure?: ExposureArtifact;
@@ -88,4 +88,3 @@ export interface PortfolioAnalysisWorkflowStep {
     context: PortfolioAnalysisWorkflowContext,
   ): Promise<PortfolioAnalysisWorkflowContext>;
 }
-
