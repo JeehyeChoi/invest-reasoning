@@ -1,242 +1,208 @@
 // src/backend/services/sec/companyFacts/series/tagMeta.ts
 
+import type { SecCompanyFactsMetricKey } from "@/backend/config/sec/metrics";
 import type { CompanyFactType } from "@/backend/services/sec/companyFacts/series/types";
 
 export type CompanyFactsSeriesTagMeta = {
-  metricKey: string;
+  metricKey: SecCompanyFactsMetricKey;
   factType: CompanyFactType;
-	priority?: number;
+  priority: number;
+  tagFamily?: CompanyFactsSeriesTagFamily;
 };
+
+export type CompanyFactsSeriesTagFamily =
+  | "revenue_core"
+  | "revenue_sales_split"
+  | "revenue_financial_net"
+  | "revenue_real_estate"
+  | "revenue_utility"
+  | "revenue_healthcare";
+
+function flow(
+  metricKey: SecCompanyFactsMetricKey,
+  priority: number,
+  options: { tagFamily?: CompanyFactsSeriesTagFamily } = {},
+): CompanyFactsSeriesTagMeta {
+  return {
+    metricKey,
+    factType: "flow",
+    priority,
+    tagFamily: options.tagFamily,
+  };
+}
+
+function instant(
+  metricKey: SecCompanyFactsMetricKey,
+  priority = 99,
+): CompanyFactsSeriesTagMeta {
+  return {
+    metricKey,
+    factType: "instant",
+    priority,
+  };
+}
+
+function perShare(
+  metricKey: SecCompanyFactsMetricKey,
+  priority = 99,
+): CompanyFactsSeriesTagMeta {
+  return {
+    metricKey,
+    factType: "per_share",
+    priority,
+  };
+}
+
+function shareCount(
+  metricKey: SecCompanyFactsMetricKey,
+  priority = 99,
+): CompanyFactsSeriesTagMeta {
+  return {
+    metricKey,
+    factType: "share_count",
+    priority,
+  };
+}
 
 export const COMPANY_FACTS_SERIES_TAG_META: Record<
   string,
   CompanyFactsSeriesTagMeta
 > = {
-	// revenue
-	Revenues: {
-		metricKey: "revenue",
-		factType: "flow",
-		priority: 1,
-	},
-	RevenueFromContractWithCustomerExcludingAssessedTax: {
-		metricKey: "revenue",
-		factType: "flow",
-		priority: 2,
-	},
-	SalesRevenueNet: {
-		metricKey: "revenue",
-		factType: "flow",
-		priority: 3,
-	},
-	SalesRevenueGoodsNet: {
-		metricKey: "revenue",
-		factType: "flow",
-		priority: 4,
-	},
-	SalesRevenueServicesNet: {
-		metricKey: "revenue",
-		factType: "flow",
-		priority: 5,
-	},
+  // ---------------------------------------------------------------------------
+  // Active growth/fundamentals_based metrics
+  // ---------------------------------------------------------------------------
 
-	// profitability
-	NetIncomeLoss: {
-		metricKey: "net_income",
-		factType: "flow",
-		priority: 1,
-	},
-	ProfitLoss: {
-		metricKey: "net_income",
-		factType: "flow",
-		priority: 2,
-	},
-
-	OperatingIncomeLoss: {
-		metricKey: "operating_income",
-		factType: "flow",
-		priority: 1,
-	},
-	IncomeFromOperations: {
-		metricKey: "operating_income",
-		factType: "flow",
-		priority: 2,
-	},
-  GrossProfit: {
-    metricKey: "gross_profit",
-    factType: "flow",
-		priority: 1,
-  },
-
-	// cash flow
-	NetCashProvidedByUsedInOperatingActivities: {
-		metricKey: "operating_cash_flow",
-		factType: "flow",
-		priority: 1,
-	},
-	NetCashProvidedByUsedInOperatingActivitiesContinuingOperations: {
-		metricKey: "operating_cash_flow",
-		factType: "flow",
-		priority: 2,
-	},
-
-	// capital expenditure
-	PaymentsToAcquirePropertyPlantAndEquipment: {
-		metricKey: "capex",
-		factType: "flow",
-		priority: 1,
-	},
-	PaymentsToAcquireProductiveAssets: {
-		metricKey: "capex",
-		factType: "flow",
-		priority: 2,
-	},
+  // revenue
+  Revenues: flow("revenue", 1, { tagFamily: "revenue_core" }),
+  RevenueFromContractWithCustomerExcludingAssessedTax: flow("revenue", 2, {
+    tagFamily: "revenue_core",
+  }),
+  RevenueFromContractWithCustomerIncludingAssessedTax: flow("revenue", 3, {
+    tagFamily: "revenue_core",
+  }),
+  SalesRevenueNet: flow("revenue", 4, { tagFamily: "revenue_core" }),
+  SalesRevenueGoodsNet: flow("revenue", 5, {
+    tagFamily: "revenue_sales_split",
+  }),
+  SalesRevenueServicesNet: flow("revenue", 6, {
+    tagFamily: "revenue_sales_split",
+  }),
+  RegulatedAndUnregulatedOperatingRevenue: flow("revenue", 7, {
+    tagFamily: "revenue_utility",
+  }),
+  ElectricUtilityRevenue: flow("revenue", 8, {
+    tagFamily: "revenue_utility",
+  }),
+  HealthCareOrganizationPatientServiceRevenueLessProvisionForBadDebts: flow(
+    "revenue",
+    9,
+    { tagFamily: "revenue_healthcare" },
+  ),
+  HealthCareOrganizationPatientServiceRevenue: flow("revenue", 10, {
+    tagFamily: "revenue_healthcare",
+  }),
+  RevenuesNetOfInterestExpense: flow("revenue", 11, {
+    tagFamily: "revenue_financial_net",
+  }),
+  RealEstateRevenueNet: flow("revenue", 12, {
+    tagFamily: "revenue_real_estate",
+  }),
 
 
 
 
+  // net income
+  NetIncomeLoss: flow("net_income", 1),
+  ProfitLoss: flow("net_income", 2),
+  // operating income
+  OperatingIncomeLoss: flow("operating_income", 1),
+  IncomeFromOperations: flow("operating_income", 2),
+  // gross profit
+  GrossProfit: flow("gross_profit", 1),
 
 
 
- //-------- not yet --------//
-  IncomeTaxExpenseBenefit: {
-    metricKey: "income_tax_expense",
-    factType: "flow",
-  },
+  // operating cash flow
+  NetCashProvidedByUsedInOperatingActivities: flow("operating_cash_flow", 1),
+  NetCashProvidedByUsedInOperatingActivitiesContinuingOperations: flow(
+    "operating_cash_flow",
+    2,
+  ),
+
+  // capital expenditure
+  PaymentsToAcquirePropertyPlantAndEquipment: flow("capex_cash", 1),
+  PaymentsToAcquireProductiveAssets: flow("capex_cash", 2),
+  CapitalExpendituresIncurredButNotYetPaid: flow("capex_unpaid", 1),
+  CapitalExpendituresIncurredButNotPaid: flow("capex_unpaid", 2),
+
+  // ---------------------------------------------------------------------------
+  // Candidate / inactive metrics
+  // These are mapped for tag-series capture, but not necessarily active factors.
+  // ---------------------------------------------------------------------------
+
+  // tax
+  IncomeTaxExpenseBenefit: flow("income_tax_expense", 99),
 
   // expenses
-  OperatingExpenses: {
-    metricKey: "operating_expenses",
-    factType: "flow",
-  },
-  ResearchAndDevelopmentExpense: {
-    metricKey: "research_and_development_expense",
-    factType: "flow",
-  },
-  SellingGeneralAndAdministrativeExpense: {
-    metricKey: "selling_general_and_administrative_expense",
-    factType: "flow",
-  },
-  CostOfGoodsAndServicesSold: {
-    metricKey: "cost_of_goods_sold",
-    factType: "flow",
-  },
-  CostOfGoodsSold: {
-    metricKey: "cost_of_goods_sold",
-    factType: "flow",
-  },
+  OperatingExpenses: flow("operating_expenses", 99),
+  ResearchAndDevelopmentExpense: flow("research_and_development_expense", 99),
+  SellingGeneralAndAdministrativeExpense: flow(
+    "selling_general_and_administrative_expense",
+    99,
+  ),
+  CostOfGoodsAndServicesSold: flow("cost_of_goods_sold", 99),
+  CostOfGoodsSold: flow("cost_of_goods_sold", 100),
 
   // balance sheet
-  Assets: {
-    metricKey: "assets",
-    factType: "instant",
-  },
-  Liabilities: {
-    metricKey: "liabilities",
-    factType: "instant",
-  },
-  StockholdersEquity: {
-    metricKey: "stockholders_equity",
-    factType: "instant",
-  },
-  StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest: {
-    metricKey: "stockholders_equity",
-    factType: "instant",
-  },
-  CashAndCashEquivalentsAtCarryingValue: {
-    metricKey: "cash_and_cash_equivalents",
-    factType: "instant",
-  },
-  LongTermDebtAndCapitalLeaseObligations: {
-    metricKey: "long_term_debt",
-    factType: "instant",
-  },
-  CommonStocksIncludingAdditionalPaidInCapital: {
-    metricKey: "common_stock_and_apic",
-    factType: "instant",
-  },
-  RetainedEarningsAccumulatedDeficit: {
-    metricKey: "retained_earnings",
-    factType: "instant",
-  },
+  Assets: instant("assets"),
+  Liabilities: instant("liabilities"),
+  StockholdersEquity: instant("stockholders_equity", 1),
+  StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest:
+    instant("stockholders_equity", 2),
+  CashAndCashEquivalentsAtCarryingValue: instant("cash_and_cash_equivalents"),
+  LongTermDebtAndCapitalLeaseObligations: instant("long_term_debt"),
+  CommonStocksIncludingAdditionalPaidInCapital: instant("common_stock_and_apic"),
+  RetainedEarningsAccumulatedDeficit: instant("retained_earnings"),
 
-  // cash flow
-
-  NetCashProvidedByUsedInInvestingActivities: {
-    metricKey: "investing_cash_flow",
-    factType: "flow",
-  },
-  NetCashProvidedByUsedInInvestingActivitiesContinuingOperations: {
-    metricKey: "investing_cash_flow",
-    factType: "flow",
-  },
-  NetCashProvidedByUsedInFinancingActivities: {
-    metricKey: "financing_cash_flow",
-    factType: "flow",
-  },
-  NetCashProvidedByUsedInFinancingActivitiesContinuingOperations: {
-    metricKey: "financing_cash_flow",
-    factType: "flow",
-  },
+  // cash flow candidates
+  NetCashProvidedByUsedInInvestingActivities: flow("investing_cash_flow", 99),
+  NetCashProvidedByUsedInInvestingActivitiesContinuingOperations: flow(
+    "investing_cash_flow",
+    100,
+  ),
+  NetCashProvidedByUsedInFinancingActivities: flow("financing_cash_flow", 99),
+  NetCashProvidedByUsedInFinancingActivitiesContinuingOperations: flow(
+    "financing_cash_flow",
+    100,
+  ),
 
   // dividends / shareholder return
-  PaymentsOfDividends: {
-    metricKey: "dividend_payments",
-    factType: "flow",
-  },
-  CommonStockDividendsPerShareDeclared: {
-    metricKey: "dividends_per_share",
-    factType: "per_share",
-  },
+  PaymentsOfDividends: flow("dividend_payments", 99),
+  CommonStockDividendsPerShareDeclared: perShare("dividends_per_share"),
 
   // other operating items
-  ShareBasedCompensation: {
-    metricKey: "share_based_compensation",
-    factType: "flow",
-  },
-  DepreciationDepletionAndAmortization: {
-    metricKey: "depreciation_depletion_and_amortization",
-    factType: "flow",
-  },
-  InterestExpense: {
-    metricKey: "interest_expense",
-    factType: "flow",
-  },
-  InterestIncomeExpenseNonoperatingNet: {
-    metricKey: "net_interest_nonoperating",
-    factType: "flow",
-  },
+  ShareBasedCompensation: flow("share_based_compensation", 99),
+  DepreciationDepletionAndAmortization: flow(
+    "depreciation_depletion_and_amortization",
+    99,
+  ),
+  InterestExpense: flow("interest_expense", 99),
+  InterestIncomeExpenseNonoperatingNet: flow("net_interest_nonoperating", 99),
 
   // eps
-  EarningsPerShareBasic: {
-    metricKey: "eps_basic",
-    factType: "per_share",
-  },
-  EarningsPerShareDiluted: {
-    metricKey: "eps_diluted",
-    factType: "per_share",
-  },
+  EarningsPerShareBasic: perShare("eps_basic", 1),
+  EarningsPerShareDiluted: perShare("eps_diluted", 1),
 
   // share counts
-  WeightedAverageNumberOfSharesOutstandingBasic: {
-    metricKey: "weighted_avg_shares_basic",
-    factType: "share_count",
-  },
-  WeightedAverageNumberOfDilutedSharesOutstanding: {
-    metricKey: "weighted_avg_shares_diluted",
-    factType: "share_count",
-  },
+  WeightedAverageNumberOfSharesOutstandingBasic: shareCount(
+    "weighted_avg_shares_basic",
+  ),
+  WeightedAverageNumberOfDilutedSharesOutstanding: shareCount(
+    "weighted_avg_shares_diluted",
+  ),
 
   // dei
-  EntityCommonStockSharesOutstanding: {
-    metricKey: "shares_outstanding",
-    factType: "instant",
-  },
-  CommonStockSharesOutstanding: {
-    metricKey: "shares_outstanding",
-    factType: "instant",
-  },
-  EntityPublicFloat: {
-    metricKey: "public_float",
-    factType: "instant",
-  },
+  EntityCommonStockSharesOutstanding: instant("shares_outstanding", 1),
+  CommonStockSharesOutstanding: instant("shares_outstanding", 2),
+  EntityPublicFloat: instant("public_float"),
 };

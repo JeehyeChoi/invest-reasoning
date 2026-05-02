@@ -1,4 +1,4 @@
-import { ingestCompanyFactsBulk } from "@/backend/services/sec/companyFacts/ingestCompanyFactsBulk";
+import { ingestCompanyFactsBulk } from "@/backend/services/sec/companyFacts/bulk/ingestCompanyFactsBulk";
 import type { SecBulkIngestWorkflowResult } from "./workflow.types";
 
 export async function runSecBulkIngestWorkflow(input: {
@@ -19,6 +19,7 @@ export async function runSecBulkIngestWorkflow(input: {
     newCount: result.newCount,
     sameSizeSkipCount: result.sameSizeSkipCount,
     changedSizeCount: result.changedSizeCount,
+    changedCiks: result.changedCiks,
 
     processedCount: result.processedCount,
     skippedEmptyFactsCount: result.skippedEmptyFactsCount,

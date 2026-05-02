@@ -11,6 +11,7 @@ export type SecBulkIngestWorkflowResult = {
   newCount: number;
   sameSizeSkipCount: number;
   changedSizeCount: number;
+  changedCiks: string[];
 
   processedCount: number;
   skippedEmptyFactsCount: number;
