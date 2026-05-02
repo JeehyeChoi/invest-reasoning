@@ -1,26 +1,7 @@
 {
-  "headlineTitle": "Growth",
+  "metricKey": "revenue",
   "chart": {
-    "type": "timeseries",
-    "metricKey": "revenue",
     "title": "Revenue Trend"
   },
-  "metricOrder": [
-    "yoy",
-    "qoq",
-    "consistency",
-    "acceleration",
-    "score"
-  ],
-  "metricLabels": {
-    "yoy": "YoY Growth",
-    "qoq": "QoQ Growth",
-    "consistency": "Consistency",
-    "acceleration": "Acceleration",
-    "score": "Composite Score"
-  },
-  "formula": {
-    "type": "weighted_sum",
-    "show": true
-  }
+  "description": "Revenue growth signal based on latest YoY, TTM growth, consistency, acceleration, and deviation from the 4-quarter average."
 }

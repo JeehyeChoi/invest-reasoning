@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS ticker_factor_metrics (
   factor TEXT NOT NULL,
   axis TEXT NOT NULL,
   metric_key TEXT NOT NULL,
-  model TEXT NOT NULL,
+  method TEXT NOT NULL,
 
   -- timing
   effective_date DATE,
@@ -57,8 +57,8 @@ CREATE TABLE IF NOT EXISTS ticker_factor_metrics (
       'narrative_implied'
     )),
 
-  CONSTRAINT ticker_factor_metrics_model_chk
-    CHECK (model IN (
+  CONSTRAINT ticker_factor_metrics_method_chk
+    CHECK (method IN (
       'heuristic',
       'quantitative',
       'modeling'
@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS ticker_factor_metrics (
       factor,
       axis,
       metric_key,
-      model,
+      method,
       effective_date
     )
 );

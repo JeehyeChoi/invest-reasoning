@@ -1,5 +1,5 @@
-import type { SecMetricKey } from "@/backend/schemas/sec/metrics";
-import type { TickerMetricSeries } from "@/backend/schemas/tickers/tickerMetricSeries";
+import type { SecMetricKey } from "@/shared/sec/metrics";
+import type { TickerMetricSeries } from "@/shared/tickers/tickerMetricSeries";
 
 export async function fetchTickerMetricSeries(
   ticker: string,

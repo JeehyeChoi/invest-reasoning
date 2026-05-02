@@ -1,4 +1,4 @@
-import type { TickerOverviewCompany } from "@/backend/schemas/tickers/tickerOverview";
+import type { TickerOverviewCompany } from "@/shared/tickers/tickerOverview";
 import { Field, Panel } from "@/features/tickers/components/TickerDetailPrimitives";
 import {
   formatDate,
@@ -13,6 +13,15 @@ function formatHeadquarters(company: TickerOverviewCompany | null): string {
   const full = [cityState, company.zip].filter(Boolean).join(" ").trim();
 
   return full || "-";
+}
+
+function formatLatestAnnualPeriod(company: TickerOverviewCompany | null): string {
+  const profile = company?.fiscalProfile;
+  if (!profile?.latestAnnualStart || !profile.latestAnnualEnd) {
+    return "-";
+  }
+  const fy = profile.latestFiscalYear ? `FY${profile.latestFiscalYear} ` : "";
+  return `${fy}(${profile.latestAnnualStart} → ${profile.latestAnnualEnd})`;
 }
 
 export function TickerHeaderPanel({
@@ -33,6 +42,7 @@ export function TickerHeaderPanel({
           label="Market Cap"
           value={formatMarketCap(company?.marketCap ?? null)}
         />
+        <Field label="Latest Annual Period" value={formatLatestAnnualPeriod(company)} />
         <Field label="CEO" value={company?.ceo ?? "-"} />
         <Field label="IPO Date" value={formatDate(company?.ipoDate)} />
         <Field

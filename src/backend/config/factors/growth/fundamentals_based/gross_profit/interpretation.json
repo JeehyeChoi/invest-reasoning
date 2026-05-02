@@ -1,0 +1,55 @@
+{
+  "version": "interpretation_v1",
+  "factor": "growth",
+  "axis": "fundamentals_based",
+  "metricKey": "gross_profit",
+  "source": {
+    "table": "sec_companyfact_metric_series_enriched",
+    "version": "enriched_v2",
+    "periodType": "quarter"
+  },
+  "signals": {
+    "latestGrowth": {
+      "enabled": true,
+      "source": "duration_adjusted_yoy"
+    },
+    "durableGrowth": {
+      "enabled": true,
+      "source": "duration_adjusted_ttm_yoy"
+    },
+    "consistency": {
+      "enabled": true,
+      "source": "duration_adjusted_yoy",
+      "lookback": 4,
+      "method": "positive_ratio"
+    },
+    "acceleration": {
+      "enabled": true,
+      "source": "duration_adjusted_yoy_delta"
+    },
+    "trendDeviation": {
+      "enabled": true,
+      "source": "duration_adjusted_val",
+      "reference": "duration_adjusted_rolling4_avg",
+      "method": "relative_deviation"
+    },
+    "profitabilityShift": {
+      "enabled": true,
+      "sources": {
+        "turnaround": "is_turnaround",
+        "lossNarrowing": "is_loss_narrowing",
+        "deterioration": "is_deterioration"
+      }
+    },
+    "coverage": {
+      "enabled": true,
+      "source": "duration_adjusted_yoy",
+      "lookback": 4,
+      "method": "valid_ratio"
+    }
+  },
+  "meta": {
+    "description": "Gross profit growth interpretation using enriched SEC companyfact metric series.",
+    "createdAt": "2026-04"
+  }
+}

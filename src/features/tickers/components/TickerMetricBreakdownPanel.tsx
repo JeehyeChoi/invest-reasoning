@@ -1,8 +1,10 @@
-import type { TickerOverviewFactorMetric } from "@/backend/schemas/tickers/tickerOverview";
+import type { TickerOverviewFactorMetric } from "@/shared/tickers/tickerOverview";
 import { Panel, Td, Th } from "@/features/tickers/components/TickerDetailPrimitives";
 import {
   formatLabel,
-  formatUnknownMetricValue,
+  formatPercentile,
+  formatSignalValue,
+  formatSignedSignalValue,
 } from "@/features/tickers/utils/formatters";
 
 type BreakdownRow = {
@@ -41,7 +43,7 @@ export function TickerMetricBreakdownPanel({
                   rows.map((row) => (
                     <tr key={row.key} className="bg-white">
                       <Td>{row.label}</Td>
-                      <Td>{formatUnknownMetricValue(row.value)}</Td>
+                      <Td>{String(row.value)}</Td>
                     </tr>
                   ))
                 ) : (
@@ -77,19 +79,87 @@ export function TickerMetricBreakdownPanel({
 function buildMetricBreakdownRows(
   metric: TickerOverviewFactorMetric | null,
 ): BreakdownRow[] {
-  if (!metric?.metrics) {
+  if (!metric?.headline) {
     return [];
   }
 
-  const metricOrder = metric.display?.metricOrder ?? Object.keys(metric.metrics);
-  const metricLabels = metric.display?.metricLabels ?? {};
+  const usPublicEquitiesPosition = metric.positions?.find(
+    (position) => position.comparisonSetType === "us_public_equities",
+  );
+  const sectorPosition = metric.positions?.find(
+    (position) => position.comparisonSetType === "sector",
+  );
 
-  return metricOrder
-    .filter((key) => key in metric.metrics!)
-    .map((key) => ({
-      key,
-      label: metricLabels[key] ?? formatLabel(key),
-      value: metric.metrics?.[key],
-    }));
+  return [
+    {
+      key: "growthRead",
+      label: "Growth Read",
+      value: metric.headline.interpretationLabel ?? "-",
+    },
+    {
+      key: "growthSummary",
+      label: "Growth Summary",
+      value: metric.headline.interpretationSummary ?? "-",
+    },
+    {
+      key: "latestGrowth",
+      label: "Latest Growth",
+      value: formatSignalValue(metric.headline.latestGrowthValue),
+    },
+    {
+      key: "durableGrowth",
+      label: "Durable Growth",
+      value: formatSignalValue(metric.headline.durableGrowthValue),
+    },
+    {
+      key: "consistency",
+      label: "Consistency",
+      value: formatSignalValue(metric.headline.consistencyValue),
+    },
+    {
+      key: "coverage",
+      label: "Coverage",
+      value: formatSignalValue(metric.headline.coverageValue),
+    },
+    {
+      key: "acceleration",
+      label: "Acceleration",
+      value: formatSignalValue(metric.headline.accelerationValue),
+    },
+    {
+      key: "trendDeviation",
+      label: "Trend Deviation",
+      value: formatSignalValue(metric.headline.trendDeviationValue),
+    },
+    {
+      key: "positionDate",
+      label: "Position Date",
+      value:
+        usPublicEquitiesPosition?.effectiveDate ??
+        sectorPosition?.effectiveDate ??
+        "-",
+    },
+    {
+      key: "usPublicEquitiesPercentile",
+      label: "US Equities Percentile",
+      value: formatPercentile(usPublicEquitiesPosition?.percentile ?? null),
+    },
+    {
+      key: "usPublicEquitiesDistance",
+      label: "US Equities Distance To Median",
+      value: formatSignedSignalValue(
+        usPublicEquitiesPosition?.distanceToMedian ?? null,
+      ),
+    },
+    {
+      key: "sectorPercentile",
+      label: "Sector Percentile",
+      value: formatPercentile(sectorPosition?.percentile ?? null),
+    },
+    {
+      key: "sectorDistance",
+      label: "Sector Distance To Median",
+      value: formatSignedSignalValue(sectorPosition?.distanceToMedian ?? null),
+    },
+  ];
 }
-

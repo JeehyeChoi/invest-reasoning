@@ -1,4 +1,4 @@
-import type { TickerMetricSeries } from "@/backend/schemas/tickers/tickerMetricSeries";
+import type { TickerMetricSeries } from "@/shared/tickers/tickerMetricSeries";
 
 export type ChartRange = "3Y" | "5Y" | "10Y" | "MAX";
 
@@ -72,6 +72,27 @@ export function formatDateRange(point: { start?: string | null; end: string }): 
   }
 
   return `${point.start} → ${point.end}`;
+}
+
+export function formatBuildSourceKind(value?: string | null): string {
+  switch (value) {
+    case "raw_direct":
+      return "Direct SEC fact";
+    case "raw_partial":
+      return "Partial SEC segment";
+    case "segment_merged":
+      return "Merged quarter segments";
+    case "other_merged":
+      return "Merged other flow";
+    case "cumulative_derived":
+      return "Derived from cumulative";
+    case "annual_derived":
+      return "Derived from annual";
+    case "formula_derived":
+      return "Derived from formula";
+    default:
+      return "Unknown source";
+  }
 }
 
 export function formatAxisValue(value: number): string {

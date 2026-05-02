@@ -1,9 +1,9 @@
-import type { TickerOverviewFactorMetric } from "@/backend/schemas/tickers/tickerOverview";
+import type { TickerOverviewFactorMetric } from "@/shared/tickers/tickerOverview";
 import { Panel, Td, Th } from "@/features/tickers/components/TickerDetailPrimitives";
 import {
   formatLabel,
-  formatModelLabel,
-  formatScore,
+  formatPercentile,
+  formatSignalValue,
 } from "@/features/tickers/utils/formatters";
 
 export function TickerAllFactorMetricsPanel({
@@ -16,23 +16,34 @@ export function TickerAllFactorMetricsPanel({
   onSelectMetric?: (metricKey: string) => void;
 }) {
   return (
-    <Panel title="All Factor Metrics">
+    <Panel title="Metric Signal Headlines">
       <div className="overflow-x-auto">
         <table className="min-w-full border-collapse text-sm">
           <thead>
             <tr className="bg-[#c0c0c0]">
-              <Th>Factor</Th>
-              <Th>Axis</Th>
               <Th>Metric</Th>
-              <Th>Model</Th>
-              <Th>Score</Th>
-              <Th>Effective</Th>
+              <Th>Read</Th>
+              <Th>Primary</Th>
+              <Th>Latest</Th>
+              <Th>Durable</Th>
+              <Th>Consistency</Th>
+              <Th>US Equities %ile</Th>
+              <Th>Sector %ile</Th>
+              <Th>Quality</Th>
             </tr>
           </thead>
           <tbody>
             {factorMetrics.length > 0 ? (
               factorMetrics.map((item, index) => {
                 const isSelected = item.metricKey === selectedMetricKey;
+                const headline = item.headline;
+                const usPublicEquitiesPosition = item.positions?.find(
+                  (position) =>
+                    position.comparisonSetType === "us_public_equities",
+                );
+                const sectorPosition = item.positions?.find(
+                  (position) => position.comparisonSetType === "sector",
+                );
 
                 return (
                   <tr
@@ -40,26 +51,33 @@ export function TickerAllFactorMetricsPanel({
                     className={isSelected ? "bg-[#ffffcc] cursor-pointer" : "bg-white cursor-pointer"}
                     onClick={() => onSelectMetric?.(item.metricKey)}
                   >
-                    <Td>{formatLabel(item.factor)}</Td>
-                    <Td>{formatLabel(item.axis)}</Td>
                     <Td>
                       <span className={isSelected ? "font-bold underline" : undefined}>
                         {formatLabel(item.metricKey)}
                       </span>
                     </Td>
-                    <Td>{formatModelLabel(item.model)}</Td>
+                    <Td>{headline?.interpretationLabel ?? "-"}</Td>
+                    <Td>{formatLabel(headline?.primarySignalKey ?? "-")}</Td>
+                    <Td>{formatSignalValue(headline?.latestGrowthValue ?? null)}</Td>
                     <Td>
                       <span className={isSelected ? "font-bold" : undefined}>
-                        {formatScore(item.score)}
+                        {formatSignalValue(headline?.durableGrowthValue ?? null)}
                       </span>
                     </Td>
-                    <Td>{item.effectiveDate ?? "-"}</Td>
+                    <Td>{formatSignalValue(headline?.consistencyValue ?? null)}</Td>
+                    <Td>
+                      {formatPercentile(
+                        usPublicEquitiesPosition?.percentile ?? null,
+                      )}
+                    </Td>
+                    <Td>{formatPercentile(sectorPosition?.percentile ?? null)}</Td>
+                    <Td>{formatLabel(headline?.dataQualityLevel ?? "-")}</Td>
                   </tr>
                 );
               })
             ) : (
               <tr className="bg-white">
-                <Td colSpan={6}>No factor metrics found.</Td>
+                <Td colSpan={9}>No signal headlines found.</Td>
               </tr>
             )}
           </tbody>

@@ -1,0 +1,7 @@
+{
+  "metricKey": "capex_incurred",
+  "chart": {
+    "title": "Incurred CapEx Trend"
+  },
+  "description": "Incurred CapEx signal placeholder for future investment-intensity analysis."
+}

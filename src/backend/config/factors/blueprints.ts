@@ -1,24 +1,41 @@
-import type { FactorKey, FactorScoreAxisKey } from "@/backend/schemas/factor";
-import type { SecMetricKey } from "@/backend/schemas/sec/metrics";
+import type { FactorKey, FactorScoreAxisKey } from "@/shared/factors/factors";
+import type { SecMetricKey } from "@/shared/sec/metrics";
 
 export type FactorBlueprintAxis = {
   metricKeys: SecMetricKey[];
   primaryMetricKey: SecMetricKey | null;
+  metricProfiles?: Partial<Record<SecMetricKey, FactorBlueprintMetricProfile>>;
+};
+
+export type FactorBlueprintMetricProfile = {
+  signProfile?: boolean;
 };
 
 export type FactorBlueprintMap = Partial<{
-  [factor in FactorKey]: {
-    fundamentals_based: FactorBlueprintAxis;
-    etf_implied: FactorBlueprintAxis;
-    narrative_implied: FactorBlueprintAxis;
-  };
+  [factor in FactorKey]: Record<FactorScoreAxisKey, FactorBlueprintAxis>;
 }>;
 
 export const FACTOR_BLUEPRINTS: FactorBlueprintMap = {
   growth: {
     fundamentals_based: {
-      metricKeys: ["revenue", "net_income", "operating_income", "gross_profit", "operating_cash_flow", "capex"],
+      metricKeys: [
+        "revenue",
+        "net_income",
+        "operating_income",
+        "gross_profit",
+        "operating_cash_flow",
+        "capex_cash",
+        "capex_incurred",
+      ],
       primaryMetricKey: "revenue",
+      metricProfiles: {
+        capex_cash: {
+          signProfile: true,
+        },
+        capex_incurred: {
+          signProfile: true,
+        },
+      },
     },
     etf_implied: {
       metricKeys: [],
@@ -31,8 +48,8 @@ export const FACTOR_BLUEPRINTS: FactorBlueprintMap = {
   },
   income: {
     fundamentals_based: {
-      metricKeys: ["dividends_per_share", "dividend_payments"],
-      primaryMetricKey: "dividends_per_share",
+      metricKeys: [],
+      primaryMetricKey: null,
     },
     etf_implied: {
       metricKeys: [],
@@ -45,8 +62,8 @@ export const FACTOR_BLUEPRINTS: FactorBlueprintMap = {
   },
   quality: {
     fundamentals_based: {
-      metricKeys: ["gross_profit", "operating_income", "stockholders_equity", "liabilities"],
-      primaryMetricKey: "operating_income",
+      metricKeys: [],
+      primaryMetricKey: null,
     },
     etf_implied: {
       metricKeys: [],
@@ -58,3 +75,23 @@ export const FACTOR_BLUEPRINTS: FactorBlueprintMap = {
     },
   },
 };
+
+export function getSecMetricKeysRequiringSignProfile(): SecMetricKey[] {
+  const metricKeys = new Set<SecMetricKey>();
+
+  for (const factorBlueprint of Object.values(FACTOR_BLUEPRINTS)) {
+    if (!factorBlueprint) continue;
+
+    for (const axisBlueprint of Object.values(factorBlueprint)) {
+      for (const [metricKey, profile] of Object.entries(
+        axisBlueprint.metricProfiles ?? {},
+      )) {
+        if (profile?.signProfile === true) {
+          metricKeys.add(metricKey as SecMetricKey);
+        }
+      }
+    }
+  }
+
+  return [...metricKeys];
+}

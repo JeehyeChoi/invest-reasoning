@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import type { TickerOverview } from "@/backend/schemas/tickers/tickerOverview";
+import type { TickerOverview } from "@/shared/tickers/tickerOverview";
 import {
   StatusRow,
   WindowFrame,

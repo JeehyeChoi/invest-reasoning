@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from "react";
 
-import type { TickerMetricSeries } from "@/backend/schemas/tickers/tickerMetricSeries";
+import type { TickerMetricSeries } from "@/shared/tickers/tickerMetricSeries";
 import {
   buildYearlyXAxisTicksFromTime,
   formatAxisValue,
+  formatBuildSourceKind,
   formatDateRange,
   formatQuarterLabel,
 } from "@/features/tickers/components/charts/chartUtils";
@@ -229,7 +230,7 @@ export function SimpleQuarterlyBarChart({
               x={Math.max(12, Math.min(width - 192, hoveredBar.centerX - 90))}
               y={28}
               width={180}
-              height={54}
+              height={68}
               fill="white"
               stroke="black"
               strokeWidth="1"
@@ -240,7 +241,7 @@ export function SimpleQuarterlyBarChart({
               fontSize="12"
               fill="black"
             >
-              {hoveredPoint.displayFrame ?? formatQuarterLabel(hoveredPoint.end)}
+              {formatQuarterLabel(hoveredPoint.end)}
             </text>
             <text
               x={Math.max(20, Math.min(width - 184, hoveredBar.centerX - 82))}
@@ -258,6 +259,14 @@ export function SimpleQuarterlyBarChart({
             >
               {formatAxisValue(hoveredPoint.val)}
             </text>
+            <text
+              x={Math.max(20, Math.min(width - 184, hoveredBar.centerX - 82))}
+              y={94}
+              fontSize="10"
+              fill="#374151"
+            >
+              {formatBuildSourceKind(hoveredPoint.buildSourceKind)}
+            </text>
           </g>
         )}
       </svg>
@@ -265,11 +274,11 @@ export function SimpleQuarterlyBarChart({
       <div className="mt-3 grid gap-1 text-xs sm:grid-cols-2 lg:grid-cols-4">
         <ChartStat
           label="Start"
-          value={first.displayFrame ?? formatQuarterLabel(first.end)}
+          value={formatQuarterLabel(first.end)}
         />
         <ChartStat
           label="Latest"
-          value={latest.displayFrame ?? formatQuarterLabel(latest.end)}
+          value={formatQuarterLabel(latest.end)}
         />
         <ChartStat label="Latest Value" value={formatAxisValue(latest.val)} />
         <ChartStat

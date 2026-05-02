@@ -1,4 +1,4 @@
-import type { TickerOverview } from "@/backend/schemas/tickers/tickerOverview";
+import type { TickerOverview } from "@/shared/tickers/tickerOverview";
 
 export async function fetchTickerOverview(
   ticker: string,

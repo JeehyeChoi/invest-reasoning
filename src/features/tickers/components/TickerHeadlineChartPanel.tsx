@@ -5,9 +5,9 @@ import { useEffect, useMemo, useState } from "react";
 import {
   isSecMetricKey,
   type SecMetricKey,
-} from "@/backend/schemas/sec/metrics";
-import type { TickerOverviewFactorMetric } from "@/backend/schemas/tickers/tickerOverview";
-import type { TickerMetricSeries } from "@/backend/schemas/tickers/tickerMetricSeries";
+} from "@/shared/sec/metrics";
+import type { TickerOverviewFactorMetric } from "@/shared/tickers/tickerOverview";
+import type { TickerMetricSeries } from "@/shared/tickers/tickerMetricSeries";
 import { Panel } from "@/features/tickers/components/TickerDetailPrimitives";
 import { SimpleQuarterlyBarChart } from "@/features/tickers/components/charts/SimpleQuarterlyBarChart";
 import { filterPointsByRange } from "@/features/tickers/components/charts/chartUtils";

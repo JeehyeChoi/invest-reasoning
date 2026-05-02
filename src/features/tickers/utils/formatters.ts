@@ -4,10 +4,11 @@ const AXIS_LABELS: Record<string, string> = {
   narrative_implied: "Narrative",
 };
 
-const MODEL_LABELS: Record<string, string> = {
+const METHOD_LABELS: Record<string, string> = {
   heuristic: "Heuristic",
   quantitative: "Quantitative",
   modeling: "Model-Based",
+  signal_headline: "Signal Headline",
 };
 
 export function formatLabel(key: string): string {
@@ -21,8 +22,8 @@ export function formatLabel(key: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export function formatModelLabel(key: string): string {
-  return MODEL_LABELS[key] ?? formatLabel(key);
+export function formatMethodLabel(key: string): string {
+  return METHOD_LABELS[key] ?? formatLabel(key);
 }
 
 export function formatMarketCap(value: number | null): string {
@@ -51,6 +52,37 @@ export function formatScore(value: number | null): string {
   }
 
   return value.toFixed(4);
+}
+
+export function formatSignalValue(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) {
+    return "-";
+  }
+
+  const abs = Math.abs(value);
+
+  if (abs <= 5) {
+    return `${(value * 100).toFixed(1)}%`;
+  }
+
+  return value.toFixed(2);
+}
+
+export function formatSignedSignalValue(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) {
+    return "-";
+  }
+
+  const formatted = formatSignalValue(Math.abs(value));
+  return `${value >= 0 ? "+" : "-"}${formatted}`;
+}
+
+export function formatPercentile(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) {
+    return "-";
+  }
+
+  return `${Math.round(value * 100)}th`;
 }
 
 export function formatUnknownMetricValue(value: unknown): string {

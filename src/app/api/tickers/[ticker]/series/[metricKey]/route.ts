@@ -4,7 +4,7 @@ import { getTickerMetricSeries } from "@/backend/services/tickers/getTickerMetri
 import {
   isSecMetricKey,
   type SecMetricKey,
-} from "@/backend/schemas/sec/metrics";
+} from "@/shared/sec/metrics";
 
 type RouteContext = {
   params: Promise<{ ticker: string; metricKey: string }>;

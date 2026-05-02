@@ -1,13 +1,11 @@
 import path from "node:path";
 import { promises as fs } from "node:fs";
 
-import type { FactorKey, FactorScoreAxisKey } from "@/backend/schemas/factor";
-import type { SecMetricKey } from "@/backend/schemas/sec/metrics";
+import type { FactorKey, FactorScoreAxisKey } from "@/shared/factors/factors";
+import type { FactorScoringMethod } from "@/shared/factors/methods";
+import type { SecMetricKey } from "@/shared/sec/metrics";
 
-export type FactorModelFamily =
-  | "heuristic"
-  | "quantitative"
-  | "modeling";
+export const ACTIVE_FACTOR_SCORING_METHOD: FactorScoringMethod = "heuristic";
 
 export type FactorConfigResolveInput = {
   factor: FactorKey;
@@ -15,10 +13,8 @@ export type FactorConfigResolveInput = {
   metricKey: SecMetricKey;
 };
 
-export const ACTIVE_FACTOR_MODEL: FactorModelFamily = "heuristic";
-
-export const FACTOR_MODEL_OVERRIDES: Partial<
-  Record<string, FactorModelFamily>
+export const FACTOR_SCORING_METHOD_OVERRIDES: Partial<
+  Record<string, FactorScoringMethod>
 > = {
   // "growth:fundamentals_based:revenue": "quantitative",
 };
@@ -27,16 +23,16 @@ function buildFactorOverrideKey(input: FactorConfigResolveInput): string {
   return `${input.factor}:${input.axis}:${input.metricKey}`;
 }
 
-export function resolveFactorModel(
+export function resolveFactorScoringMethod(
   input: FactorConfigResolveInput,
-): FactorModelFamily {
+): FactorScoringMethod {
   const key = buildFactorOverrideKey(input);
-  return FACTOR_MODEL_OVERRIDES[key] ?? ACTIVE_FACTOR_MODEL;
+  return FACTOR_SCORING_METHOD_OVERRIDES[key] ?? ACTIVE_FACTOR_SCORING_METHOD;
 }
 
 function buildFactorConfigPath(
   input: FactorConfigResolveInput,
-  model: FactorModelFamily,
+  method: FactorScoringMethod,
 ): string {
   return path.join(
     process.cwd(),
@@ -47,7 +43,7 @@ function buildFactorConfigPath(
     input.factor,
     input.axis,
     input.metricKey,
-    `${model}.json`,
+    `${method}.json`,
   );
 }
 
@@ -65,22 +61,92 @@ function buildFactorDisplayPath(input: FactorConfigResolveInput): string {
   );
 }
 
-export async function resolveFactorDisplay(input: FactorConfigResolveInput) {
-  const filePath = buildFactorDisplayPath(input);
-  const raw = await fs.readFile(filePath, "utf-8");
-
-  return JSON.parse(raw);
+function buildFactorAxisDisplayPath(input: FactorConfigResolveInput): string {
+  return path.join(
+    process.cwd(),
+    "src",
+    "backend",
+    "config",
+    "factors",
+    input.factor,
+    input.axis,
+    "display.common.json",
+  );
 }
 
-export async function resolveFactorConfigForModel(
+function isMissingFileError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as NodeJS.ErrnoException).code === "ENOENT"
+  );
+}
+
+async function readJsonIfExists(filePath: string) {
+  try {
+    const raw = await fs.readFile(filePath, "utf-8");
+    return JSON.parse(raw);
+  } catch (error) {
+    if (isMissingFileError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+function mergeFactorDisplay(commonDisplay: any, metricDisplay: any) {
+  const merged = {
+    ...(commonDisplay ?? {}),
+    ...(metricDisplay ?? {}),
+    chart: {
+      ...(commonDisplay?.chart ?? {}),
+      ...(metricDisplay?.chart ?? {}),
+    },
+    signalLabels: {
+      ...(commonDisplay?.signalLabels ?? {}),
+      ...(metricDisplay?.signalLabels ?? {}),
+    },
+    baselineLabels: {
+      ...(commonDisplay?.baselineLabels ?? {}),
+      ...(metricDisplay?.baselineLabels ?? {}),
+    },
+  };
+
+  return {
+    ...merged,
+    // Temporary compatibility for ticker detail panels while the UI migrates
+    // from score metrics to interpretation signals.
+    metricOrder: merged.metricOrder ?? merged.signalOrder ?? [],
+    metricLabels: merged.metricLabels ?? merged.signalLabels ?? {},
+  };
+}
+
+export async function resolveFactorDisplay(input: FactorConfigResolveInput) {
+  const [commonDisplay, metricDisplay] = await Promise.all([
+    readJsonIfExists(buildFactorAxisDisplayPath(input)),
+    readJsonIfExists(buildFactorDisplayPath(input)),
+  ]);
+
+  if (!commonDisplay && !metricDisplay) {
+    throw new Error(
+      `Factor display config not found: ${input.factor}/${input.axis}/${input.metricKey}`,
+    );
+  }
+
+  return mergeFactorDisplay(commonDisplay, metricDisplay);
+}
+
+export async function resolveFactorConfigForMethod(
   input: FactorConfigResolveInput,
-  model: FactorModelFamily,
+  method: FactorScoringMethod,
 ) {
-  const filePath = buildFactorConfigPath(input, model);
+  const filePath = buildFactorConfigPath(input, method);
   const raw = await fs.readFile(filePath, "utf-8");
 
   return {
-    model,
+    method,
     config: JSON.parse(raw),
   };
 }
@@ -88,13 +154,13 @@ export async function resolveFactorConfigForModel(
 export async function resolveFactorConfig(
   input: FactorConfigResolveInput,
 ) {
-  const model = resolveFactorModel(input);
-  const filePath = buildFactorConfigPath(input, model);
+  const method = resolveFactorScoringMethod(input);
+  const filePath = buildFactorConfigPath(input, method);
 
   const raw = await fs.readFile(filePath, "utf-8");
 
   return {
-    model,
+    method,
     config: JSON.parse(raw),
   };
 }
