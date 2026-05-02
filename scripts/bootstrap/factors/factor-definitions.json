@@ -4,7 +4,7 @@
     "name": "Growth",
     "category": "style",
     "description": "Exposure to companies priced or perceived for future growth.",
-    "interpretation_hint": "Higher score suggests stronger sensitivity to growth expectations and long-duration equity behavior.",
+    "interpretation_hint": "Stronger signal suggests stronger sensitivity to growth expectations and long-duration equity behavior.",
     "polarity": "pro_risk",
     "is_active": true,
     "display_order": 10
@@ -14,7 +14,7 @@
     "name": "Value",
     "category": "style",
     "description": "Exposure to companies associated with lower valuation and more mature earnings profiles.",
-    "interpretation_hint": "Higher score suggests stronger alignment with value-oriented market behavior.",
+    "interpretation_hint": "Stronger signal suggests stronger alignment with value-oriented market behavior.",
     "polarity": "defensive",
     "is_active": true,
     "display_order": 20
@@ -24,7 +24,7 @@
     "name": "Quality",
     "category": "style",
     "description": "Exposure to companies perceived as having durable earnings, resilient margins, or stronger balance-sheet quality.",
-    "interpretation_hint": "Higher score suggests stronger alignment with quality-style market behavior.",
+    "interpretation_hint": "Stronger signal suggests stronger alignment with quality-style market behavior.",
     "polarity": "defensive",
     "is_active": true,
     "display_order": 30
@@ -34,7 +34,7 @@
     "name": "Income",
     "category": "style",
     "description": "Exposure to companies associated with dividend yield or income-oriented ownership.",
-    "interpretation_hint": "Higher score suggests greater sensitivity to income-seeking investor behavior.",
+    "interpretation_hint": "Stronger signal suggests greater sensitivity to income-seeking investor behavior.",
     "polarity": "defensive",
     "is_active": true,
     "display_order": 40
@@ -44,7 +44,7 @@
     "name": "Size",
     "category": "style",
     "description": "Exposure related to company size, typically used to distinguish large-cap from smaller-cap behavior.",
-    "interpretation_hint": "Interpret score together with underlying size tags or size-linked methodology.",
+    "interpretation_hint": "Interpret the signal together with underlying size tags or size-linked methodology.",
     "polarity": "neutral",
     "is_active": true,
     "display_order": 50
@@ -54,7 +54,7 @@
     "name": "Momentum",
     "category": "style",
     "description": "Exposure to recent trend-following or price-strength behavior.",
-    "interpretation_hint": "Higher score suggests stronger sensitivity to momentum-style market regimes.",
+    "interpretation_hint": "Stronger signal suggests stronger sensitivity to momentum-style market regimes.",
     "polarity": "pro_risk",
     "is_active": true,
     "display_order": 60
@@ -64,7 +64,7 @@
     "name": "High Beta",
     "category": "risk",
     "description": "Exposure to equities that tend to move more aggressively than the broader market.",
-    "interpretation_hint": "Higher score suggests stronger participation in high-beta market moves.",
+    "interpretation_hint": "Stronger signal suggests stronger participation in high-beta market moves.",
     "polarity": "pro_risk",
     "is_active": true,
     "display_order": 70
@@ -74,7 +74,7 @@
     "name": "Low Volatility",
     "category": "risk",
     "description": "Exposure to equities associated with relatively lower volatility or more stable trading profiles.",
-    "interpretation_hint": "Higher score suggests stronger alignment with low-volatility behavior.",
+    "interpretation_hint": "Stronger signal suggests stronger alignment with low-volatility behavior.",
     "polarity": "defensive",
     "is_active": true,
     "display_order": 80
@@ -84,7 +84,7 @@
     "name": "Defensive",
     "category": "cycle",
     "description": "Exposure to businesses that tend to be more resilient during economic slowdowns.",
-    "interpretation_hint": "Higher score suggests stronger resilience-oriented or downside-protective behavior.",
+    "interpretation_hint": "Stronger signal suggests stronger resilience-oriented or downside-protective behavior.",
     "polarity": "defensive",
     "is_active": true,
     "display_order": 90
@@ -94,7 +94,7 @@
     "name": "Cyclical",
     "category": "cycle",
     "description": "Exposure to businesses that tend to perform in line with economic expansion and demand sensitivity.",
-    "interpretation_hint": "Higher score suggests stronger sensitivity to the economic cycle.",
+    "interpretation_hint": "Stronger signal suggests stronger sensitivity to the economic cycle.",
     "polarity": "pro_risk",
     "is_active": true,
     "display_order": 100
@@ -104,7 +104,7 @@
     "name": "Consumer Strength",
     "category": "cycle",
     "description": "Exposure to consumer demand, discretionary spending, or household balance-sheet strength.",
-    "interpretation_hint": "Higher score suggests stronger linkage to consumer-led economic strength.",
+    "interpretation_hint": "Stronger signal suggests stronger linkage to consumer-led economic strength.",
     "polarity": "pro_risk",
     "is_active": true,
     "display_order": 110
@@ -114,7 +114,7 @@
     "name": "Capex Cycle",
     "category": "cycle",
     "description": "Exposure to capital spending, industrial investment, or infrastructure buildout cycles.",
-    "interpretation_hint": "Higher score suggests stronger linkage to business investment and capex activity.",
+    "interpretation_hint": "Stronger signal suggests stronger linkage to business investment and capex activity.",
     "polarity": "pro_risk",
     "is_active": true,
     "display_order": 120
@@ -124,7 +124,7 @@
     "name": "Rate Sensitive",
     "category": "macro",
     "description": "Exposure to changes in interest-rate expectations and discount-rate sensitivity.",
-    "interpretation_hint": "Higher score suggests stronger sensitivity to rising or falling interest-rate regimes.",
+    "interpretation_hint": "Stronger signal suggests stronger sensitivity to rising or falling interest-rate regimes.",
     "polarity": "rate_linked",
     "is_active": true,
     "display_order": 130
@@ -134,7 +134,7 @@
     "name": "Duration Sensitive",
     "category": "macro",
     "description": "Exposure to long-duration equity behavior, often linked to future cash-flow discounting.",
-    "interpretation_hint": "Higher score suggests stronger reaction to changes in long-term yields and duration repricing.",
+    "interpretation_hint": "Stronger signal suggests stronger reaction to changes in long-term yields and duration repricing.",
     "polarity": "rate_linked",
     "is_active": true,
     "display_order": 140
@@ -144,7 +144,7 @@
     "name": "Liquidity Sensitive",
     "category": "macro",
     "description": "Exposure to changes in financial conditions, liquidity, and broad market risk appetite.",
-    "interpretation_hint": "Higher score suggests stronger dependence on abundant liquidity and easier financial conditions.",
+    "interpretation_hint": "Stronger signal suggests stronger dependence on abundant liquidity and easier financial conditions.",
     "polarity": "pro_risk",
     "is_active": true,
     "display_order": 150
@@ -154,7 +154,7 @@
     "name": "Inflation Hedge",
     "category": "macro",
     "description": "Exposure to businesses that may benefit from inflation, pricing power, or hard-asset linkage.",
-    "interpretation_hint": "Higher score suggests stronger inflation-linked protection or pricing-power exposure.",
+    "interpretation_hint": "Stronger signal suggests stronger inflation-linked protection or pricing-power exposure.",
     "polarity": "inflation_linked",
     "is_active": true,
     "display_order": 160
@@ -164,7 +164,7 @@
     "name": "Commodity Linked",
     "category": "macro",
     "description": "Exposure to commodity prices, extraction, processing, or commodity-sensitive end markets.",
-    "interpretation_hint": "Higher score suggests stronger dependence on commodity price cycles.",
+    "interpretation_hint": "Stronger signal suggests stronger dependence on commodity price cycles.",
     "polarity": "commodity_linked",
     "is_active": true,
     "display_order": 170
@@ -174,7 +174,7 @@
     "name": "Energy Linked",
     "category": "macro",
     "description": "Exposure to oil, gas, power, or broader energy-system dynamics.",
-    "interpretation_hint": "Higher score suggests stronger linkage to energy markets and energy security themes.",
+    "interpretation_hint": "Stronger signal suggests stronger linkage to energy markets and energy security themes.",
     "polarity": "commodity_linked",
     "is_active": true,
     "display_order": 180
@@ -184,7 +184,7 @@
     "name": "China Exposure",
     "category": "geopolitics",
     "description": "Exposure to Chinese demand, supply chains, market access, or geopolitical dependence involving China.",
-    "interpretation_hint": "Higher score suggests stronger sensitivity to China-linked economic and geopolitical developments.",
+    "interpretation_hint": "Stronger signal suggests stronger sensitivity to China-linked economic and geopolitical developments.",
     "polarity": "geopolitical",
     "is_active": true,
     "display_order": 190
@@ -194,7 +194,7 @@
     "name": "Reshoring & Defense",
     "category": "geopolitics",
     "description": "Exposure to industrial reshoring, national security spending, and defense-oriented strategic investment.",
-    "interpretation_hint": "Higher score suggests stronger alignment with defense spending, industrial policy, or domestic supply-chain rebuilding.",
+    "interpretation_hint": "Stronger signal suggests stronger alignment with defense spending, industrial policy, or domestic supply-chain rebuilding.",
     "polarity": "geopolitical",
     "is_active": true,
     "display_order": 200

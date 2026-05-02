@@ -1,51 +1,15 @@
 import path from "node:path";
 import { promises as fs } from "node:fs";
 
-import type { FactorKey, FactorScoreAxisKey } from "@/shared/factors/factors";
-import type { FactorScoringMethod } from "@/shared/factors/methods";
+import type { FactorKey } from "@/shared/factors/factors";
+import type { FactorAxisKey } from "@/shared/factors/axes";
 import type { SecMetricKey } from "@/shared/sec/metrics";
-
-export const ACTIVE_FACTOR_SCORING_METHOD: FactorScoringMethod = "heuristic";
 
 export type FactorConfigResolveInput = {
   factor: FactorKey;
-  axis: FactorScoreAxisKey;
+  axis: FactorAxisKey;
   metricKey: SecMetricKey;
 };
-
-export const FACTOR_SCORING_METHOD_OVERRIDES: Partial<
-  Record<string, FactorScoringMethod>
-> = {
-  // "growth:fundamentals_based:revenue": "quantitative",
-};
-
-function buildFactorOverrideKey(input: FactorConfigResolveInput): string {
-  return `${input.factor}:${input.axis}:${input.metricKey}`;
-}
-
-export function resolveFactorScoringMethod(
-  input: FactorConfigResolveInput,
-): FactorScoringMethod {
-  const key = buildFactorOverrideKey(input);
-  return FACTOR_SCORING_METHOD_OVERRIDES[key] ?? ACTIVE_FACTOR_SCORING_METHOD;
-}
-
-function buildFactorConfigPath(
-  input: FactorConfigResolveInput,
-  method: FactorScoringMethod,
-): string {
-  return path.join(
-    process.cwd(),
-    "src",
-    "backend",
-    "config",
-    "factors",
-    input.factor,
-    input.axis,
-    input.metricKey,
-    `${method}.json`,
-  );
-}
 
 function buildFactorDisplayPath(input: FactorConfigResolveInput): string {
   return path.join(
@@ -117,7 +81,7 @@ function mergeFactorDisplay(commonDisplay: any, metricDisplay: any) {
   return {
     ...merged,
     // Temporary compatibility for ticker detail panels while the UI migrates
-    // from score metrics to interpretation signals.
+    // from legacy metric labels to interpretation signals.
     metricOrder: merged.metricOrder ?? merged.signalOrder ?? [],
     metricLabels: merged.metricLabels ?? merged.signalLabels ?? {},
   };
@@ -136,31 +100,4 @@ export async function resolveFactorDisplay(input: FactorConfigResolveInput) {
   }
 
   return mergeFactorDisplay(commonDisplay, metricDisplay);
-}
-
-export async function resolveFactorConfigForMethod(
-  input: FactorConfigResolveInput,
-  method: FactorScoringMethod,
-) {
-  const filePath = buildFactorConfigPath(input, method);
-  const raw = await fs.readFile(filePath, "utf-8");
-
-  return {
-    method,
-    config: JSON.parse(raw),
-  };
-}
-
-export async function resolveFactorConfig(
-  input: FactorConfigResolveInput,
-) {
-  const method = resolveFactorScoringMethod(input);
-  const filePath = buildFactorConfigPath(input, method);
-
-  const raw = await fs.readFile(filePath, "utf-8");
-
-  return {
-    method,
-    config: JSON.parse(raw),
-  };
 }

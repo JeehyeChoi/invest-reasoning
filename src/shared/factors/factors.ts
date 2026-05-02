@@ -1,7 +1,7 @@
 /**
  * Source of truth:
  * - factor keys: scripts/bootstrap/factors/factor-definitions.json
- * - factor score axes: db/factor_score_axis_definitions.sql
+ * - factor axes: src/shared/factors/axes.ts
  * - metric signal storage: db/ticker_factor_metric_signals.sql
  * - metric baseline storage: db/ticker_factor_metric_baselines.sql
  * - metric relative-position storage: db/ticker_factor_metric_signal_positions.sql
@@ -31,11 +31,3 @@ export const FACTOR_KEYS = [
 ] as const;
 
 export type FactorKey = (typeof FACTOR_KEYS)[number];
-
-export const FACTOR_SCORE_AXIS_KEYS = [
-  "fundamentals_based",
-  "etf_implied",
-  "narrative_implied",
-] as const;
-
-export type FactorScoreAxisKey = (typeof FACTOR_SCORE_AXIS_KEYS)[number];

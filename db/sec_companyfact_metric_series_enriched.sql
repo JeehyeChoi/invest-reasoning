@@ -82,7 +82,7 @@ ON sec_companyfact_metric_series_enriched (cik, metric_key, "end" DESC);
 CREATE INDEX IF NOT EXISTS idx_enriched_latest
 ON sec_companyfact_metric_series_enriched (ticker, metric_key, period_type, "end" DESC);
 
--- 4️⃣ 배치 scoring (metric 단위 처리)
+-- Batch processing (metric-level)
 CREATE INDEX IF NOT EXISTS idx_enriched_metric_period_end
 ON sec_companyfact_metric_series_enriched (metric_key, period_type, "end" DESC);
 

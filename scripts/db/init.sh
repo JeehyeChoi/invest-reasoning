@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
-if [ -f .env.local ]; then
+if [ -f .env.local.psql ]; then
   set -a
-  source .env.local
+  source .env.local.psql
   set +a
 fi
 
@@ -19,7 +19,7 @@ psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/universes.sql"
 
 psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/tag_definitions.sql"
 psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/factor_definitions.sql"
-psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/factor_score_axis_definitions.sql"
+psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/factor_axis_definitions.sql"
 
 psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/sec_bulk_ingest_state.sql"
 
@@ -35,12 +35,13 @@ psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/sec_companyfact_tag_series.sql"
 psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/sec_companyfact_metric_series.sql"
 psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/sec_companyfact_metric_series_enriched.sql"
 
-psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/ticker_factor_metrics.sql"
 psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/ticker_factor_metric_signals.sql"
 psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/ticker_factor_metric_baselines.sql"
 psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/ticker_factor_metric_signal_positions.sql"
-psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/ticker_factor_metric_signal_headlines.sql"
+psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/ticker_factor_metric_headlines.sql"
+psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/ticker_factor_metric_macro_contrasts.sql"
 psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/ticker_factor_metric_clusters.sql"
+psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/ticker_metric_series_reliability.sql"
 
 psql -U "$DB_OWNER" -d "$DB_NAME" -f "./db/fred_macro_series_observations.sql"
 

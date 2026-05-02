@@ -24,7 +24,7 @@ create index if not exists model_versions_is_active_idx
   on model_versions (is_active);
 
 comment on table model_versions is
-  'Registry of model and scoring logic versions used across tag inference, factor scoring, and scenario analysis.';
+  'Registry of model and calculation logic versions used across tag inference, factor metric signals, and scenario analysis.';
 
 comment on column model_versions.key is
   'Stable machine-readable identifier for the model version.';
@@ -33,7 +33,7 @@ comment on column model_versions.name is
   'Human-readable model version name.';
 
 comment on column model_versions.model_type is
-  'High-level model family, such as factor_scoring, tag_inference, or scenario_model.';
+  'High-level model family, such as factor_signal, tag_inference, or scenario_model.';
 
 comment on column model_versions.description is
   'Free-text explanation of what the model version does or how it differs from others.';

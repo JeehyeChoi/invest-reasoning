@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS public.ticker_factor_metric_signal_positions (
   id BIGSERIAL PRIMARY KEY,
 
   ticker TEXT NOT NULL,
+  cik TEXT NOT NULL,
 
   factor TEXT NOT NULL,
   axis TEXT NOT NULL,
@@ -25,7 +26,7 @@ CREATE TABLE IF NOT EXISTS public.ticker_factor_metric_signal_positions (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
   CONSTRAINT uq_ticker_factor_metric_signal_positions UNIQUE (
-    ticker,
+    cik,
     factor,
     axis,
     metric_key,
@@ -50,6 +51,7 @@ CREATE TABLE IF NOT EXISTS public.ticker_factor_metric_signal_positions (
 
 CREATE INDEX IF NOT EXISTS idx_tfmsp_lookup
 ON public.ticker_factor_metric_signal_positions (
+  cik,
   ticker,
   factor,
   axis,
@@ -66,6 +68,15 @@ ON public.ticker_factor_metric_signal_positions (
   metric_key,
   signal_key,
   effective_date DESC
+);
+
+CREATE INDEX IF NOT EXISTS idx_tfmsp_ticker_lookup
+ON public.ticker_factor_metric_signal_positions (
+  ticker,
+  factor,
+  axis,
+  metric_key,
+  signal_key
 );
 
 CREATE INDEX IF NOT EXISTS idx_tfmsp_percentile
