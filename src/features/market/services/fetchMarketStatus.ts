@@ -1,5 +1,5 @@
 export type MarketStatusResponse = {
-  state: "holiday" | "weekend" | "preopen" | "open" | "closed";
+  state: "holiday" | "weekend" | "preopen" | "open" | "early_close" | "closed";
   label: string;
   nowNy: string | null;
 };

@@ -1,15 +1,17 @@
 // backend/services/market/getUsMarketHolidays.ts
 
-import { fetchFmpUsMarketHolidays } from "@/backend/clients/fmp";
+import {
+  getNyseFullHolidayDates,
+  getNyseMarketCalendarDay,
+} from "@/backend/services/market/nyseMarketCalendar";
 
-type HolidayCache = {
-  fetchedAtYmd: string;
-  holidays: Set<string>;
-};
-
-export type UsMarketState = "holiday" | "weekend" | "preopen" | "open" | "closed";
-
-let holidayCache: HolidayCache | null = null;
+export type UsMarketState =
+  | "holiday"
+  | "weekend"
+  | "preopen"
+  | "open"
+  | "early_close"
+  | "closed";
 
 function getNewYorkNowParts(date: Date = new Date()) {
   const formatter = new Intl.DateTimeFormat("en-US", {
@@ -52,26 +54,7 @@ function isWeekend(weekday: string): boolean {
 }
 
 export async function getUsMarketHolidays(): Promise<Set<string>> {
-  const { ymd } = getNewYorkNowParts();
-
-  if (holidayCache && holidayCache.fetchedAtYmd === ymd) {
-    return holidayCache.holidays;
-  }
-
-  const json = await fetchFmpUsMarketHolidays();
-
-  const holidays = new Set(
-    json
-      .map((item) => item.date)
-      .filter((date): date is string => Boolean(date))
-  );
-
-  holidayCache = {
-    fetchedAtYmd: ymd,
-    holidays,
-  };
-
-  return holidays;
+  return getNyseFullHolidayDates();
 }
 
 export async function getUsMarketState(): Promise<{
@@ -80,12 +63,12 @@ export async function getUsMarketState(): Promise<{
   nowNy: string;
 }> {
   const { ymd, weekday, minutesSinceMidnight, nowNy } = getNewYorkNowParts();
-  const holidays = await getUsMarketHolidays();
+  const calendarDay = getNyseMarketCalendarDay(ymd);
 
-  if (holidays.has(ymd)) {
+  if (calendarDay?.kind === "closed") {
     return {
       state: "holiday",
-      label: "Market is closed today",
+      label: `Market is closed today (${calendarDay.name})`,
       nowNy,
     };
   }
@@ -99,27 +82,35 @@ export async function getUsMarketState(): Promise<{
   }
 
   const openMinutes = 9 * 60 + 30;
-  const closeMinutes = 16 * 60;
+  const regularCloseMinutes = 16 * 60;
+  const isEarlyClose = calendarDay?.kind === "early_close";
+  const closeMinutes = isEarlyClose ? 13 * 60 : regularCloseMinutes;
 
   if (minutesSinceMidnight < openMinutes) {
     return {
       state: "preopen",
-      label: "Market opens soon",
+      label: isEarlyClose
+        ? `Market opens soon; early close at 1:00 PM ET (${calendarDay.name})`
+        : "Market opens soon",
       nowNy,
     };
   }
 
   if (minutesSinceMidnight < closeMinutes) {
     return {
-      state: "open",
-      label: "Market is open",
+      state: isEarlyClose ? "early_close" : "open",
+      label: isEarlyClose
+        ? `Market is open; early close at 1:00 PM ET (${calendarDay.name})`
+        : "Market is open",
       nowNy,
     };
   }
 
   return {
     state: "closed",
-    label: "Market is closed",
+    label: isEarlyClose
+      ? `Market closed early today at 1:00 PM ET (${calendarDay.name})`
+      : "Market is closed",
     nowNy,
   };
 }
