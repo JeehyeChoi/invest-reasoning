@@ -1,0 +1,7 @@
+{
+  "metricKey": "operating_cash_flow",
+  "chart": {
+    "title": "Operating Cash Flow CapEx Support"
+  },
+  "description": "Operating cash flow support signal for the CapEx cycle based on ramp, acceleration, and trend stretch."
+}

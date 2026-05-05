@@ -14,14 +14,38 @@ const match = source.match(
   /export\s+const\s+FACTOR_BLUEPRINTS\s*:\s*FactorBlueprintMap\s*=\s*({[\s\S]*?});/
 );
 
-if (!match) process.exit(1);
+if (!match) {
+  console.error("FACTOR_BLUEPRINTS object literal not found");
+  process.exit(1);
+}
 
 const objectLiteral = match[1];
 
-const sandbox = {};
+const emptyAxisBlueprint = {
+  metricKeys: [],
+  primaryMetricKey: null,
+};
+const emptyFactorBlueprint = {
+  fundamentals_based: emptyAxisBlueprint,
+  etf_implied: emptyAxisBlueprint,
+  narrative_implied: emptyAxisBlueprint,
+};
+
+const sandbox = {
+  blueprints: undefined,
+  EMPTY_FACTOR_AXIS_BLUEPRINT: emptyAxisBlueprint,
+  EMPTY_FACTOR_BLUEPRINT: emptyFactorBlueprint,
+};
 vm.createContext(sandbox);
 
-vm.runInContext(`blueprints = ${objectLiteral}`, sandbox);
+try {
+  vm.runInContext(`blueprints = ${objectLiteral}`, sandbox);
+} catch (error) {
+  console.error(
+    `Unable to evaluate FACTOR_BLUEPRINTS object literal: ${error.message}`,
+  );
+  process.exit(1);
+}
 
 const blueprints = sandbox.blueprints;
 

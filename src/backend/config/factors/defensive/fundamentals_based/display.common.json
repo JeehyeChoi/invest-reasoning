@@ -1,0 +1,27 @@
+{
+  "headlineTitle": "Defensive",
+  "chart": {
+    "type": "timeseries"
+  },
+  "featureOrder": [
+    "defensiveStability",
+    "defensiveBufferTrend",
+    "defensiveShockAbsorption",
+    "defensiveBurdenRelief",
+    "defensiveBurdenTrendRelief",
+    "defensiveBurdenContractionConsistency"
+  ],
+  "baselineLabels": {
+    "sectorPercentile": "Sector Percentile",
+    "sp500Percentile": "S&P 500 Percentile",
+    "excessVsUsNominalGdp": "Excess vs US Nominal GDP"
+  },
+  "featureLabels": {
+    "defensiveStability": "Defensive Stability",
+    "defensiveBufferTrend": "Buffer Trend",
+    "defensiveShockAbsorption": "Shock Absorption",
+    "defensiveBurdenRelief": "Burden Relief",
+    "defensiveBurdenTrendRelief": "Burden Trend Relief",
+    "defensiveBurdenContractionConsistency": "Burden Contraction Consistency"
+  }
+}

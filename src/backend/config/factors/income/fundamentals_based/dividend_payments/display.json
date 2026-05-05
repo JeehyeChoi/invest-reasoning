@@ -1,0 +1,7 @@
+{
+  "metricKey": "dividend_payments",
+  "chart": {
+    "title": "Dividend Payments"
+  },
+  "description": "Income signal based on distribution consistency, trend support, and distribution momentum."
+}

@@ -1,0 +1,7 @@
+{
+  "metricKey": "capex_cash",
+  "chart": {
+    "title": "Cash CapEx Cycle"
+  },
+  "description": "Cash CapEx cycle signal based on ramp intensity, acceleration, and trend stretch."
+}

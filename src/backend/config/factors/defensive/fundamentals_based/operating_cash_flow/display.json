@@ -1,0 +1,7 @@
+{
+  "metricKey": "operating_cash_flow",
+  "chart": {
+    "title": "Operating Cash Flow Resilience"
+  },
+  "description": "Defensive signal based on cash-flow stability, trend support, and shock absorption."
+}

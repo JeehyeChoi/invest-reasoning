@@ -62,7 +62,7 @@ create_file_if_missing "${METRIC_CONFIG_DIR}/interpretation.json"
 
 echo
 echo "Creating checklist..."
-sh ./scripts/factors/create-factor-metric-checklist.sh "$FACTOR" "$METRIC_KEY"
+bash ./scripts/factors/create-factor-metric-checklist.sh "$FACTOR" "$METRIC_KEY"
 
 echo
 echo "========================================"
@@ -79,6 +79,7 @@ echo "  - ${METRIC_CONFIG_DIR}"
 
 echo
 echo "Next:"
-echo "  1) Fill display.json and interpretation.json using revenue as reference"
-echo "  2) Register schema/config points"
-echo "  3) Verify ticker factor metric signals pipeline output"
+echo "  1) Fill display.json and feature mapping config (interpretation.json)"
+echo "  2) Give every feature method/valueType/comparison/macroContrast/clustering metadata"
+echo "  3) Register schema/config points and blueprint membership"
+echo "  4) Run feature outputs and factor signals, then regenerate the checklist"

@@ -3,25 +3,21 @@
   "chart": {
     "type": "timeseries"
   },
-  "signalOrder": [
+  "featureOrder": [
     "latestGrowth",
     "durableGrowth",
-    "consistency",
     "acceleration",
-    "trendDeviation",
-    "profitabilityShift"
+    "turnaroundMomentum"
   ],
-  "signalLabels": {
-    "latestGrowth": "Latest YoY Growth",
-    "durableGrowth": "TTM YoY Growth",
-    "consistency": "Growth Consistency",
-    "acceleration": "Growth Acceleration",
-    "trendDeviation": "Deviation vs 4Q Average",
-    "profitabilityShift": "Profitability Shift"
-  },
   "baselineLabels": {
     "sectorPercentile": "Sector Percentile",
     "sp500Percentile": "S&P 500 Percentile",
     "excessVsUsNominalGdp": "Excess vs US Nominal GDP"
+  },
+  "featureLabels": {
+    "latestGrowth": "Latest YoY Growth",
+    "durableGrowth": "TTM YoY Growth",
+    "acceleration": "Growth Acceleration",
+    "turnaroundMomentum": "Turnaround Momentum"
   }
 }

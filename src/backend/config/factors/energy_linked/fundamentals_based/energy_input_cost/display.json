@@ -1,0 +1,7 @@
+{
+  "metricKey": "energy_input_cost",
+  "chart": {
+    "title": "Energy Input Cost"
+  },
+  "description": "Energy-linked cost pressure signal based on purchased oil, gas, natural gas, fuel, and petroleum operating expense."
+}

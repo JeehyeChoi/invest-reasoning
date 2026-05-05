@@ -3,5 +3,5 @@
   "chart": {
     "title": "Net Income Trend"
   },
-  "description": "Net income growth signal based on earnings growth durability, consistency, acceleration, trend deviation, and profitability-shift markers."
+  "description": "Net income growth signal based on latest YoY growth, TTM growth, acceleration, and turnaround momentum."
 }

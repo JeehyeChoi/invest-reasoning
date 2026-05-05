@@ -1,0 +1,56 @@
+{
+  "version": "interpretation_v1",
+  "factor": "income",
+  "axis": "fundamentals_based",
+  "metricKey": "operating_cash_flow",
+  "meta": {
+    "description": "Operating cash flow income-support interpretation using enriched SEC companyfact metric series.",
+    "createdAt": "2026-05"
+  },
+  "features": {
+    "incomeDistributionConsistency": {
+      "source": "duration_adjusted_yoy",
+      "lookback": 8,
+      "method": "positive_ratio",
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "operating_cash_flow",
+        "periodType": "quarter"
+      }
+    },
+    "incomeDistributionTrend": {
+      "source": "ttm_val",
+      "reference": "duration_adjusted_rolling4_avg",
+      "method": "relative_deviation",
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "operating_cash_flow",
+        "periodType": "quarter"
+      }
+    },
+    "incomeDistributionMomentum": {
+      "source": "duration_adjusted_ttm_delta",
+      "method": "direct",
+      "valueType": "value",
+      "comparison": false,
+      "macroContrast": false,
+      "clustering": false,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "operating_cash_flow",
+        "periodType": "quarter"
+      }
+    }
+  }
+}

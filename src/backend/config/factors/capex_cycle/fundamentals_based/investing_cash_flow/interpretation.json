@@ -1,0 +1,108 @@
+{
+  "version": "interpretation_v1",
+  "factor": "capex_cycle",
+  "axis": "fundamentals_based",
+  "metricKey": "investing_cash_flow",
+  "meta": {
+    "description": "Investing cash flow cycle interpretation using enriched SEC companyfact metric series.",
+    "createdAt": "2026-05"
+  },
+  "features": {
+    "capexCycleRamp": {
+      "source": "ttm_delta",
+      "method": "ratio_to_denominator",
+      "denominator": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "assets",
+        "periodType": "instant",
+        "source": "val"
+      },
+      "signProfilePolicy": {
+        "negativeDominant": "invert",
+        "positiveDominant": "null",
+        "mixed": "null",
+        "unknown": "null",
+        "zeroOrSparse": "null",
+        "minConfidence": 0.5
+      },
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "investing_cash_flow",
+        "periodType": "quarter"
+      }
+    },
+    "capexCycleRampValue": {
+      "source": "ttm_delta",
+      "method": "direct",
+      "signProfilePolicy": {
+        "negativeDominant": "invert",
+        "positiveDominant": "null",
+        "mixed": "null",
+        "unknown": "null",
+        "zeroOrSparse": "null",
+        "minConfidence": 0.5
+      },
+      "valueType": "value",
+      "comparison": false,
+      "macroContrast": false,
+      "clustering": false,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "investing_cash_flow",
+        "periodType": "quarter"
+      }
+    },
+    "capexCycleAcceleration": {
+      "source": "duration_adjusted_qoq",
+      "method": "direct",
+      "signProfilePolicy": {
+        "negativeDominant": "invert",
+        "positiveDominant": "null",
+        "mixed": "null",
+        "unknown": "null",
+        "zeroOrSparse": "null",
+        "minConfidence": 0.5
+      },
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "investing_cash_flow",
+        "periodType": "quarter"
+      }
+    },
+    "capexCycleTrendStretch": {
+      "source": "ttm_val",
+      "reference": "rolling4_avg",
+      "method": "relative_deviation",
+      "signProfilePolicy": {
+        "negativeDominant": "invert",
+        "positiveDominant": "null",
+        "mixed": "null",
+        "unknown": "null",
+        "zeroOrSparse": "null",
+        "minConfidence": 0.5
+      },
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "investing_cash_flow",
+        "periodType": "quarter"
+      }
+    }
+  }
+}

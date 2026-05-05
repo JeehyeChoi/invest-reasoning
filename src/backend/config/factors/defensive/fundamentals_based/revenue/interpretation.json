@@ -1,0 +1,57 @@
+{
+  "version": "interpretation_v1",
+  "factor": "defensive",
+  "axis": "fundamentals_based",
+  "metricKey": "revenue",
+  "meta": {
+    "description": "Revenue defensive interpretation using enriched SEC companyfact metric series.",
+    "createdAt": "2026-05"
+  },
+  "features": {
+    "defensiveStability": {
+      "source": "duration_adjusted_yoy",
+      "lookback": 12,
+      "method": "positive_ratio",
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "revenue",
+        "periodType": "quarter"
+      }
+    },
+    "defensiveBufferTrend": {
+      "source": "duration_adjusted_ttm_val",
+      "reference": "duration_adjusted_rolling4_avg",
+      "method": "relative_deviation",
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "revenue",
+        "periodType": "quarter"
+      }
+    },
+    "defensiveShockAbsorption": {
+      "source": "qoq",
+      "lookback": 8,
+      "method": "positive_ratio",
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "revenue",
+        "periodType": "quarter"
+      }
+    }
+  }
+}

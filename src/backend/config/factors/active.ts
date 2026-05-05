@@ -68,9 +68,9 @@ function mergeFactorDisplay(commonDisplay: any, metricDisplay: any) {
       ...(commonDisplay?.chart ?? {}),
       ...(metricDisplay?.chart ?? {}),
     },
-    signalLabels: {
-      ...(commonDisplay?.signalLabels ?? {}),
-      ...(metricDisplay?.signalLabels ?? {}),
+    featureLabels: {
+      ...(commonDisplay?.featureLabels ?? {}),
+      ...(metricDisplay?.featureLabels ?? {}),
     },
     baselineLabels: {
       ...(commonDisplay?.baselineLabels ?? {}),
@@ -80,10 +80,8 @@ function mergeFactorDisplay(commonDisplay: any, metricDisplay: any) {
 
   return {
     ...merged,
-    // Temporary compatibility for ticker detail panels while the UI migrates
-    // from legacy metric labels to interpretation signals.
-    metricOrder: merged.metricOrder ?? merged.signalOrder ?? [],
-    metricLabels: merged.metricLabels ?? merged.signalLabels ?? {},
+    metricOrder: merged.metricOrder ?? merged.featureOrder ?? [],
+    metricLabels: merged.metricLabels ?? merged.featureLabels ?? {},
   };
 }
 

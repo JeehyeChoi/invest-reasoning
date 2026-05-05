@@ -3,7 +3,8 @@ import fs from "fs/promises";
 import path from "path";
 import { db } from "@/backend/config/db";
 import { FACTOR_BLUEPRINTS } from "@/backend/config/factors/blueprints";
-import type { FactorKey, FactorScoreAxisKey } from "@/shared/factors/factors";
+import type { FactorKey } from "@/shared/factors/factors";
+import type { FactorAxisKey } from "@/shared/factors/axes";
 import type { SecMetricKey } from "@/shared/sec/metrics";
 import { shouldValidateSecMetricKey } from "@/backend/config/sec/metrics";
 import type { SeriesValidationRow } from "@/backend/services/sec/companyFacts/series/validation/types";
@@ -62,7 +63,7 @@ async function loadActiveMetricKeys(): Promise<Set<string>> {
     const factorBlueprint = FACTOR_BLUEPRINTS[factor];
     if (!factorBlueprint) continue;
 
-    for (const axis of Object.keys(factorBlueprint) as FactorScoreAxisKey[]) {
+    for (const axis of Object.keys(factorBlueprint) as FactorAxisKey[]) {
       const axisBlueprint = factorBlueprint[axis];
       if (!axisBlueprint) continue;
 

@@ -3,5 +3,5 @@
   "chart": {
     "title": "Operating Cash Flow Trend"
   },
-  "description": "Operating cash flow growth signal based on cash generation growth durability, consistency, acceleration, and deviation from the 4-quarter average."
+  "description": "Operating cash flow growth signal based on latest YoY growth, TTM growth, acceleration, and turnaround momentum."
 }

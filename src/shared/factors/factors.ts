@@ -2,9 +2,10 @@
  * Source of truth:
  * - factor keys: scripts/bootstrap/factors/factor-definitions.json
  * - factor axes: src/shared/factors/axes.ts
- * - metric signal storage: db/ticker_factor_metric_signals.sql
- * - metric baseline storage: db/ticker_factor_metric_baselines.sql
- * - metric relative-position storage: db/ticker_factor_metric_signal_positions.sql
+ * - metric feature storage: db/ticker_factor_metric_features.sql
+ * - metric feature baseline storage: db/ticker_factor_metric_feature_baselines.sql
+ * - factor signal definition storage: db/ticker_factor_signal_definitions.sql
+ * - factor signal result storage: db/ticker_factor_signals.sql
  */
 
 export const FACTOR_KEYS = [
@@ -31,3 +32,11 @@ export const FACTOR_KEYS = [
 ] as const;
 
 export type FactorKey = (typeof FACTOR_KEYS)[number];
+
+export const FACTOR_METRIC_ROLES = [
+  "core",
+  "supporting",
+  "context",
+] as const;
+
+export type FactorMetricRole = (typeof FACTOR_METRIC_ROLES)[number];

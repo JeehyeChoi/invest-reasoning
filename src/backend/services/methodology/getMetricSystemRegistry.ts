@@ -20,7 +20,7 @@ export async function getMetricSystemRegistry() {
 			name AS axis_name,
 			description,
 			display_order
-		FROM factor_score_axis_definitions
+		FROM factor_axis_definitions
 		WHERE is_active = true
 		ORDER BY display_order, key
 	`);

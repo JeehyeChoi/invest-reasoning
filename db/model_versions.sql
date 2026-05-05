@@ -24,7 +24,7 @@ create index if not exists model_versions_is_active_idx
   on model_versions (is_active);
 
 comment on table model_versions is
-  'Registry of model and calculation logic versions used across tag inference, factor metric signals, and scenario analysis.';
+  'Registry of model and calculation logic versions used across tag inference, factor metric features, and scenario analysis.';
 
 comment on column model_versions.key is
   'Stable machine-readable identifier for the model version.';

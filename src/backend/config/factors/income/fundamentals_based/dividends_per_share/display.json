@@ -1,0 +1,7 @@
+{
+  "metricKey": "dividends_per_share",
+  "chart": {
+    "title": "Dividends Per Share"
+  },
+  "description": "Per-share income signal based on distribution consistency, trend support, and distribution momentum."
+}

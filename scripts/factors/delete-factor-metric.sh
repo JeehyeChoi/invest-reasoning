@@ -79,10 +79,9 @@ echo "----------------------------------------"
 echo
 echo "This will delete only the metric-level scaffold paths above."
 echo "It will NOT remove manual registrations from:"
-echo "  - src/backend/schemas/sec/metrics.ts"
+echo "  - src/shared/sec/metrics.ts"
+echo "  - src/backend/config/sec/metrics.ts"
 echo "  - src/backend/services/sec/companyFacts/series/tagMeta.ts"
-echo "  - src/backend/schemas/factor.ts"
-echo "  - src/backend/schemas/factors/${FACTOR}.ts"
 echo "  - src/backend/config/factors/blueprints.ts"
 echo "  - src/backend/config/factors/active.ts"
 

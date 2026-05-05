@@ -2,15 +2,16 @@ CREATE TABLE IF NOT EXISTS public.ticker_factor_metric_macro_contrasts (
   id BIGSERIAL PRIMARY KEY,
 
   ticker TEXT NOT NULL,
+  cik TEXT,
 
   factor TEXT NOT NULL,
   axis TEXT NOT NULL,
   metric_key TEXT NOT NULL,
-  signal_key TEXT NOT NULL,
+  feature_key TEXT NOT NULL,
 
-  signal_value DOUBLE PRECISION,
-  signal_period_end DATE,
-  signal_effective_date DATE NOT NULL,
+  feature_value DOUBLE PRECISION,
+  feature_period_end DATE,
+  feature_effective_date DATE NOT NULL,
 
   macro_scope TEXT NOT NULL,
   macro_provider TEXT NOT NULL,
@@ -34,7 +35,7 @@ CREATE TABLE IF NOT EXISTS public.ticker_factor_metric_macro_contrasts (
     factor,
     axis,
     metric_key,
-    signal_key,
+    feature_key,
     macro_scope,
     macro_provider,
     macro_series_key,
@@ -48,16 +49,17 @@ CREATE TABLE IF NOT EXISTS public.ticker_factor_metric_macro_contrasts (
   CHECK (macro_scope IN ('usa')),
 
   CONSTRAINT chk_tfmmc_contrast_method
-  CHECK (contrast_method IN ('signal_minus_macro'))
+  CHECK (contrast_method IN ('feature_minus_macro'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_tfmmc_ticker_lookup
 ON public.ticker_factor_metric_macro_contrasts (
+  cik,
   ticker,
   factor,
   axis,
   metric_key,
-  signal_key,
+  feature_key,
   effective_date DESC
 );
 
@@ -74,7 +76,7 @@ ON public.ticker_factor_metric_macro_contrasts (
   factor,
   axis,
   metric_key,
-  signal_key,
+  feature_key,
   macro_scope,
   macro_series_key,
   contrast_value DESC

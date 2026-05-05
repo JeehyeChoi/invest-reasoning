@@ -160,7 +160,14 @@ After scaffolding, review and update the relevant registration points:
 - `src/backend/services/sec/companyFacts/series/tagMeta.ts`: map SEC tags to the metric
 - `src/backend/config/factors/blueprints.ts`: register the metric under the factor axis
 - `src/backend/config/factors/<factor>/fundamentals_based/<metric_key>/display.json`: define display metadata
-- `src/backend/config/factors/<factor>/fundamentals_based/<metric_key>/interpretation.json`: define signal interpretation metadata
+- `src/backend/config/factors/<factor>/fundamentals_based/<metric_key>/interpretation.json`: define factor-owned metric feature metadata
+
+When a metric is shared by multiple factors, `blueprints.ts` should still make
+the role explicit through `metricProfiles`:
+
+- `core`: the factor's main evidence metric
+- `supporting`: secondary factor evidence
+- `context`: cross-factor context used to interpret another metric family
 
 For sign-sensitive metrics such as capex, also review `metricProfiles` in
 `src/backend/config/factors/blueprints.ts`.
@@ -174,8 +181,8 @@ The current growth fundamentals blueprint includes:
 - `operating_income`
 - `gross_profit`
 - `operating_cash_flow`
-- `capex_cash`
-- `capex_incurred`
+
+Capex metrics belong to the `capex_cycle` factor, not the growth blueprint.
 
 ## Notes
 

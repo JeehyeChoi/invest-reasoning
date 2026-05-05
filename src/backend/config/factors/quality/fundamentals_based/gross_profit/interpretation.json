@@ -1,0 +1,60 @@
+{
+  "version": "interpretation_v1",
+  "factor": "quality",
+  "axis": "fundamentals_based",
+  "metricKey": "gross_profit",
+  "meta": {
+    "description": "Gross profit quality interpretation using enriched SEC companyfact metric series.",
+    "createdAt": "2026-05"
+  },
+  "features": {
+    "qualityConsistency": {
+      "source": "duration_adjusted_yoy",
+      "lookback": 4,
+      "method": "positive_ratio",
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "gross_profit",
+        "periodType": "quarter"
+      }
+    },
+    "qualityTrendSupport": {
+      "source": "duration_adjusted_val",
+      "reference": "duration_adjusted_rolling4_avg",
+      "method": "relative_deviation",
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "gross_profit",
+        "periodType": "quarter"
+      }
+    },
+    "turnaroundMomentum": {
+      "sources": {
+        "turnaround": "is_turnaround",
+        "lossNarrowing": "is_loss_narrowing",
+        "deterioration": "is_deterioration"
+      },
+      "method": "turnaround_momentum",
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "gross_profit",
+        "periodType": "quarter"
+      }
+    }
+  }
+}

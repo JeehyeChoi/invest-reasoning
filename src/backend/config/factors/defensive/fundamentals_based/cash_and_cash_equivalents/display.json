@@ -1,0 +1,7 @@
+{
+  "metricKey": "cash_and_cash_equivalents",
+  "chart": {
+    "title": "Cash Buffer"
+  },
+  "description": "Defensive signal based on cash-buffer stability, trend support, and shock absorption."
+}

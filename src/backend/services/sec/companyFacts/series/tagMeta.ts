@@ -16,7 +16,12 @@ export type CompanyFactsSeriesTagFamily =
   | "revenue_financial_net"
   | "revenue_real_estate"
   | "revenue_utility"
-  | "revenue_healthcare";
+  | "revenue_healthcare"
+  | "energy_exploration"
+  | "energy_oil_gas_capitalized_costs"
+  | "energy_inventory"
+  | "energy_input_cost"
+  | "energy_revenue";
 
 function flow(
   metricKey: SecCompanyFactsMetricKey,
@@ -34,11 +39,13 @@ function flow(
 function instant(
   metricKey: SecCompanyFactsMetricKey,
   priority = 99,
+  options: { tagFamily?: CompanyFactsSeriesTagFamily } = {},
 ): CompanyFactsSeriesTagMeta {
   return {
     metricKey,
     factType: "instant",
     priority,
+    tagFamily: options.tagFamily,
   };
 }
 
@@ -69,7 +76,7 @@ export const COMPANY_FACTS_SERIES_TAG_META: Record<
   CompanyFactsSeriesTagMeta
 > = {
   // ---------------------------------------------------------------------------
-  // Active growth/fundamentals_based metrics
+  // Active fundamentals_based operating metrics
   // ---------------------------------------------------------------------------
 
   // revenue
@@ -129,11 +136,73 @@ export const COMPANY_FACTS_SERIES_TAG_META: Record<
     2,
   ),
 
-  // capital expenditure
+  // capital expenditure / capex_cycle metrics
   PaymentsToAcquirePropertyPlantAndEquipment: flow("capex_cash", 1),
   PaymentsToAcquireProductiveAssets: flow("capex_cash", 2),
   CapitalExpendituresIncurredButNotYetPaid: flow("capex_unpaid", 1),
   CapitalExpendituresIncurredButNotPaid: flow("capex_unpaid", 2),
+
+  // energy_linked sector-aware metrics
+  ExplorationExpense: flow("energy_exploration_expense", 1, {
+    tagFamily: "energy_exploration",
+  }),
+  CapitalizedExploratoryWellCostChargedToExpense1: flow(
+    "energy_exploration_expense",
+    2,
+    { tagFamily: "energy_exploration" },
+  ),
+
+  CapitalizedCostsOilAndGasProducingActivitiesNet: instant(
+    "oil_gas_capitalized_costs",
+    1,
+    { tagFamily: "energy_oil_gas_capitalized_costs" },
+  ),
+  CapitalizedCostsOilAndGasProducingActivitiesGross: instant(
+    "oil_gas_capitalized_costs",
+    2,
+    { tagFamily: "energy_oil_gas_capitalized_costs" },
+  ),
+  CapitalizedExploratoryWellCosts: instant(
+    "oil_gas_capitalized_costs",
+    3,
+    { tagFamily: "energy_oil_gas_capitalized_costs" },
+  ),
+  CapitalizedExploratoryWellCostAdditionsPendingDeterminationOfProvedReserves:
+    instant("oil_gas_capitalized_costs", 4, {
+      tagFamily: "energy_oil_gas_capitalized_costs",
+    }),
+
+  InventoryCrudeOilProductsAndMerchandise: instant("energy_inventory", 1, {
+    tagFamily: "energy_inventory",
+  }),
+  CrudeOilAndNaturalGasLiquids: instant("energy_inventory", 2, {
+    tagFamily: "energy_inventory",
+  }),
+  EnergyRelatedInventoryNaturalGasInStorage: instant("energy_inventory", 3, {
+    tagFamily: "energy_inventory",
+  }),
+  EnergyRelatedInventoryGasStoredUnderground: instant("energy_inventory", 4, {
+    tagFamily: "energy_inventory",
+  }),
+
+  CostOfPurchasedOilAndGas: flow("energy_input_cost", 1, {
+    tagFamily: "energy_input_cost",
+  }),
+  UtilitiesOperatingExpenseGasAndPetroleumPurchased: flow(
+    "energy_input_cost",
+    2,
+    { tagFamily: "energy_input_cost" },
+  ),
+  CostOfNaturalGasPurchases: flow("energy_input_cost", 3, {
+    tagFamily: "energy_input_cost",
+  }),
+
+  GasDomesticRegulatedRevenue: flow("energy_revenue", 1, {
+    tagFamily: "energy_revenue",
+  }),
+  RegulatedOperatingRevenueGas: flow("energy_revenue", 2, {
+    tagFamily: "energy_revenue",
+  }),
 
   // ---------------------------------------------------------------------------
   // Candidate / inactive metrics

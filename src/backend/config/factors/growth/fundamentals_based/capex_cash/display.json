@@ -1,7 +1,0 @@
-{
-  "metricKey": "capex_cash",
-  "chart": {
-    "title": "Cash CapEx Trend"
-  },
-  "description": "Cash CapEx signal based on reinvestment intensity growth, durability, consistency, acceleration, and deviation from the 4-quarter average."
-}

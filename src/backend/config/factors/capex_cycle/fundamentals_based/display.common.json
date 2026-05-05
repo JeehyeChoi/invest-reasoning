@@ -1,0 +1,23 @@
+{
+  "headlineTitle": "CapEx Cycle",
+  "chart": {
+    "type": "timeseries"
+  },
+  "featureOrder": [
+    "capexCycleRamp",
+    "capexCycleRampValue",
+    "capexCycleAcceleration",
+    "capexCycleTrendStretch"
+  ],
+  "baselineLabels": {
+    "sectorPercentile": "Sector Percentile",
+    "sp500Percentile": "S&P 500 Percentile",
+    "excessVsUsNominalGdp": "Excess vs US Nominal GDP"
+  },
+  "featureLabels": {
+    "capexCycleRamp": "CapEx Ramp / Assets",
+    "capexCycleRampValue": "CapEx Ramp Value",
+    "capexCycleAcceleration": "CapEx Acceleration",
+    "capexCycleTrendStretch": "CapEx Trend Stretch"
+  }
+}

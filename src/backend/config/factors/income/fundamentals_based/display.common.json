@@ -1,0 +1,21 @@
+{
+  "headlineTitle": "Income",
+  "chart": {
+    "type": "timeseries"
+  },
+  "featureOrder": [
+    "incomeDistributionConsistency",
+    "incomeDistributionTrend",
+    "incomeDistributionMomentum"
+  ],
+  "baselineLabels": {
+    "sectorPercentile": "Sector Percentile",
+    "sp500Percentile": "S&P 500 Percentile",
+    "excessVsUsNominalGdp": "Excess vs US Nominal GDP"
+  },
+  "featureLabels": {
+    "incomeDistributionConsistency": "Distribution Consistency",
+    "incomeDistributionTrend": "Distribution Trend",
+    "incomeDistributionMomentum": "Distribution Momentum"
+  }
+}

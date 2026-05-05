@@ -1,0 +1,7 @@
+{
+  "metricKey": "operating_income",
+  "chart": {
+    "title": "Operating Income Quality"
+  },
+  "description": "Operating income quality signal based on consistency, trend support, and turnaround momentum."
+}

@@ -3,5 +3,5 @@
   "chart": {
     "title": "Gross Profit Trend"
   },
-  "description": "Gross profit growth signal based on growth durability, consistency, acceleration, trend deviation, and profitability-shift markers."
+  "description": "Gross profit growth signal based on latest YoY growth, TTM growth, and acceleration."
 }

@@ -1,0 +1,7 @@
+{
+  "metricKey": "gross_profit",
+  "chart": {
+    "title": "Gross Profit Quality"
+  },
+  "description": "Gross profit quality signal based on consistency, trend support, and turnaround momentum."
+}

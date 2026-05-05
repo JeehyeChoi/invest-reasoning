@@ -104,7 +104,7 @@ Examples:
 ```ts
 resolvePeriod.ts
 resolveQuarterPeriod.ts
-resolveMetricSignalInterpretation.ts
+resolveMetricFeatureInterpretation.ts
 resolveTickerMetadata.ts
 ```
 
@@ -149,7 +149,7 @@ Examples:
 
 ```ts
 runDataPipelineRefreshWorkflow.ts
-runTickerFactorMetricSignalsWorkflow.ts
+runTickerFactorMetricFeaturesWorkflow.ts
 ```
 
 ## Data Lineage
@@ -183,7 +183,6 @@ Common unit markers:
 - `Rows`
 - `Series`
 - `Profile`
-- `Snapshot`
 - `Registry`
 
 Examples:

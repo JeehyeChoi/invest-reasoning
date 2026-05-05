@@ -1,0 +1,56 @@
+{
+  "version": "interpretation_v1",
+  "factor": "income",
+  "axis": "fundamentals_based",
+  "metricKey": "net_income",
+  "meta": {
+    "description": "Net income support interpretation for the income factor using enriched SEC companyfact metric series.",
+    "createdAt": "2026-05"
+  },
+  "features": {
+    "incomeDistributionConsistency": {
+      "source": "duration_adjusted_yoy",
+      "lookback": 8,
+      "method": "positive_ratio",
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "net_income",
+        "periodType": "quarter"
+      }
+    },
+    "incomeDistributionTrend": {
+      "source": "ttm_val",
+      "reference": "duration_adjusted_rolling4_avg",
+      "method": "relative_deviation",
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "net_income",
+        "periodType": "quarter"
+      }
+    },
+    "incomeDistributionMomentum": {
+      "source": "duration_adjusted_ttm_delta",
+      "method": "direct",
+      "valueType": "value",
+      "comparison": false,
+      "macroContrast": false,
+      "clustering": false,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "net_income",
+        "periodType": "quarter"
+      }
+    }
+  }
+}

@@ -30,6 +30,7 @@ Project operating policy belongs in `docs/operations`.
 Use this area for:
 
 - naming policy
+- database access policy
 - repository structure policy
 - scripts and data policy
 - maintenance conventions
@@ -48,3 +49,5 @@ Curated supporting material belongs in `docs/reference`.
 
 Use this area for stable reference data or domain material that should be kept
 with the project but is not imported by runtime code.
+
+- `docs/reference/factor-system-candidates.md`: 20-factor target set and metric feature ownership notes

@@ -3,5 +3,5 @@
   "chart": {
     "title": "Operating Income Trend"
   },
-  "description": "Operating income growth signal based on operating profit growth durability, consistency, acceleration, trend deviation, and profitability-shift markers."
+  "description": "Operating income growth signal based on latest YoY growth, TTM growth, acceleration, and turnaround momentum."
 }

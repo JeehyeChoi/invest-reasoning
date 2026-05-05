@@ -1,0 +1,7 @@
+{
+  "metricKey": "investing_cash_flow",
+  "chart": {
+    "title": "Investing Cash Flow Cycle"
+  },
+  "description": "Investing cash flow cycle signal based on ramp intensity, acceleration, and trend stretch."
+}

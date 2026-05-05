@@ -1,5 +1,6 @@
 // src/backend/services/sec/companyFacts/series/validation/types.ts
 
+import type { CompanyFactType } from "@/backend/services/sec/companyFacts/series/types";
 import type { FiscalQuarter, PeriodKind } from "@/backend/services/sec/companyFacts/series/period/types";
 
 export type SeriesValidationSeverity = "info" | "warning" | "error";
@@ -39,7 +40,7 @@ export type SeriesValidationRow = {
   ticker: string | null;
   metric_key: string;
   source_tag: string | null;
-  fact_type: "flow" | "instant";
+  fact_type: CompanyFactType;
   unit: string;
   val: number | null;
   start: string | Date | null;

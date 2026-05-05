@@ -12,7 +12,7 @@ It is not production investment tooling.
 - Ingests SEC Company Facts and filing metadata
 - Maps raw SEC tags into canonical financial metrics
 - Reconstructs company fiscal periods and quarterly metric series
-- Computes factor metric signals, scores, and interpretations
+- Computes factor-owned metric features, factor signals, and commentary
 - Stores ticker profiles, classifications, market data, and factor outputs
 - Serves analysis views through API routes and frontend feature components
 
@@ -25,11 +25,11 @@ The most mature area is the growth factor, using fundamentals-derived metrics:
 - `operating_income`
 - `net_income`
 - `operating_cash_flow`
-- `capex`
 
-Growth is evaluated with signals such as year-over-year growth,
-quarter-over-quarter growth, consistency, acceleration, turnaround behavior, and
-loss narrowing where applicable.
+Growth is currently evaluated from factor-owned metric features such as latest
+YoY growth, durable TTM YoY growth, YoY acceleration, and selected turnaround
+momentum markers for sign-sensitive metrics. Capex metrics are handled by the
+separate `capex_cycle` factor.
 
 Additional areas in progress include:
 
@@ -47,7 +47,7 @@ Additional areas in progress include:
 - **Financial Modeling Prep (FMP)**: company profiles and metadata
 - **Twelve Data**: market price and time-series data
 - **FRED**: macroeconomic time series
-- **Local bootstrap/config files**: factor, scoring, and classification metadata
+- **Local bootstrap/config files**: factor, signal, and classification metadata
 
 ## System Flow
 
@@ -162,8 +162,9 @@ node scripts/sec/inspect-frames.mjs
 ## Design Principles
 
 - Model analysis as `factor -> axis -> metric`
-- Prefer multiple structured signals over a single score
-- Keep raw data, signal computation, scoring, and interpretation separate
+- Prefer explainable signals over single weighted scores
+- Keep raw data, metric feature computation, factor signal selection, and commentary separate
+- Treat shared factor metrics as explicit roles: core, supporting, or context
 - Treat missing company data as expected input, not necessarily an error
 - Use API routes as the normal boundary for user-facing live data
 - Keep backend services responsible for domain logic and data access
@@ -183,5 +184,6 @@ node scripts/sec/inspect-frames.mjs
 - `docs/developer/frontend-backend-flow.md`: frontend/API/backend boundary rules
 - `docs/developer/ticker-factor-metric-clustering.md`: clustering workflow notes
 - `docs/operations/backend-structure-policy.md`: backend organization policy
+- `docs/operations/database-access-policy.md`: database access policy
 - `docs/operations/scripts-data-policy.md`: scripts and data ownership policy
 - `docs/operations/naming-policy.md`: naming conventions and philosophy

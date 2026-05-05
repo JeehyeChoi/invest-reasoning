@@ -1,0 +1,21 @@
+{
+  "headlineTitle": "Quality",
+  "chart": {
+    "type": "timeseries"
+  },
+  "featureOrder": [
+    "qualityConsistency",
+    "qualityTrendSupport",
+    "turnaroundMomentum"
+  ],
+  "baselineLabels": {
+    "sectorPercentile": "Sector Percentile",
+    "sp500Percentile": "S&P 500 Percentile",
+    "excessVsUsNominalGdp": "Excess vs US Nominal GDP"
+  },
+  "featureLabels": {
+    "qualityConsistency": "Quality Consistency",
+    "qualityTrendSupport": "Trend Support",
+    "turnaroundMomentum": "Turnaround Momentum"
+  }
+}

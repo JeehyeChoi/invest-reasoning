@@ -1,0 +1,7 @@
+{
+  "metricKey": "operating_cash_flow",
+  "chart": {
+    "title": "Operating Cash Flow Income Support"
+  },
+  "description": "Income support signal based on cash-flow consistency, trend support, and momentum."
+}

@@ -1,0 +1,55 @@
+{
+  "version": "interpretation_v1",
+  "factor": "energy_linked",
+  "axis": "fundamentals_based",
+  "metricKey": "energy_inventory",
+  "meta": {
+    "description": "Energy inventory interpretation using enriched SEC companyfact metric series.",
+    "createdAt": "2026-05"
+  },
+  "features": {
+    "energyExposureRamp": {
+      "source": "yoy",
+      "method": "direct",
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "energy_inventory",
+        "periodType": "instant"
+      }
+    },
+    "energyExposureAcceleration": {
+      "source": "yoy_delta",
+      "method": "direct",
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "energy_inventory",
+        "periodType": "instant"
+      }
+    },
+    "energyExposureStretch": {
+      "source": "val",
+      "reference": "rolling4_avg",
+      "method": "relative_deviation",
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "energy_inventory",
+        "periodType": "instant"
+      }
+    }
+  }
+}

@@ -1,5 +1,5 @@
 -- factor_axis_definitions.sql
--- Defines the evidence axes used to organize factor metric signals.
+-- Defines the evidence axes used to organize factor metric features.
 -- These axes represent observed evidence dimensions, not calculation methods.
 
 create table if not exists factor_axis_definitions (
@@ -48,7 +48,7 @@ values
   (
     'etf_implied',
     'ETF-Implied',
-    'Factor metric signal inferred from ETF and index composition, reflecting market-consensus positioning for a ticker.',
+    'Factor metric feature inferred from ETF and index composition, reflecting market-consensus positioning for a ticker.',
     'ETF holdings, index composition',
     'medium',
     1,
@@ -57,7 +57,7 @@ values
   (
     'fundamentals_based',
     'Fundamentals-Based',
-    'Factor metric signal derived from financial and operating metrics such as revenue growth, margins, leverage, dividend profile, and capital intensity.',
+    'Factor metric feature derived from financial and operating metrics such as revenue growth, margins, leverage, dividend profile, and capital intensity.',
     'market data, financial statements, ratios',
     'medium',
     2,
@@ -66,7 +66,7 @@ values
   (
     'narrative_implied',
     'Narrative-Implied',
-    'Factor metric signal inferred from public narrative and interpretive context such as news, earnings calls, filings, policy discourse, and market storytelling.',
+    'Factor metric feature inferred from public narrative and interpretive context such as news, earnings calls, filings, policy discourse, and market storytelling.',
     'news, transcripts, filings, policy signals',
     'high',
     3,
