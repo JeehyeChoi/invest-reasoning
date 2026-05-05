@@ -489,6 +489,14 @@ export default function HomePage() {
 
 				<div className="mt-2 flex gap-4">
 					<Link
+						href="/macro"
+						target="_blank"
+						rel="noopener noreferrer"
+						className="font-bold underline"
+					>
+						  Macro data →
+					</Link>
+					<Link
 						href="/market/cluster/overview"
 						target="_blank"
 						rel="noopener noreferrer"
