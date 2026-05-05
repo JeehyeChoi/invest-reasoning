@@ -12,7 +12,6 @@ import type { UniverseKey } from "@/shared/universe/universes";
 import { db } from "@/backend/config/db";
 import { getTickerCikMap } from "@/backend/services/tickers/getTickerCikMap";
 import { runSecBulkIngestWorkflow } from "@/backend/workflows/sec-bulk-ingest/runSecBulkIngestWorkflow";
-import { runSecCompanyFactsFiscalProfileWorkflow } from "@/backend/workflows/sec-companyfacts-fiscal-profile/runSecCompanyFactsFiscalProfileWorkflow";
 import { runSecCompanyFactsMetricSeriesWorkflow } from "@/backend/workflows/sec-companyfacts-metric-series/runSecCompanyFactsMetricSeriesWorkflow";
 import { runSecCompanyFactsSeriesValidationWorkflow } from "@/backend/workflows/sec-companyfacts-series-validation/runSecCompanyFactsSeriesValidationWorkflow";
 import { runTickerFactorMetricClusteringWorkflow } from "@/backend/workflows/ticker-factor-metric-clustering/runTickerFactorMetricClusteringWorkflow";
@@ -187,7 +186,6 @@ export async function runDataPipelineRefreshWorkflow(
 
   let bulkChangedCiks = new Set<string>();
   let didRunBulkIngest = false;
-  const buildFiscalProfileDuringBulkIngest = jobs.has("fiscal_profile");
   const buildTagSeriesDuringBulkIngest = jobs.has("sec_bulk_ingest");
 
   if (jobs.has("sec_bulk_ingest")) {
@@ -204,7 +202,6 @@ export async function runDataPipelineRefreshWorkflow(
       allowedCiks,
       forceReadAll: shouldForceReadAllSecCompanyFacts,
       tickerByCik: buildTickerByCik(tickerCikMap),
-      buildFiscalProfileBeforeRawCleanup: buildFiscalProfileDuringBulkIngest,
       buildTagSeriesBeforeRawCleanup: buildTagSeriesDuringBulkIngest,
       onProgress: reportDataPipelineProgress,
     });
@@ -250,19 +247,6 @@ export async function runDataPipelineRefreshWorkflow(
     reportDataPipelineProgress({
       message:
         "Downstream company scope: all mapped SEC companies. Metric series and validation will run for the full mapped set.",
-    });
-  }
-
-  if (jobs.has("fiscal_profile") && !didRunBulkIngest) {
-    await runSecCompanyFactsFiscalProfileWorkflow({
-      tickerCikMap: scopedTickerCikMap,
-      onProgress: reportDataPipelineProgress,
-    });
-  } else if (jobs.has("fiscal_profile")) {
-    reportDataPipelineProgress({
-      job: "fiscal_profile",
-      message:
-        "Fiscal profile standalone pass skipped; changed companies were processed during SEC bulk ingest before raw cleanup.",
     });
   }
 

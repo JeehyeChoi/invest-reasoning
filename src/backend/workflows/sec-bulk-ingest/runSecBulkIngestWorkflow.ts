@@ -1,7 +1,7 @@
 import { ingestCompanyFactsBulk } from "@/backend/services/sec/companyFacts/bulk/ingestCompanyFactsBulk";
 import { buildCompanyFiscalProfileForCik } from "@/backend/services/sec/companyFacts/series/fiscal/buildCompanyFiscalProfileForCik";
 import { buildCompanyFactsTagSeriesForCik } from "@/backend/services/sec/companyFacts/series/tag/buildCompanyFactsTagSeriesForCik";
-import { deleteCompanyFactRawRowsForCik } from "@/backend/services/sec/companyFacts/series/deleteCompanyFactRawRowsForCik";
+import { truncateCompanyFactRawRows } from "@/backend/services/sec/companyFacts/series/deleteCompanyFactRawRowsForCik";
 import type { DataPipelineRefreshJobKey } from "@/shared/data-pipeline/jobs";
 import type { SecBulkIngestWorkflowResult } from "./workflow.types";
 
@@ -18,7 +18,6 @@ export async function runSecBulkIngestWorkflow(input: {
   allowedCiks: Set<string>;
   forceReadAll?: boolean;
   tickerByCik?: Map<string, string>;
-  buildFiscalProfileBeforeRawCleanup?: boolean;
   buildTagSeriesBeforeRawCleanup?: boolean;
   onProgress?: (progress: WorkflowProgress) => void;
 }): Promise<SecBulkIngestWorkflowResult> {
@@ -38,23 +37,21 @@ export async function runSecBulkIngestWorkflow(input: {
       const ticker = input.tickerByCik?.get(context.cik);
 
       if (!ticker) {
-        await deleteCompanyFactRawRowsForCik({ cik: context.cik });
+        await truncateCompanyFactRawRows();
         input.onProgress?.({
           job: "sec_bulk_ingest",
-          message: `[SEC BULK] Raw rows cleaned up for cik=${context.cik}; ticker mapping unavailable.`,
+          message: `[SEC BULK] Raw rows truncated after cik=${context.cik}; ticker mapping unavailable.`,
           label: context.cik,
         });
         return;
       }
 
-      if (input.buildFiscalProfileBeforeRawCleanup) {
-        await buildCompanyFiscalProfileForCik({ ticker, cik: context.cik });
-        input.onProgress?.({
-          job: "fiscal_profile",
-          message: `[SEC BULK -> FISCAL] Fiscal profile completed for ${ticker}.`,
-          label: ticker,
-        });
-      }
+      await buildCompanyFiscalProfileForCik({ ticker, cik: context.cik });
+      input.onProgress?.({
+        job: "sec_bulk_ingest",
+        message: `[SEC BULK -> FISCAL] Fiscal profile completed for ${ticker}.`,
+        label: ticker,
+      });
 
       if (input.buildTagSeriesBeforeRawCleanup) {
         await buildCompanyFactsTagSeriesForCik({ ticker, cik: context.cik });
@@ -65,10 +62,10 @@ export async function runSecBulkIngestWorkflow(input: {
         });
       }
 
-      const deletedRows = await deleteCompanyFactRawRowsForCik({ cik: context.cik });
+      await truncateCompanyFactRawRows();
       input.onProgress?.({
         job: "sec_bulk_ingest",
-        message: `[SEC BULK] Raw rows cleaned up for ${ticker}. deletedRows=${deletedRows}.`,
+        message: `[SEC BULK] Raw rows truncated after ${ticker}.`,
         label: ticker,
       });
     },

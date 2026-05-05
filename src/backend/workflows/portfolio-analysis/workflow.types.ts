@@ -1,6 +1,5 @@
 import type { PortfolioAnalysisRequest } from "@/shared/analysis/portfolioAnalysisContract";
 import type { CalculatedPortfolioItem } from "@/features/portfolio/utils/calculatePortfolio";
-import type { TickerFactorSnapshot } from "@/shared/factors/snapshot";
 
 export type ResolvedTickerMetadata = {
   profile: Record<string, unknown> | null;

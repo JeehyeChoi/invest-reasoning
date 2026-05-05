@@ -11,10 +11,7 @@ import { flattenCompanyFacts } from "@/backend/services/sec/companyFacts/raw/fla
 import { loadCompanyFactsStateMap } from "@/backend/services/sec/companyFacts/raw/loadCompanyFactsStateMap";
 import { upsertSecCompanyFactRows } from "@/backend/services/sec/companyFacts/raw/upsertSecCompanyFactRows";
 import { upsertSecCompanyFactCompanyState } from "@/backend/services/sec/companyFacts/raw/upsertSecCompanyFactCompanyState";
-import {
-  deleteCompanyFactRawRowsForCik,
-  truncateCompanyFactRawRows,
-} from "@/backend/services/sec/companyFacts/series/deleteCompanyFactRawRowsForCik";
+import { truncateCompanyFactRawRows } from "@/backend/services/sec/companyFacts/series/deleteCompanyFactRawRowsForCik";
 
 type CompanyFactsBulkIngestProgress = {
   message: string;
@@ -221,7 +218,7 @@ export async function ingestCompanyFactsBulk(input: {
         if (!doc.facts || Object.keys(doc.facts).length === 0) {
           skippedEmptyFactsCount += 1;
 
-          await deleteCompanyFactRawRowsForCik({ cik: entry.cik });
+          await truncateCompanyFactRawRows();
 
           await upsertSecCompanyFactCompanyState({
             cik: entry.cik,
@@ -252,11 +249,11 @@ export async function ingestCompanyFactsBulk(input: {
         const isActive = rows.length > 0;
 
         if (isActive) {
-          await deleteCompanyFactRawRowsForCik({ cik: entry.cik });
+          await truncateCompanyFactRawRows();
           await upsertSecCompanyFactRows(rows);
           processedCount += 1;
         } else {
-          await deleteCompanyFactRawRowsForCik({ cik: entry.cik });
+          await truncateCompanyFactRawRows();
           skippedEmptyFactsCount += 1;
         }
 
