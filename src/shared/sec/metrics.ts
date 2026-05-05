@@ -33,6 +33,11 @@ export const SEC_METRIC_KEYS = [
   "share_based_compensation",
   "shares_outstanding",
   "public_float",
+  "energy_exploration_expense",
+  "oil_gas_capitalized_costs",
+  "energy_inventory",
+  "energy_input_cost",
+  "energy_revenue",
 ] as const;
 
 export type SecMetricKey = (typeof SEC_METRIC_KEYS)[number];

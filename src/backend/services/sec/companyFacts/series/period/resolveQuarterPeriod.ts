@@ -9,6 +9,7 @@ import { classifyDurationDays } from "./classifyDuration";
 import { parseCalendarFrame } from "./classifyFrame";
 import { classifyFormPeriodHint } from "./classifyForm";
 import { classifyFpPeriodHint, fpToQuarter } from "./classifyFp";
+import { toDateKey } from "@/backend/services/sec/companyFacts/series/utils/dateKey";
 import {
   type PeriodWindowScore,
   pickBestScoredWindow,
@@ -150,6 +151,18 @@ export function resolveQuarterPeriod(
     );
 
   if (!acceptableMatch || !best) {
+    const secLabelFallback = resolveQuarterFromSecLabels({
+      row,
+      durationKind: duration.kind,
+      explicitFpQuarter,
+      calendarFrame,
+      candidateConfidence,
+    });
+
+    if (secLabelFallback) {
+      return secLabelFallback;
+    }
+
     return null;
   }
 
@@ -174,6 +187,38 @@ export function resolveQuarterPeriod(
           : "unknown",
     basis: "quarter_window",
     issues: best.issues,
+  };
+}
+
+function resolveQuarterFromSecLabels(input: {
+  row: ResolvePeriodInput["row"];
+  durationKind: string;
+  explicitFpQuarter: FiscalQuarter | null;
+  calendarFrame: ReturnType<typeof parseCalendarFrame>;
+  candidateConfidence: number;
+}): ResolvedPeriod | null {
+  if (
+    input.row.fy == null ||
+    input.explicitFpQuarter == null ||
+    input.durationKind !== "quarter"
+  ) {
+    return null;
+  }
+
+  return {
+    kind: "quarter",
+    fiscalYear: input.row.fy,
+    fiscalQuarter: input.explicitFpQuarter,
+    calendarYear: input.calendarFrame?.calendarYear ?? null,
+    calendarQuarter: input.calendarFrame?.calendarQuarter ?? null,
+    expectedStart: input.row.start ? toDateKey(input.row.start) : null,
+    expectedEnd: input.row.end ? toDateKey(input.row.end) : null,
+    confidence: Math.min(input.candidateConfidence, 0.7),
+    fitScore: Math.min(input.candidateConfidence, 0.7),
+    windowMatchKind: "exact",
+    secLabelAlignment: "aligned",
+    basis: "sec_fp",
+    issues: ["outside_expected_window"],
   };
 }
 

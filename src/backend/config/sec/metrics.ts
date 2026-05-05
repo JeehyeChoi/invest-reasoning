@@ -45,6 +45,12 @@ export const SEC_METRIC_DEFINITIONS = {
   share_based_compensation: { kind: "internal", durationPolicy: "reported_only" },
   shares_outstanding: { kind: "internal", durationPolicy: "not_applicable" },
   public_float: { kind: "internal", durationPolicy: "not_applicable" },
+
+  energy_exploration_expense: { kind: "canonical", durationPolicy: "duration_adjust_growth" },
+  oil_gas_capitalized_costs: { kind: "canonical", durationPolicy: "not_applicable" },
+  energy_inventory: { kind: "canonical", durationPolicy: "not_applicable" },
+  energy_input_cost: { kind: "canonical", durationPolicy: "duration_adjust_growth" },
+  energy_revenue: { kind: "canonical", durationPolicy: "duration_adjust_growth" },
 } as const satisfies Record<
   SecMetricKey,
   {

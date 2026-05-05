@@ -15,7 +15,11 @@ export function buildMetricSeriesFromTagGroups(input: {
 }): BuiltMetricSeriesRow[] {
   const { context, rows } = input;
 
-  const flowRows = rows.filter((row) => row.fact_type === "flow");
+  const flowRows = rows.filter((row) =>
+    row.fact_type === "flow" ||
+    row.fact_type === "per_share" ||
+    row.fact_type === "share_count"
+  );
   const instantRows = rows.filter((row) => row.fact_type === "instant");
 
   const flowResult = buildFlowMetricSeries({

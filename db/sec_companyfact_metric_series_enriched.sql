@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS sec_companyfact_metric_series_enriched (
   ticker TEXT,
 
   metric_key TEXT NOT NULL,
+  source_tag TEXT,
   fact_type TEXT NOT NULL,
   unit TEXT NOT NULL,
 
@@ -98,3 +99,6 @@ ON sec_companyfact_metric_series_enriched (
 -- 6️⃣ fact/unit ambiguity 방지
 CREATE INDEX IF NOT EXISTS idx_enriched_fact_unit
 ON sec_companyfact_metric_series_enriched (metric_key, fact_type, unit);
+
+CREATE INDEX IF NOT EXISTS idx_enriched_cik_metric_source_tag_unit
+ON sec_companyfact_metric_series_enriched (cik, metric_key, source_tag, unit);

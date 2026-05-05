@@ -18,6 +18,7 @@ export type PeriodResolutionBasis =
   | "sec_fp"
   | "sec_frame"
   | "duration"
+  | "instant_snapshot"
   | "annual_window"
   | "quarter_window"
   | "unresolved";
