@@ -1,4 +1,8 @@
 import { ENV } from "@/backend/config/env";
+import {
+  formatFmpUsageSnapshot,
+  recordFmpApiUsage,
+} from "@/backend/clients/fmpUsage";
 import type {
   FmpSp500ConstituentRecord,
   FmpTickerProfileRecord,
@@ -12,12 +16,29 @@ import type {
 
 async function fetchFmpJson<T>(
   url: string,
+  endpoint: string,
   errorMessage: string
 ): Promise<T> {
   const res = await fetch(url, {
     method: "GET",
     cache: "no-store",
   });
+  const rawBody = await res.text();
+  const usageSnapshot = await recordFmpApiUsage({
+    endpoint,
+    statusCode: res.status,
+    responseBytes: byteLength(rawBody),
+  });
+
+  if (usageSnapshot?.isLimitReached) {
+    console.warn(
+      `FMP rolling bandwidth limit reached: ${formatFmpUsageSnapshot(usageSnapshot)}`,
+    );
+  } else if (usageSnapshot?.isWarning) {
+    console.warn(
+      `FMP rolling bandwidth usage is high: ${formatFmpUsageSnapshot(usageSnapshot)}`,
+    );
+  }
 
   if (!res.ok) {
     const error = new Error(`${errorMessage}: ${res.status}`);
@@ -25,7 +46,11 @@ async function fetchFmpJson<T>(
     throw error;
   }
 
-  return (await res.json()) as T;
+  return JSON.parse(rawBody) as T;
+}
+
+function byteLength(value: string): number {
+  return new TextEncoder().encode(value).byteLength;
 }
 
 /**
@@ -45,6 +70,7 @@ export async function fetchFmpTickerProfile(
 
   const json = await fetchFmpJson<FmpTickerProfileRecord[]>(
     url,
+    "stable/profile",
     `FMP profile request failed for ${normalizedTicker}`
   );
 
@@ -70,6 +96,7 @@ export async function fetchFmpSp500Constituents(): Promise<
 
   const json = await fetchFmpJson<FmpSp500ConstituentRecord[]>(
     url,
+    "stable/sp500-constituent",
     "FMP S&P 500 constituents request failed"
   );
 
