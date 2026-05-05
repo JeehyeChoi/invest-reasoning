@@ -1,13 +1,14 @@
 import path from "node:path";
 import { promises as fs } from "node:fs";
 
-import type { FactorKey, FactorScoreAxisKey } from "@/shared/factors/factors";
+import type { FactorKey } from "@/shared/factors/factors";
+import type { FactorAxisKey } from "@/shared/factors/axes";
 import type { SecMetricKey } from "@/shared/sec/metrics";
-import type { MetricSignalInterpretationConfig } from "@/backend/services/sec/companyFacts/series/signal/types";
+import type { MetricFeatureInterpretationConfig } from "@/backend/services/sec/companyFacts/series/feature/types";
 
 type ResolveInput = {
   factor: FactorKey;
-  axis: FactorScoreAxisKey;
+  axis: FactorAxisKey;
   metricKey: SecMetricKey;
 };
 
@@ -25,12 +26,12 @@ function buildInterpretationPath(input: ResolveInput): string {
   );
 }
 
-export async function resolveMetricSignalInterpretation(
+export async function resolveMetricFeatureInterpretation(
   input: ResolveInput,
-): Promise<MetricSignalInterpretationConfig> {
+): Promise<MetricFeatureInterpretationConfig> {
   const filePath = buildInterpretationPath(input);
   const raw = await fs.readFile(filePath, "utf-8");
-  const config = JSON.parse(raw) as MetricSignalInterpretationConfig;
+  const config = JSON.parse(raw) as MetricFeatureInterpretationConfig;
 
   if (
     config.factor !== input.factor ||

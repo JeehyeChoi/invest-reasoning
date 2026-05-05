@@ -8,6 +8,11 @@ export type FindTickerCoreSyncCandidatesInput = {
   limit: number;
 };
 
+export type CountTickerCoreSyncCandidatesInput = {
+  universeKeys: UniverseKey[];
+  staleAfterDays: number;
+};
+
 export async function findTickerCoreSyncCandidates(
   input: FindTickerCoreSyncCandidatesInput,
 ): Promise<string[]> {
@@ -55,6 +60,39 @@ export async function findTickerCoreSyncCandidates(
   );
 
   return result.rows.map((row) => row.ticker);
+}
+
+export async function countTickerCoreSyncCandidates(
+  input: CountTickerCoreSyncCandidatesInput,
+): Promise<number> {
+  const result = await db.query<{ count: string }>(
+    `
+    SELECT COUNT(DISTINCT u.ticker) AS count
+    FROM universe_memberships u
+    LEFT JOIN ticker_identities i
+      ON i.ticker = u.ticker
+    LEFT JOIN ticker_company_profiles p
+      ON p.ticker = u.ticker
+    LEFT JOIN ticker_company_classifications c
+      ON c.ticker = u.ticker
+    LEFT JOIN ticker_market_snapshots m
+      ON m.ticker = u.ticker
+    WHERE u.universe_key = ANY($1::text[])
+      AND u.is_active = true
+      AND (
+        i.ticker IS NULL
+        OR p.ticker IS NULL
+        OR c.ticker IS NULL
+        OR m.ticker IS NULL
+        OR i.fetched_at < NOW() - ($2::int * INTERVAL '1 day')
+        OR p.fetched_at < NOW() - ($2::int * INTERVAL '1 day')
+        OR c.fetched_at < NOW() - ($2::int * INTERVAL '1 day')
+      )
+    `,
+    [input.universeKeys, input.staleAfterDays],
+  );
+
+  return Number(result.rows[0]?.count ?? 0);
 }
 
 export async function upsertTickerCoreRows(rows: TickerCoreRows): Promise<void> {

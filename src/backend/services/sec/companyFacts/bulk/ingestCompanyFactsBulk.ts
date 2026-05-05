@@ -11,6 +11,18 @@ import { flattenCompanyFacts } from "@/backend/services/sec/companyFacts/raw/fla
 import { loadCompanyFactsStateMap } from "@/backend/services/sec/companyFacts/raw/loadCompanyFactsStateMap";
 import { upsertSecCompanyFactRows } from "@/backend/services/sec/companyFacts/raw/upsertSecCompanyFactRows";
 import { upsertSecCompanyFactCompanyState } from "@/backend/services/sec/companyFacts/raw/upsertSecCompanyFactCompanyState";
+import {
+  deleteCompanyFactRawRowsForCik,
+  truncateCompanyFactRawRows,
+} from "@/backend/services/sec/companyFacts/series/deleteCompanyFactRawRowsForCik";
+
+type CompanyFactsBulkIngestProgress = {
+  message: string;
+  level?: "info" | "warning" | "error";
+  current?: number;
+  total?: number;
+  label?: string;
+};
 
 export type CompanyFactsBulkIngestResult = {
   zipFilePath: string;
@@ -29,9 +41,21 @@ export type CompanyFactsBulkIngestResult = {
   failedCount: number;
 };
 
+type CompanyFactsBulkIngestCompanyContext = {
+  cik: string;
+  entrySize: number;
+  entityName: string | null;
+  isActive: boolean;
+  rawRowCount: number;
+};
 
 export async function ingestCompanyFactsBulk(input: {
   allowedCiks: Set<string>;
+  forceReadAll?: boolean;
+  onProgress?: (progress: CompanyFactsBulkIngestProgress) => void;
+  afterCompanyRawIngest?: (
+    context: CompanyFactsBulkIngestCompanyContext,
+  ) => Promise<void>;
 }): Promise<CompanyFactsBulkIngestResult> {
   const dataset = "companyfacts" as const;
   const archiveDecision = await ensureFreshSecBulkArchive(dataset);
@@ -104,17 +128,26 @@ export async function ingestCompanyFactsBulk(input: {
 
   // 3) ingest 시작 상태 기록
 	try {
+    await truncateCompanyFactRawRows();
+    input.onProgress?.({
+      message: "[SEC BULK] Existing raw companyfacts rows truncated before ingest.",
+    });
+
 		const stateMap = await loadCompanyFactsStateMap();
 		const scanResult = await scanCompanyFactsZipEntries(
 			zipFilePath,
 			stateMap,
 			input.allowedCiks,
+      { forceReadAll: input.forceReadAll },
 		);
 
 		if (scanResult.entriesToRead.length === 0) {
-			console.log(
-				"[SEC BULK] Archive unchanged and no company entries changed. Skipping.",
-			);
+      input.onProgress?.({
+        message:
+          "[SEC BULK] No company entries changed by file size. Skipping raw ingest.",
+        current: 0,
+        total: scanResult.totalCount,
+      });
       const completedAt = new Date().toISOString();
 
 			await upsertSecBulkIngestState({
@@ -147,6 +180,14 @@ export async function ingestCompanyFactsBulk(input: {
 			};
 		}
 
+    input.onProgress?.({
+      message: input.forceReadAll
+        ? `[SEC BULK] Starting full-scope processing ${scanResult.entriesToRead.length} entries.`
+        : `[SEC BULK] Starting changed-entry processing ${scanResult.entriesToRead.length} entries.`,
+      current: 0,
+      total: scanResult.entriesToRead.length,
+    });
+
 		await upsertSecBulkIngestState({
 			dataset,
 			archive_path: zipFilePath,
@@ -158,10 +199,6 @@ export async function ingestCompanyFactsBulk(input: {
 			ingest_completed_at: null,
 		});
 
-		console.log(
-			`[SEC BULK] Starting processing ${scanResult.entriesToRead.length} entries...`
-		);
-
     let processedCount = 0;
     let skippedEmptyFactsCount = 0;
     let failedCount = 0;
@@ -172,12 +209,19 @@ export async function ingestCompanyFactsBulk(input: {
     await processCompanyFactsZipEntries(zipFilePath, scanResult.entriesToRead, {
       async onDocument(entry, doc) {
         currentIndex += 1;
-        process.stdout.write(`\r[SEC BULK → RAW] ${currentIndex}/${totalToProcess}`);
+        input.onProgress?.({
+          message: `[SEC BULK -> RAW] ${currentIndex}/${totalToProcess} processing cik=${entry.cik}.`,
+          current: currentIndex,
+          total: totalToProcess,
+          label: entry.cik,
+        });
 
         const now = new Date().toISOString();
 
         if (!doc.facts || Object.keys(doc.facts).length === 0) {
           skippedEmptyFactsCount += 1;
+
+          await deleteCompanyFactRawRowsForCik({ cik: entry.cik });
 
           await upsertSecCompanyFactCompanyState({
             cik: entry.cik,
@@ -187,6 +231,14 @@ export async function ingestCompanyFactsBulk(input: {
             last_processed_at: now,
             last_filed: null,
             last_end: null,
+          });
+
+          await input.afterCompanyRawIngest?.({
+            cik: entry.cik,
+            entrySize: entry.size,
+            entityName: doc.entityName ?? null,
+            isActive: false,
+            rawRowCount: 0,
           });
 
           changedCiks.push(entry.cik);
@@ -200,9 +252,11 @@ export async function ingestCompanyFactsBulk(input: {
         const isActive = rows.length > 0;
 
         if (isActive) {
+          await deleteCompanyFactRawRowsForCik({ cik: entry.cik });
           await upsertSecCompanyFactRows(rows);
           processedCount += 1;
         } else {
+          await deleteCompanyFactRawRowsForCik({ cik: entry.cik });
           skippedEmptyFactsCount += 1;
         }
 
@@ -230,6 +284,14 @@ export async function ingestCompanyFactsBulk(input: {
           last_end: lastEnd,
         });
 
+        await input.afterCompanyRawIngest?.({
+          cik: entry.cik,
+          entrySize: entry.size,
+          entityName: doc.entityName ?? null,
+          isActive,
+          rawRowCount: rows.length,
+        });
+
         changedCiks.push(entry.cik);
       },
 
@@ -237,8 +299,15 @@ export async function ingestCompanyFactsBulk(input: {
         failedCount += 1;
 
         const now = new Date().toISOString();
+        const message = error instanceof Error ? error.message : String(error);
 
-        console.error(`\n[processCompanyFactsZipEntries] ${entry.cik}:`, error);
+        input.onProgress?.({
+          message: `[SEC BULK -> RAW] failed cik=${entry.cik}: ${message}`,
+          level: "error",
+          current: currentIndex,
+          total: totalToProcess,
+          label: entry.cik,
+        });
 
         await upsertSecCompanyFactCompanyState({
           cik: entry.cik,
@@ -252,11 +321,11 @@ export async function ingestCompanyFactsBulk(input: {
       },
     });
 
-    console.log("\n=== [SEC BULK INGEST RESULT] ===");
-    console.log(`Processed            : ${processedCount}`);
-    console.log(`Skipped empty facts  : ${skippedEmptyFactsCount}`);
-    console.log(`Failed               : ${failedCount}`);
-    console.log("================================");
+    input.onProgress?.({
+      message: `[SEC BULK] Raw ingest completed. processed=${processedCount}, skippedEmptyFacts=${skippedEmptyFactsCount}, failed=${failedCount}.`,
+      current: totalToProcess,
+      total: totalToProcess,
+    });
 
     await upsertSecBulkIngestState({
       dataset,

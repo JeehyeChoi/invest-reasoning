@@ -1,10 +1,10 @@
-CREATE TABLE IF NOT EXISTS public.ticker_factor_metric_baselines (
+CREATE TABLE IF NOT EXISTS public.ticker_factor_metric_feature_baselines (
   id BIGSERIAL PRIMARY KEY,
 
   factor TEXT NOT NULL,
   axis TEXT NOT NULL,
   metric_key TEXT NOT NULL,
-  signal_key TEXT NOT NULL,
+  feature_key TEXT NOT NULL,
 
   comparison_set_type TEXT NOT NULL,
   comparison_set_key TEXT NOT NULL,
@@ -18,46 +18,46 @@ CREATE TABLE IF NOT EXISTS public.ticker_factor_metric_baselines (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-  CONSTRAINT uq_ticker_factor_metric_baselines UNIQUE (
+  CONSTRAINT uq_ticker_factor_metric_feature_baselines UNIQUE (
     factor,
     axis,
     metric_key,
-    signal_key,
+    feature_key,
     comparison_set_type,
     comparison_set_key,
     baseline_key,
     effective_date
   ),
 
-  CONSTRAINT chk_tfmb_universe_count_positive
+  CONSTRAINT chk_tfmfb_universe_count_positive
   CHECK (universe_count IS NULL OR universe_count > 0)
 );
 
-CREATE INDEX IF NOT EXISTS idx_tfmb_lookup
-ON public.ticker_factor_metric_baselines (
+CREATE INDEX IF NOT EXISTS idx_tfmfb_lookup
+ON public.ticker_factor_metric_feature_baselines (
   factor,
   axis,
   metric_key,
-  signal_key,
+  feature_key,
   comparison_set_type,
   comparison_set_key
 );
 
-CREATE INDEX IF NOT EXISTS idx_tfmb_baseline
-ON public.ticker_factor_metric_baselines (
+CREATE INDEX IF NOT EXISTS idx_tfmfb_baseline
+ON public.ticker_factor_metric_feature_baselines (
   comparison_set_type,
   comparison_set_key,
   baseline_key,
   effective_date DESC
 );
 
-CREATE INDEX IF NOT EXISTS idx_tfmb_effective
-ON public.ticker_factor_metric_baselines (effective_date DESC);
+CREATE INDEX IF NOT EXISTS idx_tfmfb_effective
+ON public.ticker_factor_metric_feature_baselines (effective_date DESC);
 
-CREATE INDEX IF NOT EXISTS idx_tfmb_factor_axis_metric
-ON public.ticker_factor_metric_baselines (
+CREATE INDEX IF NOT EXISTS idx_tfmfb_factor_axis_metric
+ON public.ticker_factor_metric_feature_baselines (
   factor,
   axis,
   metric_key,
-  signal_key
+  feature_key
 );

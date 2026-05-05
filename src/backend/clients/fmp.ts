@@ -2,7 +2,6 @@ import { ENV } from "@/backend/config/env";
 import type {
   FmpSp500ConstituentRecord,
   FmpTickerProfileRecord,
-  FmpUsMarketHolidayRecord,
 } from "@/backend/clients/fmp/types";
 
 /**
@@ -54,31 +53,6 @@ export async function fetchFmpTickerProfile(
   }
 
   return json[0];
-}
-
-/**
- * ----------------------------------------
- * API: US Market Holidays
- * ----------------------------------------
- */
-
-export async function fetchFmpUsMarketHolidays(): Promise<
-  FmpUsMarketHolidayRecord[]
-> {
-  const url =
-    `https://financialmodelingprep.com/stable/holidays-by-exchange` +
-    `?exchange=NASDAQ&apikey=${ENV.FMP_API_KEY}`;
-
-  const json = await fetchFmpJson<FmpUsMarketHolidayRecord[]>(
-    url,
-    "FMP holiday request failed"
-  );
-
-  if (!Array.isArray(json)) {
-    throw new Error("Invalid holiday response from FMP");
-  }
-
-  return json;
 }
 
 /**

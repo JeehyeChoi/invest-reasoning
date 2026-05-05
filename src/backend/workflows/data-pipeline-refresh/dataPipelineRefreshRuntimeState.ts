@@ -2,14 +2,30 @@
 
 import type { PipelineStatus } from "@/shared/data-pipeline/status";
 
-const MAX_STATUS_EVENTS = 50;
+const MAX_STATUS_EVENTS = 200;
 
-let status: PipelineStatus = {
-  status: "idle",
-  message: "No data pipeline refresh has been started yet.",
+type DataPipelineRefreshRuntimeGlobal = typeof globalThis & {
+  __geoPortfolioDataPipelineRefreshStatus?: PipelineStatus;
 };
 
+const runtimeGlobal = globalThis as DataPipelineRefreshRuntimeGlobal;
+
+function getStoredStatus(): PipelineStatus {
+  runtimeGlobal.__geoPortfolioDataPipelineRefreshStatus ??= {
+    status: "idle",
+    message: "No data pipeline refresh has been started yet.",
+  };
+
+  return runtimeGlobal.__geoPortfolioDataPipelineRefreshStatus;
+}
+
+function setStoredStatus(next: PipelineStatus) {
+  runtimeGlobal.__geoPortfolioDataPipelineRefreshStatus = next;
+}
+
 export function getDataPipelineRefreshStatus(): PipelineStatus {
+  const status = getStoredStatus();
+
   if (status.status === "success") {
     return {
       ...status,
@@ -25,28 +41,29 @@ export function getDataPipelineRefreshStatus(): PipelineStatus {
 }
 
 export function setDataPipelineRefreshStatus(next: PipelineStatus) {
-  status = {
+  setStoredStatus({
     ...next,
     updatedAt: next.updatedAt ?? new Date().toISOString(),
-  };
+  });
 }
 
 export function updateDataPipelineRefreshStatus(
   patch: Partial<PipelineStatus>,
 ) {
-  status = {
-    ...status,
+  setStoredStatus({
+    ...getStoredStatus(),
     ...patch,
     updatedAt: patch.updatedAt ?? new Date().toISOString(),
-  };
+  });
 }
 
 export function addDataPipelineRefreshEvent(
   event: Omit<NonNullable<PipelineStatus["events"]>[number], "timestamp">,
 ) {
   const timestamp = new Date().toISOString();
+  const status = getStoredStatus();
 
-  status = {
+  setStoredStatus({
     ...status,
     message: event.message,
     updatedAt: timestamp,
@@ -57,5 +74,5 @@ export function addDataPipelineRefreshEvent(
         timestamp,
       },
     ].slice(-MAX_STATUS_EVENTS),
-  };
+  });
 }

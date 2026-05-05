@@ -1,6 +1,7 @@
 import { fetchFmpTickerProfile } from "@/backend/clients/fmp";
 import { mapFmpTickerProfileToTickerCoreRows } from "@/backend/services/ticker-core/mapFmpTickerProfile";
 import {
+  countTickerCoreSyncCandidates,
   findTickerCoreSyncCandidates,
   upsertTickerCoreRows,
 } from "@/backend/services/ticker-core/repository";
@@ -12,6 +13,7 @@ export type RunTickerCoreSyncWorkflowInput = {
   staleAfterDays?: number;
   onProgress?: (progress: {
     message: string;
+    level?: "info" | "warning" | "error";
     current?: number;
     total?: number;
     label?: string;
@@ -22,11 +24,33 @@ export type RunTickerCoreSyncWorkflowResult = {
   candidateCount: number;
   processedCount: number;
   failedCount: number;
+  maxRequests: number;
+  staleAfterDays: number;
   stoppedByRateLimit: boolean;
 };
 
 const DEFAULT_MAX_REQUESTS = 200;
-const DEFAULT_STALE_AFTER_DAYS = 90;
+export const DEFAULT_TICKER_CORE_STALE_AFTER_DAYS = 90;
+
+export async function countMissingOrStaleTickerCoreSyncCandidates(input: {
+  universeKeys: UniverseKey[];
+  staleAfterDays?: number;
+}): Promise<{ candidateCount: number; staleAfterDays: number }> {
+  const staleAfterDays = normalizePositiveInt(
+    input.staleAfterDays,
+    DEFAULT_TICKER_CORE_STALE_AFTER_DAYS,
+  );
+
+  const candidateCount = await countTickerCoreSyncCandidates({
+    universeKeys: input.universeKeys,
+    staleAfterDays,
+  });
+
+  return {
+    candidateCount,
+    staleAfterDays,
+  };
+}
 
 export async function runTickerCoreSyncWorkflow(
   input: RunTickerCoreSyncWorkflowInput,
@@ -37,13 +61,19 @@ export async function runTickerCoreSyncWorkflow(
   );
   const staleAfterDays = normalizePositiveInt(
     input.staleAfterDays,
-    DEFAULT_STALE_AFTER_DAYS,
+    DEFAULT_TICKER_CORE_STALE_AFTER_DAYS,
   );
 
   const candidates = await findTickerCoreSyncCandidates({
     universeKeys: input.universeKeys,
     staleAfterDays,
     limit: maxRequests,
+  });
+
+  input.onProgress?.({
+    message: `FMP ticker core sync candidates resolved. staleAfterDays=${staleAfterDays}, candidates=${candidates.length}, requestCap=${maxRequests}.`,
+    current: 0,
+    total: candidates.length,
   });
 
   let processedCount = 0;
@@ -68,10 +98,24 @@ export async function runTickerCoreSyncWorkflow(
     } catch (error) {
       if (isRateLimitError(error)) {
         stoppedByRateLimit = true;
+        input.onProgress?.({
+          message: `FMP ticker core sync stopped by rate limit at ${ticker}. processed=${processedCount}, failed=${failedCount}.`,
+          level: "warning",
+          current: index + 1,
+          total: candidates.length,
+          label: ticker,
+        });
         break;
       }
 
       failedCount += 1;
+      input.onProgress?.({
+        message: `FMP ticker core sync failed for ${ticker}: ${getErrorMessage(error)}`,
+        level: "warning",
+        current: index + 1,
+        total: candidates.length,
+        label: ticker,
+      });
       console.error(`Ticker core sync failed for ${ticker}:`, error);
     }
   }
@@ -80,8 +124,15 @@ export async function runTickerCoreSyncWorkflow(
     candidateCount: candidates.length,
     processedCount,
     failedCount,
+    maxRequests,
+    staleAfterDays,
     stoppedByRateLimit,
   };
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
 }
 
 function normalizePositiveInt(value: number | undefined, fallback: number): number {

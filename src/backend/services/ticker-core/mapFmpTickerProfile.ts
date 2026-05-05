@@ -54,8 +54,8 @@ export function mapFmpTickerProfileToTickerCoreRows(
       fiftyTwoWeekRange: normalizeText(raw.range),
       priceChange: toNumber(raw.change),
       priceChangePercentage: toNumber(raw.changePercentage),
-      volume: toNumber(raw.volume),
-      averageVolume: toNumber(raw.averageVolume),
+      volume: toInt(raw.volume),
+      averageVolume: toInt(raw.averageVolume),
       source: SOURCE,
     },
   };

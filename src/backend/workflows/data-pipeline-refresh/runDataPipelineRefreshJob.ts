@@ -7,6 +7,7 @@ import {
 } from "./dataPipelineRefreshRuntimeState";
 import {
   acquireDataPipelineRefreshLock,
+  getDataPipelineRefreshLockState,
   releaseDataPipelineRefreshLock,
 } from "./dataPipelineRefreshLock";
 import {
@@ -20,9 +21,13 @@ export async function runDataPipelineRefreshJob(
   const acquired = acquireDataPipelineRefreshLock();
 
   if (!acquired) {
+    const lockState = getDataPipelineRefreshLockState();
+
     return {
       ok: false,
       status: "already_running" as const,
+      startedAt: lockState.startedAt,
+      ageMs: lockState.ageMs,
     };
   }
 

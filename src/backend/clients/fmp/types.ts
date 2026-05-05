@@ -36,13 +36,6 @@ export type FmpTickerProfileRecord = {
   isFund?: boolean;
 };
 
-export type FmpUsMarketHolidayRecord = {
-  date?: string;
-  exchange?: string;
-  name?: string;
-  isTrading?: boolean;
-};
-
 export type FmpSp500ConstituentRecord = {
   symbol?: string;
   name?: string;

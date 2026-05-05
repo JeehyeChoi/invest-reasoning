@@ -13,8 +13,6 @@ export async function runSecCompanyFactsSeriesValidationWorkflow(input: {
   tickerCikMap: Record<string, string | null>;
   onProgress?: (progress: WorkflowProgress) => void;
 }) {
-  process.stdout.write("[series-validation] start\n");
-
   const entries = Object.entries(input.tickerCikMap).filter(([, cik]) =>
     Boolean(cik),
   );
@@ -33,13 +31,7 @@ export async function runSecCompanyFactsSeriesValidationWorkflow(input: {
   for (const [ticker, cik] of entries) {
     if (!cik) continue;
 
-    input.onProgress?.({
-      job: "series_validation",
-      message: `Series validation processing ${ticker}.`,
-      current: total + 1,
-      total: entries.length,
-      label: ticker,
-    });
+    const startTime = Date.now();
 
     const { report } = await runValidateMetricSeriesForCik({
       ticker,
@@ -49,11 +41,17 @@ export async function runSecCompanyFactsSeriesValidationWorkflow(input: {
     total += 1;
     warn += report.warningCount > 0 ? 1 : 0;
     fail += report.errorCount > 0 ? 1 : 0;
+
+    const elapsedMs = Date.now() - startTime;
+    input.onProgress?.({
+      job: "series_validation",
+      message: `Series validation completed (${total}/${entries.length}) ${ticker} in ${elapsedMs}ms.`,
+      current: total,
+      total: entries.length,
+      label: ticker,
+    });
   }
 
-  process.stdout.write(
-    `[series-validation] done total=${total} warn=${warn} fail=${fail}\n`,
-  );
   input.onProgress?.({
     job: "series_validation",
     message: `Series validation completed. warnings=${warn} failures=${fail}.`,

@@ -11,4 +11,5 @@ export type SecBulkIngestState = {
   ingest_started_at: string | null;
   ingest_completed_at: string | null;
   updated_at: string;
+  latest_processed_cik_count: number;
 };

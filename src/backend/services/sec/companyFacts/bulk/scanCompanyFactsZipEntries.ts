@@ -22,7 +22,10 @@ export type ScanCompanyFactsZipEntriesResult = {
 export async function scanCompanyFactsZipEntries(
   zipFilePath: string,
   companyStateMap: Map<string, CompanyFactsCompanyStateLike>,
-  allowedCiks?: Set<string>
+  allowedCiks?: Set<string>,
+  options: {
+    forceReadAll?: boolean;
+  } = {},
 ): Promise<ScanCompanyFactsZipEntriesResult> {
   return new Promise((resolve, reject) => {
     yauzl.open(zipFilePath, { lazyEntries: true }, (error, zipfile) => {
@@ -71,13 +74,15 @@ export async function scanCompanyFactsZipEntries(
           return;
         }
 
-        if (prevFileSize === size) {
+        if (prevFileSize === size && !options.forceReadAll) {
           sameSizeSkipCount += 1;
           zipfile.readEntry();
           return;
         }
 
-        changedSizeCount += 1;
+        if (prevFileSize !== size) {
+          changedSizeCount += 1;
+        }
         entriesToRead.push({ cik, size });
         zipfile.readEntry();
       });

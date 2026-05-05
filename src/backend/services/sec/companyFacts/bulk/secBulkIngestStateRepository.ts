@@ -15,6 +15,7 @@ export type SecBulkIngestState = {
   ingest_started_at: string | null;
   ingest_completed_at: string | null;
   updated_at: string;
+  latest_processed_cik_count: number;
 };
 
 type UpsertSecBulkIngestStateInput = {
@@ -48,7 +49,17 @@ export async function getSecBulkIngestState(
         ingest_error,
         ingest_started_at,
         ingest_completed_at,
-        updated_at
+        updated_at,
+        (
+          SELECT COUNT(*)::int
+          FROM sec_companyfact_company_state company_state
+          WHERE sec_bulk_ingest_state.ingest_started_at IS NOT NULL
+            AND company_state.last_processed_at >= sec_bulk_ingest_state.ingest_started_at
+            AND (
+              sec_bulk_ingest_state.ingest_completed_at IS NULL
+              OR company_state.last_processed_at <= sec_bulk_ingest_state.ingest_completed_at
+            )
+        ) AS latest_processed_cik_count
       FROM sec_bulk_ingest_state
       WHERE dataset = $1
     `,

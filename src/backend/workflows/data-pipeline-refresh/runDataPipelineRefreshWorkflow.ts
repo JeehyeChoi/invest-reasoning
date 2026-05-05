@@ -15,11 +15,15 @@ import { runSecBulkIngestWorkflow } from "@/backend/workflows/sec-bulk-ingest/ru
 import { runSecCompanyFactsFiscalProfileWorkflow } from "@/backend/workflows/sec-companyfacts-fiscal-profile/runSecCompanyFactsFiscalProfileWorkflow";
 import { runSecCompanyFactsMetricSeriesWorkflow } from "@/backend/workflows/sec-companyfacts-metric-series/runSecCompanyFactsMetricSeriesWorkflow";
 import { runSecCompanyFactsSeriesValidationWorkflow } from "@/backend/workflows/sec-companyfacts-series-validation/runSecCompanyFactsSeriesValidationWorkflow";
-import { runSecCompanyFactsTagSeriesWorkflow } from "@/backend/workflows/sec-companyfacts-tag-series/runSecCompanyFactsTagSeriesWorkflow";
 import { runTickerFactorMetricClusteringWorkflow } from "@/backend/workflows/ticker-factor-metric-clustering/runTickerFactorMetricClusteringWorkflow";
-import { runTickerFactorMetricSignalsWorkflow } from "@/backend/workflows/ticker-factor-metric-signals/runTickerFactorMetricSignalsWorkflow";
-import { runTickerCoreSyncWorkflow } from "@/backend/workflows/ticker-core-sync/runTickerCoreSyncWorkflow";
+import { runTickerFactorMetricFeaturesWorkflow } from "@/backend/workflows/ticker-factor-metric-features/runTickerFactorMetricFeaturesWorkflow";
+import { runTickerFactorSignalsWorkflow } from "@/backend/workflows/ticker-factor-signals/runTickerFactorSignalsWorkflow";
+import {
+  countMissingOrStaleTickerCoreSyncCandidates,
+  runTickerCoreSyncWorkflow,
+} from "@/backend/workflows/ticker-core-sync/runTickerCoreSyncWorkflow";
 import { runUniverseSelectionWorkflow } from "@/backend/workflows/universe-selection/runUniverseSelectionWorkflow";
+import { runMacroFredSeriesSyncWorkflow } from "@/backend/workflows/macro-fred-series/runMacroFredSeriesSyncWorkflow";
 import {
   addDataPipelineRefreshEvent,
   updateDataPipelineRefreshStatus,
@@ -42,6 +46,7 @@ const DEFAULT_DATA_PIPELINE_REFRESH_JOBS: DataPipelineRefreshJobKey[] =
 type WorkflowProgress = {
   job?: DataPipelineRefreshJobKey;
   message: string;
+  level?: "info" | "warning" | "error";
   current?: number;
   total?: number;
   label?: string;
@@ -66,6 +71,7 @@ function reportDataPipelineProgress(progress: WorkflowProgress) {
 
   addDataPipelineRefreshEvent({
     job: progress.job,
+    level: progress.level,
     message: progress.message,
   });
 }
@@ -75,9 +81,34 @@ export async function runDataPipelineRefreshWorkflow(
 ) {
   const requestedJobs = input.jobs ?? DEFAULT_DATA_PIPELINE_REFRESH_JOBS;
   const jobs = new Set<DataPipelineRefreshJobKey>(requestedJobs);
-  const companyScope = input.companyScope ?? "all";
+  const companyScope: DataPipelineCompanyScope =
+    input.companyScope === "bulk_changed" ? "bulk_changed" : "all";
+  const shouldForceReadAllSecCompanyFacts = companyScope === "all";
   const universeRefreshMode = input.universeRefreshMode ?? "skip";
   const tickerCoreSyncMode = input.tickerCoreSyncMode ?? "skip";
+
+  if (jobs.has("macro_fred_series_sync")) {
+    reportDataPipelineProgress({
+      job: "macro_fred_series_sync",
+      message: "Macro FRED series sync started.",
+    });
+
+    const result = await runMacroFredSeriesSyncWorkflow({
+      onProgress: (progress) =>
+        reportDataPipelineProgress({
+          job: "macro_fred_series_sync",
+          message: progress.message,
+          current: progress.current,
+          total: progress.total,
+          label: progress.label,
+        }),
+    });
+
+    reportDataPipelineProgress({
+      job: "macro_fred_series_sync",
+      message: `Macro FRED series sync completed. series=${result.seriesResults.length}, rows=${result.rowCount}.`,
+    });
+  }
 
   reportDataPipelineProgress({
     message: "Preparing ticker universe.",
@@ -92,13 +123,15 @@ export async function runDataPipelineRefreshWorkflow(
   reportDataPipelineProgress({
     message:
       universeSelection.refreshedUniverseKeys.length > 0
-        ? `Ticker universe prepared. universes=${universeSelection.universeKeys.join(", ")}, refreshed=${universeSelection.refreshedUniverseKeys.join(", ")}, tickers=${tickers.length}.`
-        : `Ticker universe loaded from stored memberships. universes=${universeSelection.universeKeys.join(", ")}, tickers=${tickers.length}.`,
+        ? `Ticker universe prepared from all stored active memberships. refreshed=${universeSelection.refreshedUniverseKeys.join(", ")}, activeTickers=${tickers.length}.`
+        : universeSelection.usedTickerIdentityFallback
+          ? `Stored universe memberships are empty; loaded ticker identities instead. activeTickers=${tickers.length}.`
+          : `Ticker universe loaded from all stored active memberships. activeTickers=${tickers.length}.`,
   });
 
   if (universeSelection.unsupportedRefreshUniverseKeys.length > 0) {
     reportDataPipelineProgress({
-      message: `Universe refresh not yet implemented for: ${universeSelection.unsupportedRefreshUniverseKeys.join(", ")}.`,
+      message: `Universe sync not yet implemented for: ${universeSelection.unsupportedRefreshUniverseKeys.join(", ")}.`,
     });
   }
 
@@ -113,6 +146,7 @@ export async function runDataPipelineRefreshWorkflow(
       onProgress: (progress) =>
         reportDataPipelineProgress({
           message: progress.message,
+          level: progress.level,
           current: progress.current,
           total: progress.total,
           label: progress.label,
@@ -121,8 +155,17 @@ export async function runDataPipelineRefreshWorkflow(
 
     reportDataPipelineProgress({
       message: tickerCoreResult.stoppedByRateLimit
-        ? `Ticker core sync stopped by provider rate limit. processed=${tickerCoreResult.processedCount}, failed=${tickerCoreResult.failedCount}, candidates=${tickerCoreResult.candidateCount}.`
-        : `Ticker core sync completed. processed=${tickerCoreResult.processedCount}, failed=${tickerCoreResult.failedCount}, candidates=${tickerCoreResult.candidateCount}.`,
+        ? `Ticker core sync stopped by provider rate limit. staleAfterDays=${tickerCoreResult.staleAfterDays}, processed=${tickerCoreResult.processedCount}, failed=${tickerCoreResult.failedCount}, candidates=${tickerCoreResult.candidateCount}, requestCap=${tickerCoreResult.maxRequests}.`
+        : `Ticker core sync completed. staleAfterDays=${tickerCoreResult.staleAfterDays}, processed=${tickerCoreResult.processedCount}, failed=${tickerCoreResult.failedCount}, candidates=${tickerCoreResult.candidateCount}, requestCap=${tickerCoreResult.maxRequests}.`,
+    });
+  } else {
+    const tickerCoreCandidates =
+      await countMissingOrStaleTickerCoreSyncCandidates({
+        universeKeys: universeSelection.universeKeys,
+      });
+
+    reportDataPipelineProgress({
+      message: `Using stored company profiles. FMP ticker core sync skipped. staleAfterDays=${tickerCoreCandidates.staleAfterDays}, missingOrStaleCandidates=${tickerCoreCandidates.candidateCount}.`,
     });
   }
 
@@ -138,24 +181,40 @@ export async function runDataPipelineRefreshWorkflow(
     Object.values(tickerCikMap).filter((cik): cik is string => Boolean(cik)),
   );
 
+  reportDataPipelineProgress({
+    message: `Ticker CIK map resolved. tickers=${tickers.length}, mappedCiks=${allowedCiks.size}, companyScope=${companyScope}.`,
+  });
+
   let bulkChangedCiks = new Set<string>();
   let didRunBulkIngest = false;
+  const buildFiscalProfileDuringBulkIngest = jobs.has("fiscal_profile");
+  const buildTagSeriesDuringBulkIngest = jobs.has("sec_bulk_ingest");
 
   if (jobs.has("sec_bulk_ingest")) {
     didRunBulkIngest = true;
     reportDataPipelineProgress({
       job: "sec_bulk_ingest",
-      message: "SEC bulk ingest started.",
+      message:
+        shouldForceReadAllSecCompanyFacts
+          ? "SEC bulk ingest started. Scope=all; every mapped CIK will be reread from the archive before raw cleanup."
+          : "SEC bulk ingest started. Scope=bulk_changed; only new or file-size-changed CIKs will be read before raw cleanup.",
     });
 
-    const bulkIngestResult = await runSecBulkIngestWorkflow({ allowedCiks });
+    const bulkIngestResult = await runSecBulkIngestWorkflow({
+      allowedCiks,
+      forceReadAll: shouldForceReadAllSecCompanyFacts,
+      tickerByCik: buildTickerByCik(tickerCikMap),
+      buildFiscalProfileBeforeRawCleanup: buildFiscalProfileDuringBulkIngest,
+      buildTagSeriesBeforeRawCleanup: buildTagSeriesDuringBulkIngest,
+      onProgress: reportDataPipelineProgress,
+    });
     bulkChangedCiks = new Set(bulkIngestResult.changedCiks);
 
     reportDataPipelineProgress({
       job: "sec_bulk_ingest",
       message: bulkIngestResult.didSkipIngest
-        ? `SEC bulk ingest skipped: no company entries changed by file size. checked=${bulkIngestResult.totalCount}, unchanged=${bulkIngestResult.sameSizeSkipCount}.`
-        : `SEC bulk ingest completed. changed=${bulkChangedCiks.size}, processed=${bulkIngestResult.processedCount}, failed=${bulkIngestResult.failedCount}.`,
+        ? `[SEC BULK] No company entries changed by file size. Skipping raw ingest. checked=${bulkIngestResult.totalCount}, unchanged=${bulkIngestResult.sameSizeSkipCount}.`
+        : `SEC bulk ingest completed. scope=${companyScope}, processedCiks=${bulkChangedCiks.size}, processed=${bulkIngestResult.processedCount}, failed=${bulkIngestResult.failedCount}.`,
     });
   }
 
@@ -175,23 +234,35 @@ export async function runDataPipelineRefreshWorkflow(
         })
       : tickers;
 
+  const scopedCikCount = new Set(
+    Object.values(scopedTickerCikMap).filter((cik): cik is string => Boolean(cik)),
+  ).size;
+
+  reportDataPipelineProgress({
+    message: `Downstream company targets resolved. scope=${companyScope}, tickers=${scopedTickers.length}, mappedCiks=${scopedCikCount}.`,
+  });
+
   if (companyScope === "bulk_changed") {
     reportDataPipelineProgress({
       message: `Downstream company scope: changed companies from latest SEC bulk ingest (${bulkChangedCiks.size}).`,
     });
+  } else {
+    reportDataPipelineProgress({
+      message:
+        "Downstream company scope: all mapped SEC companies. Metric series and validation will run for the full mapped set.",
+    });
   }
 
-  if (jobs.has("fiscal_profile")) {
+  if (jobs.has("fiscal_profile") && !didRunBulkIngest) {
     await runSecCompanyFactsFiscalProfileWorkflow({
       tickerCikMap: scopedTickerCikMap,
       onProgress: reportDataPipelineProgress,
     });
-  }
-
-  if (jobs.has("tag_series")) {
-    await runSecCompanyFactsTagSeriesWorkflow({
-      tickerCikMap: scopedTickerCikMap,
-      onProgress: reportDataPipelineProgress,
+  } else if (jobs.has("fiscal_profile")) {
+    reportDataPipelineProgress({
+      job: "fiscal_profile",
+      message:
+        "Fiscal profile standalone pass skipped; changed companies were processed during SEC bulk ingest before raw cleanup.",
     });
   }
 
@@ -211,20 +282,44 @@ export async function runDataPipelineRefreshWorkflow(
     });
   }
 
-  if (jobs.has("factor_metric_signals")) {
+  if (jobs.has("factor_metric_features")) {
     reportDataPipelineProgress({
-      job: "factor_metric_signals",
-      message: "Factor metric signals started.",
+      job: "factor_metric_features",
+      message: "Factor metric features started.",
     });
 
-    await runTickerFactorMetricSignalsWorkflow({
+    await runTickerFactorMetricFeaturesWorkflow({
       tickers: scopedTickers,
       tickerCikMap: scopedTickerCikMap,
+      onProgress: reportDataPipelineProgress,
     });
 
     reportDataPipelineProgress({
-      job: "factor_metric_signals",
-      message: "Factor metric signals completed.",
+      job: "factor_metric_features",
+      message: "Factor metric features completed.",
+    });
+  }
+
+  if (jobs.has("factor_signals")) {
+    reportDataPipelineProgress({
+      job: "factor_signals",
+      message: "Factor signals started.",
+    });
+
+    const result = await runTickerFactorSignalsWorkflow({
+      onProgress: (progress) =>
+        reportDataPipelineProgress({
+          job: "factor_signals",
+          message: progress.message,
+          current: progress.current,
+          total: progress.total,
+          label: progress.label,
+        }),
+    });
+
+    reportDataPipelineProgress({
+      job: "factor_signals",
+      message: `Factor signals completed. scopes=${result.processed}.`,
     });
   }
 
@@ -234,7 +329,16 @@ export async function runDataPipelineRefreshWorkflow(
       message: "Factor metric clustering started.",
     });
 
-    const result = await runTickerFactorMetricClusteringWorkflow();
+    const result = await runTickerFactorMetricClusteringWorkflow({
+      onProgress: (progress) =>
+        reportDataPipelineProgress({
+          job: "factor_metric_clustering",
+          message: progress.message,
+          current: progress.current,
+          total: progress.total,
+          label: progress.label,
+        }),
+    });
 
     reportDataPipelineProgress({
       job: "factor_metric_clustering",
@@ -252,6 +356,20 @@ function filterTickerCikMapByCiks(
       Boolean(cik && allowedCiks.has(cik)),
     ),
   );
+}
+
+function buildTickerByCik(
+  tickerCikMap: Record<string, string | null>,
+): Map<string, string> {
+  const tickerByCik = new Map<string, string>();
+
+  for (const [ticker, cik] of Object.entries(tickerCikMap)) {
+    if (cik && !tickerByCik.has(cik)) {
+      tickerByCik.set(cik, ticker);
+    }
+  }
+
+  return tickerByCik;
 }
 
 async function loadLatestSecBulkIngestChangedCiks(

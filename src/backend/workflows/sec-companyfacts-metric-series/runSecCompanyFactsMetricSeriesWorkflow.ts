@@ -1,6 +1,7 @@
 import { buildCompanyFactsMetricSeriesForCik } from "@/backend/services/sec/companyFacts/series/metric/buildCompanyFactsMetricSeriesForCik";
 import { assignPeriodLabelsToMetricSeriesForCik } from "@/backend/services/sec/companyFacts/series/period/assignPeriodLabelsToMetricSeriesForCik";
 import { buildCompanyFactsMetricSeriesEnrichedForCik } from "@/backend/services/sec/companyFacts/series/enriched/buildCompanyFactsMetricSeriesEnrichedForCik";
+import { buildMetricSeriesReliabilityForCik } from "@/backend/services/sec/companyFacts/series/reliability/buildMetricSeriesReliabilityForCik";
 import type { SecMetricKey } from "@/shared/sec/metrics";
 import type { DataPipelineRefreshJobKey } from "@/shared/data-pipeline/jobs";
 
@@ -27,7 +28,6 @@ export async function runSecCompanyFactsMetricSeriesWorkflow(
     Boolean(cik),
   );
 
-  process.stdout.write(`[metric-series] start total=${entries.length}\n`);
   input.onProgress?.({
     job: "metric_series",
     message: "Metric series build started.",
@@ -40,59 +40,53 @@ export async function runSecCompanyFactsMetricSeriesWorkflow(
   }
 
   let processed = 0;
+  let reliabilityCount = 0;
+  let reliabilityMetricCount = 0;
 
   for (const [ticker, cik] of entries) {
     if (!cik) continue;
 
     processed += 1;
     const startTime = Date.now();
-    input.onProgress?.({
-      job: "metric_series",
-      message: `Metric series processing ${ticker}.`,
-      current: processed,
-      total: entries.length,
-      label: ticker,
-    });
-
-    process.stdout.write(
-      `\r[metric-series] (${processed}/${entries.length}) processing ${ticker}`,
-    );
 
     try {
-			await buildCompanyFactsMetricSeriesForCik({
+      await buildCompanyFactsMetricSeriesForCik({
         ticker,
         cik,
         metricKey: input.rebuildMode === "metric" ? input.metricKey : undefined,
       });
-			await assignPeriodLabelsToMetricSeriesForCik({ ticker, cik });
+      await assignPeriodLabelsToMetricSeriesForCik({ ticker, cik });
 
-			await buildCompanyFactsMetricSeriesEnrichedForCik({
-				ticker,
-				cik,
-				metricKey: input.rebuildMode === "metric" ? input.metricKey : undefined,
-			});
+      await buildCompanyFactsMetricSeriesEnrichedForCik({
+        ticker,
+        cik,
+        metricKey: input.rebuildMode === "metric" ? input.metricKey : undefined,
+      });
+
+      const reliabilityResult = await buildMetricSeriesReliabilityForCik({
+        ticker,
+        cik,
+        metricKey: input.rebuildMode === "metric" ? input.metricKey : undefined,
+      });
+      reliabilityCount += reliabilityResult.reliabilityCount;
+      reliabilityMetricCount += reliabilityResult.metricCount;
 
       const elapsedMs = Date.now() - startTime;
-      process.stdout.write(
-        `\r[metric-series] (${processed}/${entries.length}) done ${ticker} in ${elapsedMs}ms`,
-      );
       input.onProgress?.({
         job: "metric_series",
-        message: `Metric series completed ${ticker} in ${elapsedMs}ms.`,
+        message: `Metric series completed (${processed}/${entries.length}) ${ticker} in ${elapsedMs}ms.`,
         current: processed,
         total: entries.length,
         label: ticker,
       });
     } catch (err) {
-      process.stdout.write("\n");
       console.error(`[metric-series] failed for ticker=${ticker}, cik=${cik}`, err);
     }
   }
 
-  process.stdout.write("\n[metric-series] done all\n");
   input.onProgress?.({
     job: "metric_series",
-    message: "Metric series build completed.",
+    message: `Metric series build completed. reliabilityRecords=${reliabilityCount}.`,
     current: entries.length,
     total: entries.length,
   });
