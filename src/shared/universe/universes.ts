@@ -2,6 +2,7 @@ export const UNIVERSE_KEYS = [
   "sp500",
   "sp400",
   "sp600",
+  "djia",
   "russell1000",
   "russell2000",
   "russell3000",
