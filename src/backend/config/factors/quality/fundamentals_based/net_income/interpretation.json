@@ -2,49 +2,29 @@
   "version": "interpretation_v1",
   "factor": "quality",
   "axis": "fundamentals_based",
-  "metricKey": "gross_profit",
+  "metricKey": "net_income",
   "meta": {
-    "description": "Gross profit quality interpretation using enriched SEC companyfact metric series.",
+    "description": "Net income quality interpretation using enriched SEC companyfact metric series.",
     "createdAt": "2026-05"
   },
   "features": {
-    "profitabilityConsistency": {
-      "source": "duration_adjusted_yoy",
-      "lookback": 4,
-      "method": "positive_ratio",
-      "valueType": "ratio",
-      "comparison": true,
-      "macroContrast": false,
-      "clustering": true,
-      "series": {
+    "accrualsToAssets": {
+      "source": "duration_adjusted_ttm_val",
+      "method": "spread_to_denominator",
+      "counterpart": {
         "table": "sec_companyfact_metric_series_enriched",
         "version": "enriched_v2",
-        "metricKey": "gross_profit",
-        "periodType": "quarter"
-      }
-    },
-    "profitabilityPosition": {
-      "source": "duration_adjusted_val",
-      "reference": "duration_adjusted_rolling4_avg",
-      "method": "relative_deviation",
-      "valueType": "ratio",
-      "comparison": true,
-      "macroContrast": false,
-      "clustering": true,
-      "series": {
-        "table": "sec_companyfact_metric_series_enriched",
-        "version": "enriched_v2",
-        "metricKey": "gross_profit",
-        "periodType": "quarter"
-      }
-    },
-    "profitabilityTurnaround": {
-      "sources": {
-        "turnaround": "is_turnaround",
-        "lossNarrowing": "is_loss_narrowing",
-        "deterioration": "is_deterioration"
+        "metricKey": "operating_cash_flow",
+        "periodType": "quarter",
+        "source": "duration_adjusted_ttm_val"
       },
-      "method": "turnaround_momentum",
+      "denominator": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "assets",
+        "periodType": "instant",
+        "source": "val"
+      },
       "valueType": "ratio",
       "comparison": true,
       "macroContrast": false,
@@ -52,11 +32,11 @@
       "series": {
         "table": "sec_companyfact_metric_series_enriched",
         "version": "enriched_v2",
-        "metricKey": "gross_profit",
+        "metricKey": "net_income",
         "periodType": "quarter"
       }
     },
-    "grossProfitToAssets": {
+    "netIncomeReturnOnAssets": {
       "source": "duration_adjusted_ttm_val",
       "method": "ratio_to_denominator",
       "denominator": {
@@ -73,7 +53,7 @@
       "series": {
         "table": "sec_companyfact_metric_series_enriched",
         "version": "enriched_v2",
-        "metricKey": "gross_profit",
+        "metricKey": "net_income",
         "periodType": "quarter"
       }
     }

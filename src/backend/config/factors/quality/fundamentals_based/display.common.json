@@ -4,9 +4,14 @@
     "type": "timeseries"
   },
   "featureOrder": [
-    "qualityConsistency",
-    "qualityTrendSupport",
-    "turnaroundMomentum"
+    "profitabilityConsistency",
+    "profitabilityPosition",
+    "profitabilityTurnaround",
+    "cashEarningsCoverage",
+    "accrualsToAssets",
+    "grossProfitToAssets",
+    "operatingReturnOnAssets",
+    "netIncomeReturnOnAssets"
   ],
   "baselineLabels": {
     "sectorPercentile": "Sector Percentile",
@@ -14,8 +19,13 @@
     "excessVsUsNominalGdp": "Excess vs US Nominal GDP"
   },
   "featureLabels": {
-    "qualityConsistency": "Quality Consistency",
-    "qualityTrendSupport": "Trend Support",
-    "turnaroundMomentum": "Turnaround Momentum"
+    "profitabilityConsistency": "Profitability Consistency",
+    "profitabilityPosition": "Profitability Position",
+    "profitabilityTurnaround": "Profitability Turnaround",
+    "cashEarningsCoverage": "Cash Earnings Coverage",
+    "accrualsToAssets": "Accruals to Assets",
+    "grossProfitToAssets": "Gross Profit to Assets",
+    "operatingReturnOnAssets": "Operating Return on Assets",
+    "netIncomeReturnOnAssets": "Net Income Return on Assets"
   }
 }

@@ -3,5 +3,5 @@
   "chart": {
     "title": "Operating Income Trend"
   },
-  "description": "Operating income growth signal based on latest YoY growth, TTM growth, acceleration, and turnaround momentum."
+  "description": "Operating income growth signal based on latest YoY growth, TTM growth, YoY growth acceleration, and turnaround momentum."
 }

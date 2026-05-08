@@ -36,7 +36,7 @@
         "periodType": "quarter"
       }
     },
-    "acceleration": {
+    "yoyGrowthAcceleration": {
       "source": "duration_adjusted_yoy_delta",
       "method": "direct",
       "valueType": "ratio",

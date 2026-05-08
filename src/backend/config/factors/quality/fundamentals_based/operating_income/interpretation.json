@@ -8,7 +8,7 @@
     "createdAt": "2026-05"
   },
   "features": {
-    "qualityConsistency": {
+    "profitabilityConsistency": {
       "source": "duration_adjusted_yoy",
       "lookback": 4,
       "method": "positive_ratio",
@@ -23,7 +23,7 @@
         "periodType": "quarter"
       }
     },
-    "qualityTrendSupport": {
+    "profitabilityPosition": {
       "source": "duration_adjusted_val",
       "reference": "duration_adjusted_rolling4_avg",
       "method": "relative_deviation",
@@ -38,13 +38,34 @@
         "periodType": "quarter"
       }
     },
-    "turnaroundMomentum": {
+    "profitabilityTurnaround": {
       "sources": {
         "turnaround": "is_turnaround",
         "lossNarrowing": "is_loss_narrowing",
         "deterioration": "is_deterioration"
       },
       "method": "turnaround_momentum",
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "operating_income",
+        "periodType": "quarter"
+      }
+    },
+    "operatingReturnOnAssets": {
+      "source": "duration_adjusted_ttm_val",
+      "method": "ratio_to_denominator",
+      "denominator": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "assets",
+        "periodType": "instant",
+        "source": "val"
+      },
       "valueType": "ratio",
       "comparison": true,
       "macroContrast": false,

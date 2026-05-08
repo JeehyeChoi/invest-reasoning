@@ -3,5 +3,5 @@
   "chart": {
     "title": "Operating Cash Flow Quality"
   },
-  "description": "Operating cash flow quality signal based on consistency, trend support, and turnaround momentum."
+  "description": "Quality feature source for cash profitability durability, current position, turnaround state, and cash-backed earnings."
 }

@@ -3,5 +3,5 @@
   "chart": {
     "title": "Gross Profit Quality"
   },
-  "description": "Gross profit quality signal based on consistency, trend support, and turnaround momentum."
+  "description": "Quality feature source for gross profit durability, current position, turnaround state, and asset efficiency."
 }

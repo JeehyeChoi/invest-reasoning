@@ -6,7 +6,7 @@
   "featureOrder": [
     "latestGrowth",
     "durableGrowth",
-    "acceleration",
+    "yoyGrowthAcceleration",
     "turnaroundMomentum"
   ],
   "baselineLabels": {
@@ -17,7 +17,7 @@
   "featureLabels": {
     "latestGrowth": "Latest YoY Growth",
     "durableGrowth": "TTM YoY Growth",
-    "acceleration": "Growth Acceleration",
+    "yoyGrowthAcceleration": "YoY Growth Acceleration",
     "turnaroundMomentum": "Turnaround Momentum"
   }
 }

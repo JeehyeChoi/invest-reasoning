@@ -3,5 +3,5 @@
   "chart": {
     "title": "Operating Income Quality"
   },
-  "description": "Operating income quality signal based on consistency, trend support, and turnaround momentum."
+  "description": "Quality feature source for operating profitability durability, current position, turnaround state, and return on assets."
 }
