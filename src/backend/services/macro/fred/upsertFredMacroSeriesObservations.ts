@@ -1,6 +1,8 @@
 import { db } from "@/backend/config/db";
 import type { FredSeriesObservation } from "@/backend/services/macro/fred/getFredSeriesObservations";
 
+const UPSERT_CHUNK_SIZE = 500;
+
 export async function upsertFredMacroSeriesObservations(
   observations: FredSeriesObservation[],
 ): Promise<number> {
@@ -8,6 +10,18 @@ export async function upsertFredMacroSeriesObservations(
     return 0;
   }
 
+  for (let index = 0; index < observations.length; index += UPSERT_CHUNK_SIZE) {
+    await upsertFredMacroSeriesObservationsChunk(
+      observations.slice(index, index + UPSERT_CHUNK_SIZE),
+    );
+  }
+
+  return observations.length;
+}
+
+async function upsertFredMacroSeriesObservationsChunk(
+  observations: FredSeriesObservation[],
+): Promise<void> {
   const values: unknown[] = [];
   const placeholders = observations.map((observation, index) => {
     const offset = index * 7;
@@ -48,6 +62,4 @@ export async function upsertFredMacroSeriesObservations(
     `,
     values,
   );
-
-  return observations.length;
 }

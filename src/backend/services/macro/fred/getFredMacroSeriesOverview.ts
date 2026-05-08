@@ -8,6 +8,7 @@ import type {
 
 type FredMacroObservationRow = {
   series_id: string;
+  units: string;
   observation_date: string | Date;
   value: number | string | null;
   fetched_at: string | Date | null;
@@ -31,28 +32,32 @@ export async function getFredMacroSeriesOverview(): Promise<FredMacroSeriesOverv
     `
     SELECT
       series_id,
+      units,
       observation_date,
       value,
       fetched_at,
       count(*) OVER (PARTITION BY series_id) AS observation_count
     FROM public.fred_macro_series_observations
     WHERE series_id = ANY($1::text[])
-      AND units = 'pc1'
     ORDER BY series_id ASC, observation_date ASC
     `,
     [seriesIds],
   );
 
-  const rowsBySeriesId = new Map<string, FredMacroObservationRow[]>();
+  const rowsBySeriesKey = new Map<string, FredMacroObservationRow[]>();
 
   for (const row of result.rows) {
-    const rows = rowsBySeriesId.get(row.series_id) ?? [];
+    const key = buildSeriesDefinitionKey(row.series_id, row.units);
+    const rows = rowsBySeriesKey.get(key) ?? [];
     rows.push(row);
-    rowsBySeriesId.set(row.series_id, rows);
+    rowsBySeriesKey.set(key, rows);
   }
 
   const series = definitions.map<FredMacroSeriesSummary>((definition) => {
-    const rows = rowsBySeriesId.get(definition.seriesId) ?? [];
+    const rows =
+      rowsBySeriesKey.get(
+        buildSeriesDefinitionKey(definition.seriesId, definition.units),
+      ) ?? [];
     const observations = rows.map<FredMacroSeriesObservation>((row) => ({
       observationDate: formatDateOnly(row.observation_date),
       value: formatNullableNumber(row.value),
@@ -99,6 +104,10 @@ export async function getFredMacroSeriesOverview(): Promise<FredMacroSeriesOverv
       ? undefined
       : "No stored FRED observations were found. Run the macro FRED sync job to populate this page.",
   };
+}
+
+function buildSeriesDefinitionKey(seriesId: string, units: string): string {
+  return `${seriesId}:${units}`;
 }
 
 function formatNullableNumber(value: number | string | null): number | null {

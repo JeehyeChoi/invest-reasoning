@@ -12,16 +12,18 @@ export function MethodologySection({
 	children,
 }: MethodologySectionProps) {
 	return (
-		<section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm shadow-stone-200/50 md:p-6">
-			{eyebrow ? (
-				<div className="text-xs font-semibold uppercase tracking-[0.22em] text-stone-500">
-					{eyebrow}
-				</div>
-			) : null}
-			<h2 className="mt-2 text-xl font-semibold tracking-tight text-stone-950">
-				{title}
-			</h2>
-			<div className="mt-4">{children}</div>
+		<section className="border border-zinc-300 bg-white shadow-[4px_4px_0_0_rgba(24,24,27,0.08)]">
+			<div className="border-b border-zinc-200 bg-[#f2f3ef] px-5 py-4">
+				{eyebrow ? (
+					<div className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#6d5a2d]">
+						{eyebrow}
+					</div>
+				) : null}
+				<h2 className="mt-2 text-xl font-semibold tracking-tight text-zinc-950">
+					{title}
+				</h2>
+			</div>
+			<div className="px-5 py-4">{children}</div>
 		</section>
 	);
 }

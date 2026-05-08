@@ -1,57 +1,117 @@
 import { getMetricSystemRegistry } from "@/backend/services/methodology/getMetricSystemRegistry";
+import { getSignalSystemRegistry } from "@/backend/services/methodology/getSignalSystemRegistry";
 import { WhatThisSystemDoes } from "@/features/methodology/sections/01-WhatThisSystemDoes";
 import { DataSourcesAndLineage } from "@/features/methodology/sections/02-DataSourcesAndLineage";
 import { SECDataProcessing } from "@/features/methodology/sections/03-SECDataProcessing";
 import { InternalStructure } from "@/features/methodology/sections/04-InternalStructure";
-import { MetricSystem } from "@/features/methodology/sections/05-MetricSystem";
-import { ScoringSystem } from "@/features/methodology/sections/06-ScoringSystem";
+import { FactorConceptView } from "@/features/methodology/sections/05-FactorConceptView";
+import { SignalSystem } from "@/features/methodology/sections/06-SignalSystem";
 import { ConfidenceAndWarnings } from "@/features/methodology/sections/07-ConfidenceAndWarnings";
 import { InterpretationModel } from "@/features/methodology/sections/08-InterpretationModel";
 import { Validation } from "@/features/methodology/sections/09-Validation";
 import { Limitations } from "@/features/methodology/sections/10-Limitations";
 import { Coverage } from "@/features/methodology/sections/11-Coverage";
 import { FileMap } from "@/features/methodology/sections/12-FileMap";
+import {
+	WorkstationFrame,
+	WorkstationPanel,
+} from "@/features/workstation/components/WorkstationChrome";
 
 export default async function MethodologyPage() {
-	const metricSystem = await getMetricSystemRegistry();
+	const [metricSystem, signalSystem] = await Promise.all([
+		getMetricSystemRegistry(),
+		getSignalSystemRegistry(),
+	]);
 	const { factors, axes } = metricSystem;
 
 	return (
-		<main className="min-h-screen bg-[linear-gradient(180deg,#f7f4ed_0%,#f3efe7_42%,#ffffff_100%)]">
-			<div className="mx-auto max-w-5xl space-y-5 px-4 py-8 md:px-6 md:py-10">
-				<section className="rounded-[1.75rem] border border-stone-200 bg-stone-950 px-6 py-7 text-stone-50 shadow-xl shadow-stone-300/40 md:px-8 md:py-9">
-					<div className="text-xs font-semibold uppercase tracking-[0.26em] text-stone-300">
+		<WorkstationFrame
+			title="methodology workstation"
+			backHref="/dashboard"
+			backLabel="Dashboard"
+			maxWidthClassName="max-w-7xl"
+		>
+			<div className="space-y-5">
+				<section className="border-b border-zinc-300 pb-7">
+					<div className="font-mono text-xs font-semibold uppercase tracking-[0.24em] text-[#6d5a2d]">
 						Methodology
 					</div>
-					<h1 className="mt-4 max-w-4xl text-3xl font-semibold tracking-tight md:text-4xl">
-						A developer-facing explanation of how SEC data becomes metrics,
-						signals, and interpretations.
-					</h1>
-					<p className="mt-4 max-w-3xl text-sm leading-7 text-stone-300 md:text-base">
-						This page is for readers who want to inspect the system logic:
-						what gets selected, how period ambiguity is resolved, where
-						fallbacks enter, how scores relate to metrics, and why
-						interpretations should be read as evidence-based hypotheses rather
-						than final truth.
-					</p>
-					<div className="mt-6 grid gap-3 sm:grid-cols-2">
-						<div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-							<div className="text-2xl font-semibold text-white">{factors.length}</div>
-							<div className="mt-1 text-sm text-stone-300">active factors</div>
+					<div className="mt-3 flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+						<div className="min-w-0 flex-1">
+							<h1 className="max-w-4xl text-3xl font-semibold tracking-tight text-zinc-950 md:text-4xl">
+								How SEC data becomes metrics, signals, and interpretations
+							</h1>
+							<p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-600">
+								This page documents the logic behind the system for readers who
+								care about tag selection, period resolution, metric
+								construction, signal context, and interpretation boundaries.
+							</p>
 						</div>
-						<div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-							<div className="text-2xl font-semibold text-white">{axes.length}</div>
-							<div className="mt-1 text-sm text-stone-300">active axes</div>
+
+						<div className="grid w-full grid-cols-2 border border-zinc-950 bg-white text-right shadow-[4px_4px_0_0_rgba(24,24,27,0.12)] sm:w-auto sm:min-w-[280px] lg:flex-none">
+							<div className="border-r border-zinc-200 px-3 py-3">
+								<div className="text-2xl font-semibold text-zinc-950">
+									{factors.length}
+								</div>
+								<div className="font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-500">
+									factors
+								</div>
+							</div>
+							<div className="px-3 py-3">
+								<div className="text-2xl font-semibold text-zinc-950">
+									{axes.length}
+								</div>
+								<div className="font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-500">
+									axes
+								</div>
+							</div>
 						</div>
 					</div>
 				</section>
+
+				<WorkstationPanel>
+					<div className="grid gap-0 text-sm md:grid-cols-2 xl:grid-cols-4">
+						<div className="border-b border-zinc-200 p-4 md:border-r xl:border-b-0">
+							<div className="font-mono text-xs uppercase tracking-[0.18em] text-zinc-500">
+								source
+							</div>
+							<div className="mt-1 font-medium text-zinc-950">
+								SEC companyfacts
+							</div>
+						</div>
+						<div className="border-b border-zinc-200 p-4 xl:border-r xl:border-b-0">
+							<div className="font-mono text-xs uppercase tracking-[0.18em] text-zinc-500">
+								question
+							</div>
+							<div className="mt-1 font-medium text-zinc-950">
+								how data is chosen and transformed
+							</div>
+						</div>
+						<div className="border-b border-zinc-200 p-4 md:border-r md:border-b-0">
+							<div className="font-mono text-xs uppercase tracking-[0.18em] text-zinc-500">
+								audience
+							</div>
+							<div className="mt-1 font-medium text-zinc-950">
+								developers and heavy users
+							</div>
+						</div>
+						<div className="p-4">
+							<div className="font-mono text-xs uppercase tracking-[0.18em] text-zinc-500">
+								output
+							</div>
+							<div className="mt-1 font-medium text-zinc-950">
+								traceable interpretation
+							</div>
+						</div>
+					</div>
+				</WorkstationPanel>
 
 				<WhatThisSystemDoes />
 				<DataSourcesAndLineage />
 				<SECDataProcessing />
 				<InternalStructure />
-				<MetricSystem data={metricSystem} />
-				<ScoringSystem />
+				<FactorConceptView data={metricSystem} signalSystem={signalSystem} />
+				<SignalSystem signalSystem={signalSystem} />
 				<ConfidenceAndWarnings />
 				<InterpretationModel />
 				<Validation />
@@ -59,6 +119,6 @@ export default async function MethodologyPage() {
 				<Coverage />
 				<FileMap />
 			</div>
-		</main>
+		</WorkstationFrame>
 	);
 }
