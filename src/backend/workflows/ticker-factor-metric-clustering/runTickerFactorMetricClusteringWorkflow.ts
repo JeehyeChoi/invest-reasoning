@@ -1,11 +1,9 @@
-import { FACTOR_BLUEPRINTS } from "@/backend/config/factors/blueprints";
+import { db } from "@/backend/config/db";
 import { runTickerFactorMetricClustering } from "@/backend/services/ticker-clustering/runTickerFactorMetricClustering";
 import type {
   RunTickerFactorMetricClusteringInput,
   RunTickerFactorMetricClusteringResult,
 } from "@/backend/services/ticker-clustering/runTickerFactorMetricClustering";
-import type { FactorKey } from "@/shared/factors/factors";
-import type { FactorAxisKey } from "@/shared/factors/axes";
 
 export type RunTickerFactorMetricClusteringWorkflowInput =
   RunTickerFactorMetricClusteringInput;
@@ -19,43 +17,70 @@ export type TickerFactorMetricClusteringWorkflowResult = {
   clusterCount: number;
 };
 
-function buildClusteringTargetsFromBlueprints(): Pick<
+async function loadClusteringTargetsFromFeatures(): Promise<Pick<
   RunTickerFactorMetricClusteringInput,
   "factor" | "axis"
->[] {
-  const targets: Pick<
-    RunTickerFactorMetricClusteringInput,
-    "factor" | "axis"
-  >[] = [];
+>[]> {
+  const result = await db.query<
+    Required<Pick<RunTickerFactorMetricClusteringInput, "factor" | "axis">>
+  >(
+    `
+    SELECT DISTINCT
+      factor,
+      axis
+    FROM public.ticker_factor_metric_features
+    WHERE feature_value IS NOT NULL
+    ORDER BY factor ASC, axis ASC
+    `,
+  );
 
-  for (const [factor, factorBlueprint] of Object.entries(FACTOR_BLUEPRINTS)) {
-    if (!factorBlueprint) continue;
+  return result.rows;
+}
 
-    for (const [axis, axisBlueprint] of Object.entries(factorBlueprint)) {
-      if (axisBlueprint.metricKeys.length === 0) continue;
+async function loadClusteringTargetsFromSignals(): Promise<Pick<
+  RunTickerFactorMetricClusteringInput,
+  "factor" | "axis"
+>[]> {
+  const result = await db.query<
+    Required<Pick<RunTickerFactorMetricClusteringInput, "factor" | "axis">>
+  >(
+    `
+    SELECT DISTINCT
+      factor,
+      axis
+    FROM public.ticker_factor_signals
+    WHERE model_key = 'factor_signal'
+      AND model_version = 'v0'
+      AND signal_key IS NOT NULL
+    ORDER BY factor ASC, axis ASC
+    `,
+  );
 
-      targets.push({
-        factor: factor as FactorKey,
-        axis: axis as FactorAxisKey,
-      });
-    }
-  }
-
-  return targets;
+  return result.rows;
 }
 
 function hasExplicitClusteringScope(
   input: RunTickerFactorMetricClusteringWorkflowInput,
 ) {
-  return input.factor !== undefined || input.axis !== undefined;
+  return (
+    input.factor !== undefined ||
+    input.axis !== undefined ||
+    (input.targets !== undefined && input.targets.length > 0)
+  );
 }
 
 export async function runTickerFactorMetricClusteringWorkflow(
   input: RunTickerFactorMetricClusteringWorkflowInput = {},
 ): Promise<TickerFactorMetricClusteringWorkflowResult> {
-  const targets = hasExplicitClusteringScope(input)
-    ? [{ factor: input.factor, axis: input.axis }]
-    : buildClusteringTargetsFromBlueprints();
+  const vectorMode = input.vectorMode ?? "factor_signal";
+  const targets =
+    input.targets && input.targets.length > 0
+      ? input.targets
+      : hasExplicitClusteringScope(input)
+        ? [{ factor: input.factor, axis: input.axis }]
+        : vectorMode === "factor_signal"
+          ? await loadClusteringTargetsFromSignals()
+          : await loadClusteringTargetsFromFeatures();
   const resolvedTargets = targets.flatMap((target) =>
     target.factor && target.axis
       ? [
@@ -71,22 +96,68 @@ export async function runTickerFactorMetricClusteringWorkflow(
     throw new Error("No factor metric clustering targets available.");
   }
 
-  const latestRun = await runTickerFactorMetricClustering({
-    ...input,
+  const runScope = input.runScope ?? "both";
+  const runTargetSets = resolveRunTargetSets({
     targets: resolvedTargets,
-    comparisonSetType:
-      input.comparisonSetType ??
-      (resolvedTargets.length > 1 ? "us_public_equities" : undefined),
-    comparisonSetKey: input.comparisonSetKey ?? "all",
-    vectorMode: input.vectorMode ?? "metric_feature",
+    hasExplicitScope: hasExplicitClusteringScope(input),
+    runScope,
   });
+  const runs: RunTickerFactorMetricClusteringResult[] = [];
+
+  for (const [index, targetSet] of runTargetSets.entries()) {
+    input.onProgress?.({
+      message: `Factor metric clustering scope ${index + 1}/${runTargetSets.length}: ${targetSet
+        .map((target) => `${target.factor}.${target.axis}`)
+        .join(", ")}.`,
+      current: index + 1,
+      total: runTargetSets.length,
+      label: "scope",
+    });
+
+    const result = await runTickerFactorMetricClustering({
+      ...input,
+      targets: targetSet,
+      comparisonSetType: input.comparisonSetType ?? "us_public_equities",
+      comparisonSetKey: input.comparisonSetKey ?? "all",
+      vectorMode,
+      vectorSourcePolicy:
+        input.vectorSourcePolicy ??
+        (vectorMode === "factor_signal" ? "signal_activation" : "feature_value"),
+      normalizationMethod: input.normalizationMethod ?? "none",
+    });
+
+    runs.push(result);
+  }
+
+  const latestRun = runs[runs.length - 1];
 
   return {
-    runs: [latestRun],
+    runs,
     latestRun,
     runId: latestRun.runId,
     tickerCount: latestRun.tickerCount,
     featureCount: latestRun.featureCount,
     clusterCount: latestRun.clusterCount,
   };
+}
+
+function resolveRunTargetSets(input: {
+  targets: NonNullable<RunTickerFactorMetricClusteringInput["targets"]>;
+  hasExplicitScope: boolean;
+  runScope: "single" | "combined" | "both";
+}): NonNullable<RunTickerFactorMetricClusteringInput["targets"]>[] {
+  if (input.hasExplicitScope) return [input.targets];
+
+  if (input.runScope === "single") {
+    return input.targets.map((target) => [target]);
+  }
+
+  if (input.runScope === "combined") {
+    return [input.targets];
+  }
+
+  return [
+    input.targets,
+    ...input.targets.map((target) => [target]),
+  ];
 }

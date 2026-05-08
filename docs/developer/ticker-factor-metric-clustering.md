@@ -1,48 +1,64 @@
-# Ticker Factor Metric Clustering
+# Ticker Factor Feature Clustering
 
-This project clusters companies from normalized factor-metric-signal vectors.
+This service clusters companies from ticker vectors built by the vectorization
+layer. The default operational vector is a signal activation vector: each
+selected factor signal becomes an active dimension for the ticker. Metric
+feature values remain available as a separate vector mode.
 
 ## Data Flow
 
 ```text
-ticker_factor_metric_signals
-  -> ticker_factor_metric_signal_positions
-  -> ticker vector matrix
-  -> ticker_factor_metric_clusters
-  -> ticker_factor_metric_cluster_profiles
+ticker_factor_signals
+  -> ticker-vectorization/buildTickerVectorMatrix
+  -> ticker_factor_feature_clusters
+  -> ticker_factor_feature_cluster_profiles
 ```
 
 ## Default Scope
 
 - factor: `growth`
 - axis: `fundamentals_based`
-- comparison set: `usa/all`
-- normalization: `z_score`
+- vector mode: `factor_signal`
+- vector source policy: `signal_activation`
+- normalization: `none`
 - clustering method: deterministic `kmeans`
 - default cluster count: automatic silhouette-based selection
 
 ## Vector Construction
 
-By default, each `signal_key` becomes one feature dimension after aggregating
-the ticker's metric-level values by median. The clustering service reads the
-latest position row per ticker and feature, filters sparse features, imputes
-missing values to neutral `0`, clips extreme z-scores, and drops tickers with
-low vector coverage. Metric-level dimensions remain available through
-`metric_signal` vector mode.
+By default, each `factor.axis.signal.signal_key` becomes one vector dimension.
+The vectorization service reads the latest selected signal row per ticker and
+factor/axis, stores active signals as `1`, imputes inactive signals to neutral
+`0`, and returns a matrix for downstream clustering.
 
-## Why Positions Are Used
+Detailed vector source ownership lives in
+`docs/developer/ticker-vectorization.md`.
 
-The pipeline consumes `ticker_factor_metric_signal_positions` instead of raw
-signals so clustering works on normalized values. `z_score` is preferred because
-it preserves magnitude; `percentile` and `sign` are available for more compressed
-experiments.
+## Vector Source Policies
+
+The current operational model uses `signal_activation` vectors from
+`ticker_factor_signals`. `feature_value` vectors from
+`ticker_factor_metric_features` remain available through `metric_feature` mode.
+Peer or benchmark-relative vectors should be introduced as a separate model when
+the benchmark comparison layer is rebuilt.
 
 ## Output Tables
 
-- `ticker_factor_metric_clusters`: one row per ticker per run, including cluster
+- `ticker_factor_feature_clusters`: one row per ticker per run, including cluster
   id, label, coverage, and distance to centroid.
-- `ticker_factor_metric_cluster_profiles`: one row per cluster per run,
+- `ticker_factor_feature_cluster_profiles`: one row per cluster per run,
   including centroid JSON and the strongest distinguishing features.
+
+## Product Interpretation
+
+- Single-factor signal views should usually be treated as signal cohort
+  analysis, because each factor currently selects one signal per ticker. The
+  service groups identical single-factor `factor_signal` vectors directly when
+  `clusterCount` is not explicitly requested.
+- Within-signal feature analysis should use `metric_feature` vectors filtered to
+  a signal cohort when the question is threshold or subtype discovery.
+- Multi-factor market archetype clustering should use cross-factor
+  `factor_signal` vectors.
 
 ## Internal API
 
@@ -54,14 +70,19 @@ Example body:
 
 ```json
 {
-  "factor": "growth",
-  "axis": "fundamentals_based",
-  "comparisonSetType": "usa",
-  "comparisonSetKey": "all",
-  "normalizationMethod": "z_score",
-  "clusterCount": 6
+  "vectorMode": "factor_signal",
+  "vectorSourcePolicy": "signal_activation",
+  "normalizationMethod": "none",
+  "runScope": "both"
 }
 ```
+
+`runScope` controls whether the workflow persists single-factor signal cohorts,
+the cross-factor signal-vector market archetype run, or both:
+
+- `single`: one run per `factor.axis`, grouped into signal cohorts.
+- `combined`: one cross-factor run using all available factor signal dimensions.
+- `both`: persists the combined run plus single-factor signal cohorts.
 
 ## Market Cluster Overview API
 

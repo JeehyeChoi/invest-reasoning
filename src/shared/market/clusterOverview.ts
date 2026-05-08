@@ -1,21 +1,26 @@
 export type TickerFactorMetricClusterOverview = {
-  latestRun: {
-    runId: string;
-    factor: string;
-    axis: string;
-    comparisonSetType: string;
-    comparisonSetKey: string;
-    clusterMethod: string;
-    normalizationMethod: string;
-    vectorEffectiveDate: string;
-    computedAt: string;
-    tickerCount: number;
-    featureCount: number;
-    clusterCount: number;
-  } | null;
+  availableRuns: TickerFactorMetricClusterOverviewRun[];
+  latestRun: TickerFactorMetricClusterOverviewRun | null;
   profiles: TickerFactorMetricClusterOverviewProfile[];
   clusters: TickerFactorMetricClusterOverviewTicker[];
   unavailableReason?: string;
+};
+
+export type TickerFactorMetricClusterOverviewRun = {
+  runId: string;
+  factor: string;
+  axis: string;
+  comparisonSetType: string;
+  comparisonSetKey: string;
+  clusterMethod: string;
+  normalizationMethod: string;
+  vectorMode: string | null;
+  vectorSourcePolicy: string | null;
+  vectorEffectiveDate: string;
+  computedAt: string;
+  tickerCount: number;
+  featureCount: number;
+  clusterCount: number;
 };
 
 export type TickerFactorMetricClusterOverviewProfile = {
@@ -25,13 +30,22 @@ export type TickerFactorMetricClusterOverviewProfile = {
   featureCount: number;
   averageCoverageRatio: number;
   averageDistanceToCentroid: number | null;
+  sectorStats: TickerClusterCategoryStat[];
+  industryStats: TickerClusterCategoryStat[];
   distinguishingFeatures: TickerClusterFeatureSummary[];
 };
 
+export type TickerClusterCategoryStat = {
+  name: string;
+  count: number;
+  share: number;
+};
+
 export type TickerClusterFeatureSummary = {
-  featureKey: string;
+  factorKey?: string;
+  axisKey?: string;
   metricKey: string;
-  signalKey: string;
+  featureKey: string;
   value: number;
   direction: "high" | "low";
 };
@@ -41,6 +55,7 @@ export type TickerFactorMetricClusterOverviewTicker = {
   companyName: string | null;
   sector: string | null;
   industry: string | null;
+  marketCap: number | null;
   clusterId: number;
   clusterLabel: string | null;
   coverageRatio: number;

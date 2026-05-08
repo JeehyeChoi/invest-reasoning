@@ -7,19 +7,28 @@ export async function POST(request: Request) {
     const result = await runTickerFactorMetricClusteringWorkflow({
       factor: body.factor,
       axis: body.axis,
+      targets: body.targets,
       comparisonSetType: body.comparisonSetType,
       comparisonSetKey: body.comparisonSetKey,
       asOfDate: body.asOfDate,
       normalizationMethod: body.normalizationMethod,
+      vectorMode: body.vectorMode,
+      vectorSourcePolicy: body.vectorSourcePolicy,
+      runScope: body.runScope,
       clusterMethod: body.clusterMethod,
       clusterCount: body.clusterCount,
       maxIterations: body.maxIterations,
       minTickerCoverageRatio: body.minTickerCoverageRatio,
       minFeatureCoverageRatio: body.minFeatureCoverageRatio,
       minUniverseCount: body.minUniverseCount,
+      zScoreClip: body.zScoreClip,
     });
 
-    return NextResponse.json({ ok: true, ...result });
+    return NextResponse.json({
+      ok: true,
+      ...result,
+      runCount: result.runs.length,
+    });
   } catch (error) {
     console.error("Ticker factor metric clustering failed:", error);
 

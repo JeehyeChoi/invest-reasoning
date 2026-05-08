@@ -1,26 +1,45 @@
 import { db } from "@/backend/config/db";
-import type { FactorKey, FactorScoreAxisKey } from "@/shared/factors/factors";
-
-export type TickerClusterNormalizationMethod =
-  | "z_score"
-  | "percentile"
-  | "sign";
+import { buildTickerVectorMatrix } from "@/backend/services/ticker-vectorization/buildTickerVectorMatrix";
+import type {
+  TickerVector,
+  TickerVectorMode,
+  TickerVectorNormalizationMethod,
+  TickerVectorSourcePolicy,
+  TickerVectorTarget,
+} from "@/backend/services/ticker-vectorization/types";
+import type { FactorKey } from "@/shared/factors/factors";
+import type { FactorAxisKey } from "@/shared/factors/axes";
 
 export type TickerClusterMethod = "kmeans";
+export type TickerClusterNormalizationMethod = TickerVectorNormalizationMethod;
+export type TickerClusterVectorMode = TickerVectorMode;
+export type TickerClusterVectorSourcePolicy = TickerVectorSourcePolicy;
+export type TickerClusterTarget = TickerVectorTarget;
 
 export type RunTickerFactorMetricClusteringInput = {
   factor?: FactorKey;
-  axis?: FactorScoreAxisKey;
+  axis?: FactorAxisKey;
+  targets?: TickerClusterTarget[];
   comparisonSetType?: string;
   comparisonSetKey?: string;
   asOfDate?: string;
   normalizationMethod?: TickerClusterNormalizationMethod;
+  vectorMode?: TickerClusterVectorMode;
+  vectorSourcePolicy?: TickerClusterVectorSourcePolicy;
+  runScope?: "single" | "combined" | "both";
   clusterMethod?: TickerClusterMethod;
   clusterCount?: number;
   maxIterations?: number;
   minTickerCoverageRatio?: number;
   minFeatureCoverageRatio?: number;
   minUniverseCount?: number;
+  zScoreClip?: number;
+  onProgress?: (progress: {
+    message: string;
+    current?: number;
+    total?: number;
+    label?: string;
+  }) => void;
 };
 
 export type TickerFactorMetricClusterProfile = {
@@ -43,41 +62,24 @@ export type RunTickerFactorMetricClusteringResult = {
 type ResolvedInput = Required<
   Pick<
     RunTickerFactorMetricClusteringInput,
-    | "factor"
-    | "axis"
     | "comparisonSetType"
     | "comparisonSetKey"
     | "normalizationMethod"
+    | "vectorMode"
+    | "vectorSourcePolicy"
     | "clusterMethod"
-    | "clusterCount"
     | "maxIterations"
     | "minTickerCoverageRatio"
     | "minFeatureCoverageRatio"
     | "minUniverseCount"
+    | "zScoreClip"
   >
 > &
-  Pick<RunTickerFactorMetricClusteringInput, "asOfDate">;
-
-type PositionRow = {
-  ticker: string;
-  factor: string;
-  axis: string;
-  metric_key: string;
-  signal_key: string;
-  signal_value: number | null;
-  percentile: number | null;
-  z_score: number | null;
-  universe_count: number | null;
-  effective_date: string;
-};
-
-type TickerVector = {
-  ticker: string;
-  values: number[];
-  observedFeatureCount: number;
-  missingFeatureCount: number;
-  coverageRatio: number;
-};
+  Pick<RunTickerFactorMetricClusteringInput, "asOfDate" | "clusterCount"> & {
+    factor: string;
+    axis: string;
+    targets: TickerClusterTarget[];
+  };
 
 type KMeansResult = {
   assignments: number[];
@@ -86,9 +88,10 @@ type KMeansResult = {
 };
 
 type ClusterFeatureSummary = {
-  featureKey: string;
+  factorKey: string;
+  axisKey: string;
   metricKey: string;
-  signalKey: string;
+  featureKey: string;
   value: number;
   direction: "high" | "low";
 };
@@ -100,43 +103,113 @@ type ClusterProfileDraft = TickerFactorMetricClusterProfile & {
 function resolveInput(
   input: RunTickerFactorMetricClusteringInput,
 ): ResolvedInput {
+  const targets =
+    input.targets && input.targets.length > 0
+      ? input.targets
+      : [
+          {
+            factor: input.factor ?? "growth",
+            axis: input.axis ?? "fundamentals_based",
+          },
+        ];
+  const uniqueTargets = dedupeTargets(targets);
+
   return {
-    factor: input.factor ?? "growth",
-    axis: input.axis ?? "fundamentals_based",
-    comparisonSetType: input.comparisonSetType ?? "usa",
+    factor:
+      uniqueTargets.length === 1
+        ? uniqueTargets[0].factor
+        : uniqueTargets.map((target) => target.factor).join("+"),
+    axis:
+      uniqueTargets.length === 1
+        ? uniqueTargets[0].axis
+        : dedupeValues(uniqueTargets.map((target) => target.axis)).join("+"),
+    targets: uniqueTargets,
+    comparisonSetType: input.comparisonSetType ?? "us_public_equities",
     comparisonSetKey: input.comparisonSetKey ?? "all",
     asOfDate: input.asOfDate,
-    normalizationMethod: input.normalizationMethod ?? "z_score",
+    vectorMode: input.vectorMode ?? "factor_signal",
+    vectorSourcePolicy: input.vectorSourcePolicy ?? "signal_activation",
+    normalizationMethod: input.normalizationMethod ?? "none",
     clusterMethod: input.clusterMethod ?? "kmeans",
-    clusterCount: input.clusterCount ?? 6,
+    clusterCount: input.clusterCount,
     maxIterations: input.maxIterations ?? 100,
     minTickerCoverageRatio: input.minTickerCoverageRatio ?? 0.45,
     minFeatureCoverageRatio: input.minFeatureCoverageRatio ?? 0.35,
     minUniverseCount: input.minUniverseCount ?? 25,
+    zScoreClip: input.zScoreClip ?? 3,
   };
+}
+
+function dedupeTargets(targets: TickerClusterTarget[]): TickerClusterTarget[] {
+  const seen = new Set<string>();
+  const uniqueTargets: TickerClusterTarget[] = [];
+
+  for (const target of targets) {
+    const key = `${target.factor}.${target.axis}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    uniqueTargets.push(target);
+  }
+
+  return uniqueTargets;
+}
+
+function dedupeValues(values: string[]): string[] {
+  return [...new Set(values)];
 }
 
 export async function runTickerFactorMetricClustering(
   input: RunTickerFactorMetricClusteringInput = {},
 ): Promise<RunTickerFactorMetricClusteringResult> {
   const resolvedInput = resolveInput(input);
-  const rows = await loadLatestPositionRows(resolvedInput);
-  const matrix = buildVectorMatrix(rows, resolvedInput);
+
+  input.onProgress?.({
+    message: `Factor metric clustering building ${resolvedInput.vectorMode}/${resolvedInput.vectorSourcePolicy} vectors.`,
+    current: 1,
+    total: 5,
+    label: "vectors",
+  });
+  const matrix = await buildTickerVectorMatrix(resolvedInput);
 
   if (matrix.vectors.length === 0 || matrix.featureKeys.length === 0) {
     throw new Error("No ticker vectors available for clustering.");
   }
 
-  const clusterCount = Math.min(
-    resolvedInput.clusterCount,
-    matrix.vectors.length,
-  );
+  input.onProgress?.({
+    message: `Factor metric clustering resolving cluster count. tickers=${matrix.vectors.length}, features=${matrix.featureKeys.length}.`,
+    current: 2,
+    total: 5,
+    label: "cluster-count",
+  });
 
-  const kmeans = runKMeans(
-    matrix.vectors.map((vector) => vector.values),
-    clusterCount,
-    resolvedInput.maxIterations,
-  );
+  const shouldGroupSignalCohorts =
+    resolvedInput.vectorMode === "factor_signal" &&
+    resolvedInput.targets.length === 1 &&
+    resolvedInput.clusterCount === undefined;
+  const clusterCount = shouldGroupSignalCohorts
+    ? countUniqueVectors(matrix.vectors.map((vector) => vector.values))
+    : resolveClusterCount({
+        vectors: matrix.vectors.map((vector) => vector.values),
+        requestedClusterCount: resolvedInput.clusterCount,
+        maxIterations: resolvedInput.maxIterations,
+      });
+
+  input.onProgress?.({
+    message: shouldGroupSignalCohorts
+      ? `Factor metric clustering grouping signal cohorts. groups=${clusterCount}.`
+      : `Factor metric clustering running k-means. clusters=${clusterCount}.`,
+    current: 3,
+    total: 5,
+    label: shouldGroupSignalCohorts ? "signal-cohorts" : "kmeans",
+  });
+
+  const kmeans = shouldGroupSignalCohorts
+    ? groupIdenticalVectors(matrix.vectors)
+    : runKMeans(
+        matrix.vectors.map((vector) => vector.values),
+        clusterCount,
+        resolvedInput.maxIterations,
+      );
 
   const profiles = buildClusterProfiles({
     vectors: matrix.vectors,
@@ -145,6 +218,13 @@ export async function runTickerFactorMetricClustering(
   });
 
   const runId = buildRunId(resolvedInput);
+
+  input.onProgress?.({
+    message: `Factor metric clustering persisting run ${runId}.`,
+    current: 4,
+    total: 5,
+    label: "persist",
+  });
 
   await persistClusterRun({
     runId,
@@ -160,7 +240,7 @@ export async function runTickerFactorMetricClustering(
     runId,
     tickerCount: matrix.vectors.length,
     featureCount: matrix.featureKeys.length,
-    clusterCount,
+    clusterCount: profiles.length,
     profiles: profiles.map((profile) => ({
       clusterId: profile.clusterId,
       label: profile.label,
@@ -170,143 +250,6 @@ export async function runTickerFactorMetricClustering(
       distinguishingFeatures: profile.distinguishingFeatures,
     })),
   };
-}
-
-async function loadLatestPositionRows(
-  input: ResolvedInput,
-): Promise<PositionRow[]> {
-  const result = await db.query<PositionRow>(
-    `
-      SELECT DISTINCT ON (
-        p.ticker,
-        p.factor,
-        p.axis,
-        p.metric_key,
-        p.signal_key
-      )
-        p.ticker,
-        p.factor,
-        p.axis,
-        p.metric_key,
-        p.signal_key,
-        p.signal_value,
-        p.percentile,
-        p.z_score,
-        p.universe_count,
-        p.effective_date
-      FROM public.ticker_factor_metric_signal_positions p
-      WHERE p.factor = $1
-        AND p.axis = $2
-        AND p.comparison_set_type = $3
-        AND p.comparison_set_key = $4
-        AND ($5::date IS NULL OR p.effective_date <= $5)
-        AND COALESCE(p.universe_count, 0) >= $6
-      ORDER BY
-        p.ticker,
-        p.factor,
-        p.axis,
-        p.metric_key,
-        p.signal_key,
-        p.effective_date DESC
-    `,
-    [
-      input.factor,
-      input.axis,
-      input.comparisonSetType,
-      input.comparisonSetKey,
-      input.asOfDate ?? null,
-      input.minUniverseCount,
-    ],
-  );
-
-  return result.rows;
-}
-
-function buildVectorMatrix(rows: PositionRow[], input: ResolvedInput) {
-  const tickerKeys = new Set(rows.map((row) => row.ticker));
-  const minFeatureObservations = Math.max(
-    1,
-    Math.ceil(tickerKeys.size * input.minFeatureCoverageRatio),
-  );
-
-  const featureObservationCounts = new Map<string, number>();
-  const tickerFeatureValues = new Map<string, Map<string, number>>();
-  let vectorEffectiveDate = input.asOfDate ?? rows[0]?.effective_date;
-
-  for (const row of rows) {
-    const normalizedValue = normalizePositionValue(row, input.normalizationMethod);
-    if (normalizedValue === null) continue;
-
-    vectorEffectiveDate =
-      row.effective_date > vectorEffectiveDate ? row.effective_date : vectorEffectiveDate;
-
-    const featureKey = buildFeatureKey(row);
-    featureObservationCounts.set(
-      featureKey,
-      (featureObservationCounts.get(featureKey) ?? 0) + 1,
-    );
-
-    const featureValues =
-      tickerFeatureValues.get(row.ticker) ?? new Map<string, number>();
-    featureValues.set(featureKey, normalizedValue);
-    tickerFeatureValues.set(row.ticker, featureValues);
-  }
-
-  const featureKeys = [...featureObservationCounts.entries()]
-    .filter(([, count]) => count >= minFeatureObservations)
-    .map(([featureKey]) => featureKey)
-    .sort();
-
-  const vectors: TickerVector[] = [];
-
-  for (const [ticker, featureValues] of tickerFeatureValues.entries()) {
-    const values = featureKeys.map((featureKey) => featureValues.get(featureKey) ?? 0);
-    const observedFeatureCount = featureKeys.reduce(
-      (count, featureKey) => count + (featureValues.has(featureKey) ? 1 : 0),
-      0,
-    );
-    const missingFeatureCount = featureKeys.length - observedFeatureCount;
-    const coverageRatio =
-      featureKeys.length === 0 ? 0 : observedFeatureCount / featureKeys.length;
-
-    if (coverageRatio < input.minTickerCoverageRatio) continue;
-
-    vectors.push({
-      ticker,
-      values,
-      observedFeatureCount,
-      missingFeatureCount,
-      coverageRatio,
-    });
-  }
-
-  vectors.sort((a, b) => a.ticker.localeCompare(b.ticker));
-
-  return {
-    featureKeys,
-    vectors,
-    vectorEffectiveDate,
-  };
-}
-
-function normalizePositionValue(
-  row: PositionRow,
-  method: TickerClusterNormalizationMethod,
-): number | null {
-  if (method === "z_score") return row.z_score;
-  if (method === "percentile") {
-    return row.percentile === null ? null : row.percentile * 2 - 1;
-  }
-
-  const sourceValue = row.z_score ?? row.signal_value;
-  if (sourceValue === null) return null;
-  if (sourceValue > 0) return 1;
-  if (sourceValue < 0) return -1;
-  return 0;
-}
-
-function buildFeatureKey(row: PositionRow): string {
-  return `${row.factor}.${row.axis}.${row.metric_key}.${row.signal_key}`;
 }
 
 function runKMeans(
@@ -343,28 +286,185 @@ function runKMeans(
   };
 }
 
-function initializeCentroids(vectors: number[][], clusterCount: number): number[][] {
-  const centroids: number[][] = [vectors[0]];
+function resolveClusterCount(input: {
+  vectors: number[][];
+  requestedClusterCount?: number;
+  maxIterations: number;
+}): number {
+  const uniqueVectorCount = countUniqueVectors(input.vectors);
 
-  while (centroids.length < clusterCount) {
-    let bestVector = vectors[0];
-    let bestDistance = -1;
-
-    for (const vector of vectors) {
-      const distance = Math.min(
-        ...centroids.map((centroid) => euclideanDistance(vector, centroid)),
-      );
-
-      if (distance > bestDistance) {
-        bestDistance = distance;
-        bestVector = vector;
-      }
-    }
-
-    centroids.push([...bestVector]);
+  if (input.requestedClusterCount !== undefined) {
+    return Math.max(
+      1,
+      Math.min(input.requestedClusterCount, input.vectors.length, uniqueVectorCount),
+    );
   }
 
-  return centroids.map((centroid) => [...centroid]);
+  return chooseClusterCountBySilhouette({
+    vectors: input.vectors,
+    maxIterations: input.maxIterations,
+    maxClusterCount: uniqueVectorCount,
+  });
+}
+
+function chooseClusterCountBySilhouette(input: {
+  vectors: number[][];
+  maxIterations: number;
+  maxClusterCount: number;
+}): number {
+  if (input.vectors.length <= 2 || input.maxClusterCount <= 1) return 1;
+
+  const maxCandidate = Math.max(
+    2,
+    Math.min(
+      input.vectors.length - 1,
+      input.maxClusterCount,
+      Math.floor(Math.sqrt(input.vectors.length)),
+    ),
+  );
+  let bestClusterCount = 2;
+  let bestScore = Number.NEGATIVE_INFINITY;
+
+  for (let clusterCount = 2; clusterCount <= maxCandidate; clusterCount += 1) {
+    const kmeans = runKMeans(input.vectors, clusterCount, input.maxIterations);
+    const score = clusterUsefulnessScore({
+      vectors: input.vectors,
+      assignments: kmeans.assignments,
+      clusterCount,
+    });
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestClusterCount = clusterCount;
+    }
+  }
+
+  return bestClusterCount;
+}
+
+function countUniqueVectors(vectors: number[][]): number {
+  return new Set(vectors.map((vector) => vector.join("|"))).size;
+}
+
+function groupIdenticalVectors(vectors: TickerVector[]): KMeansResult {
+  const keyToClusterId = new Map<string, number>();
+  const centroids: number[][] = [];
+  const assignments = vectors.map((vector) => {
+    const key = vector.values.join("|");
+    const existingClusterId = keyToClusterId.get(key);
+
+    if (existingClusterId !== undefined) return existingClusterId;
+
+    const clusterId = keyToClusterId.size;
+    keyToClusterId.set(key, clusterId);
+    centroids.push([...vector.values]);
+    return clusterId;
+  });
+
+  return {
+    assignments,
+    centroids,
+    distances: vectors.map(() => 0),
+  };
+}
+
+function clusterUsefulnessScore(input: {
+  vectors: number[][];
+  assignments: number[];
+  clusterCount: number;
+}): number {
+  const silhouette = averageSilhouetteScore(input.vectors, input.assignments);
+  const clusterSizes = countClusterSizes(input.assignments);
+  const smallestShare = Math.min(...clusterSizes) / input.vectors.length;
+  const smallestSize = Math.min(...clusterSizes);
+  const tinyClusterPenalty = clusterSizes
+    .filter((size) => size < 10 || size / input.vectors.length < 0.025)
+    .length * 0.25;
+
+  // Pure silhouette usually collapses market structure into a binary split.
+  // This keeps K automatic while preferring useful segmentation when quality is close.
+  const granularityBonus =
+    Math.log(input.clusterCount) * 0.1 - input.clusterCount * 0.012;
+  const balancePenalty =
+    smallestSize < 5 ? 0.55 : smallestShare < 0.01 ? 0.25 : 0;
+
+  return silhouette + granularityBonus - tinyClusterPenalty - balancePenalty;
+}
+
+function countClusterSizes(assignments: number[]): number[] {
+  const counts = new Map<number, number>();
+
+  for (const assignment of assignments) {
+    counts.set(assignment, (counts.get(assignment) ?? 0) + 1);
+  }
+
+  return [...counts.values()];
+}
+
+function averageSilhouetteScore(
+  vectors: number[][],
+  assignments: number[],
+): number {
+  const clusterIndexes = new Map<number, number[]>();
+
+  assignments.forEach((assignment, index) => {
+    const indexes = clusterIndexes.get(assignment) ?? [];
+    indexes.push(index);
+    clusterIndexes.set(assignment, indexes);
+  });
+
+  const scores = vectors.map((vector, index) => {
+    const ownCluster = assignments[index];
+    const ownIndexes = clusterIndexes.get(ownCluster) ?? [];
+    const averageOwnDistance =
+      ownIndexes.length <= 1
+        ? 0
+        : average(
+            ownIndexes
+              .filter((memberIndex) => memberIndex !== index)
+              .map((memberIndex) => euclideanDistance(vector, vectors[memberIndex])),
+          );
+
+    const nearestOtherDistance = Math.min(
+      ...[...clusterIndexes.entries()]
+        .filter(([clusterId]) => clusterId !== ownCluster)
+        .map(([, memberIndexes]) =>
+          average(
+            memberIndexes.map((memberIndex) =>
+              euclideanDistance(vector, vectors[memberIndex]),
+            ),
+          ),
+        ),
+    );
+
+    if (!Number.isFinite(nearestOtherDistance)) return 0;
+
+    const denominator = Math.max(averageOwnDistance, nearestOtherDistance);
+    if (denominator === 0) return 0;
+
+    return (nearestOtherDistance - averageOwnDistance) / denominator;
+  });
+
+  return average(scores);
+}
+
+function initializeCentroids(vectors: number[][], clusterCount: number): number[][] {
+  const rankedVectors = [...vectors].sort(
+    (a, b) => vectorScore(a) - vectorScore(b),
+  );
+
+  if (clusterCount === 1) {
+    return [[...rankedVectors[Math.floor(rankedVectors.length / 2)]]];
+  }
+
+  return Array.from({ length: clusterCount }, (_, index) => {
+    const percentile = (index + 0.5) / clusterCount;
+    const vectorIndex = Math.min(
+      rankedVectors.length - 1,
+      Math.max(0, Math.floor(percentile * rankedVectors.length)),
+    );
+    return [...rankedVectors[vectorIndex]];
+  });
 }
 
 function closestCentroidIndex(vector: number[], centroids: number[][]): number {
@@ -412,6 +512,10 @@ function euclideanDistance(a: number[], b: number[]): number {
   return Math.sqrt(sum);
 }
 
+function vectorScore(vector: number[]): number {
+  return vector.reduce((total, value) => total + value, 0) / vector.length;
+}
+
 function buildClusterProfiles(input: {
   vectors: TickerVector[];
   featureKeys: string[];
@@ -456,15 +560,15 @@ function summarizeCentroidFeatures(
       value,
     }))
     .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
-    .slice(0, 8)
     .map(({ featureKey, value }) => {
       const parts = featureKey.split(".");
       return {
-        featureKey,
+        factorKey: parts[0] ?? "",
+        axisKey: parts[1] ?? "",
         metricKey: parts[2] ?? "",
-        signalKey: parts.slice(3).join("."),
+        featureKey: parts.slice(3).join("."),
         value,
-        direction: value >= 0 ? "high" : "low",
+        direction: value > 0 ? "high" : "low",
       };
     });
 }
@@ -474,14 +578,21 @@ function buildClusterLabel(
   features: ClusterFeatureSummary[],
 ): string {
   const strongest = features.slice(0, 3);
-  if (strongest.length === 0) return `Cluster ${clusterId}`;
+  const activeTraits = strongest.filter((feature) => Math.abs(feature.value) > 0);
+  if (activeTraits.length === 0) return `Cluster ${clusterId}`;
 
-  const traits = strongest.map((feature) => {
-    const direction = feature.direction === "high" ? "high" : "low";
-    return `${direction} ${feature.metricKey}.${feature.signalKey}`;
+  const traits = activeTraits.map((feature) => {
+    return `${formatLabel(feature.metricKey)} ${formatLabel(feature.featureKey)} ${feature.direction}`;
   });
 
   return `Cluster ${clusterId}: ${traits.join(", ")}`;
+}
+
+function formatLabel(value: string): string {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function average(values: number[]): number {
@@ -497,8 +608,11 @@ function buildRunId(input: ResolvedInput): string {
     input.axis,
     input.comparisonSetType,
     input.comparisonSetKey,
+    input.vectorMode,
+    input.vectorSourcePolicy,
     input.normalizationMethod,
     input.clusterMethod,
+    input.clusterCount === undefined ? "auto" : `k${input.clusterCount}`,
     timestamp,
   ].join("__");
 }
@@ -520,7 +634,7 @@ async function persistClusterRun(input: {
     for (const profile of input.profiles) {
       await client.query(
         `
-          INSERT INTO public.ticker_factor_metric_cluster_profiles (
+          INSERT INTO public.ticker_factor_feature_cluster_profiles (
             run_id,
             cluster_id,
             factor,
@@ -529,6 +643,8 @@ async function persistClusterRun(input: {
             comparison_set_key,
             cluster_method,
             normalization_method,
+            vector_mode,
+            vector_source_policy,
             cluster_label,
             cluster_size,
             feature_count,
@@ -540,7 +656,7 @@ async function persistClusterRun(input: {
           )
           VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-            $11, $12, $13, $14::jsonb, $15::jsonb, $16
+            $11, $12, $13, $14, $15, $16::jsonb, $17::jsonb, $18
           )
           ON CONFLICT (run_id, cluster_id)
           DO UPDATE SET
@@ -562,6 +678,8 @@ async function persistClusterRun(input: {
           input.input.comparisonSetKey,
           input.input.clusterMethod,
           input.input.normalizationMethod,
+          input.input.vectorMode,
+          input.input.vectorSourcePolicy,
           profile.label,
           profile.size,
           input.featureCount,
@@ -581,7 +699,7 @@ async function persistClusterRun(input: {
 
       await client.query(
         `
-          INSERT INTO public.ticker_factor_metric_clusters (
+          INSERT INTO public.ticker_factor_feature_clusters (
             run_id,
             ticker,
             factor,
@@ -590,6 +708,8 @@ async function persistClusterRun(input: {
             comparison_set_key,
             cluster_method,
             normalization_method,
+            vector_mode,
+            vector_source_policy,
             cluster_id,
             cluster_label,
             cluster_size,
@@ -603,7 +723,7 @@ async function persistClusterRun(input: {
           )
           VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-            $11, FALSE, $12, $13, $14, $15, $16, $17
+            $11, $12, $13, FALSE, $14, $15, $16, $17, $18, $19
           )
           ON CONFLICT (run_id, ticker)
           DO UPDATE SET
@@ -627,6 +747,8 @@ async function persistClusterRun(input: {
           input.input.comparisonSetKey,
           input.input.clusterMethod,
           input.input.normalizationMethod,
+          input.input.vectorMode,
+          input.input.vectorSourcePolicy,
           clusterId,
           profile?.label ?? `Cluster ${clusterId}`,
           profile?.size ?? null,
