@@ -1,24 +1,57 @@
 # Geo Portfolio
 
-Geo Portfolio is a local-first financial analysis system for reconstructing
-company fundamentals from SEC data, computing factor-level signals, and serving
-the results through a Next.js UI.
+Geo Portfolio is a local financial analysis app that turns company filings,
+market data, and macro context into structured signals for understanding how a
+business is changing.
 
-The project is built for exploratory financial data modeling and system design.
-It is not production investment tooling.
+The app is focused on analysis, not trading automation. It helps inspect a
+company's fundamentals through repeatable data pipelines and factor-based
+views.
 
-## What It Does
+## What The App Shows
 
-- Ingests SEC Company Facts and filing metadata
-- Maps raw SEC tags into canonical financial metrics
-- Reconstructs company fiscal periods and quarterly metric series
-- Computes factor-owned metric features, factor signals, and commentary
-- Stores ticker profiles, classifications, market data, and factor outputs
-- Serves analysis views through API routes and frontend feature components
+Geo Portfolio gives each ticker a structured overview built from several layers
+of data:
 
-## Current Scope
+- company profile and classification
+- SEC-derived financial time series
+- factor metrics
+- metric-level signal breakdowns
+- market and peer cluster context
+- macro series context
+- portfolio analysis output
 
-The most mature area is the growth factor, using fundamentals-derived metrics:
+The goal is to make the underlying business motion easier to inspect: revenue
+growth, margin structure, profitability, cash generation, reinvestment, and how
+those signals compare across related companies.
+
+## Core Idea
+
+Financial analysis in this app is organized as:
+
+```text
+factor -> axis -> metric -> signal
+```
+
+A factor represents a broad analytical theme, such as growth.
+
+An axis represents where the evidence comes from, such as fundamentals,
+market-implied data, or narrative-implied data.
+
+A metric is a measurable company attribute, such as revenue, operating income,
+net income, operating cash flow, or capital expenditure.
+
+A signal is the interpreted behavior of that metric: growth, acceleration,
+consistency, recovery, deterioration, or data coverage.
+
+## Current Analysis Focus
+
+The examples below focus on the most mature analysis paths rather than listing
+every factor and metric in the system.
+
+The most developed factor is growth, built from SEC fundamentals.
+
+Current growth metrics include:
 
 - `revenue`
 - `gross_profit`
@@ -26,164 +59,93 @@ The most mature area is the growth factor, using fundamentals-derived metrics:
 - `net_income`
 - `operating_cash_flow`
 
-Growth is currently evaluated from factor-owned metric features such as latest
-YoY growth, durable TTM YoY growth, YoY acceleration, and selected turnaround
-momentum markers for sign-sensitive metrics. Capex metrics are handled by the
-separate `capex_cycle` factor.
+These metrics are used to separate top-line expansion, profit conversion, cash
+validation, and durability instead of reducing growth to a single number.
 
-Additional areas in progress include:
+Capital expenditure is tracked separately through the `capex_cycle` factor,
+where `capex_cash`, `capex_incurred`, and `investing_cash_flow` describe
+reinvestment behavior.
 
-- ticker core profile and classification sync
-- SEC bulk ingest and fiscal period reconstruction
-- SEC tag, metric, and validation series workflows
-- ticker factor metric clustering
-- FRED macro series ingestion
-- portfolio analysis workflows
+## What Growth Means Here
 
-## Data Sources
+Growth is not treated as one score. The app evaluates several behaviors:
 
-- **SEC Company Facts**: structured company fundamentals
-- **SEC filing metadata**: filing context, fiscal period, and filing dates
-- **Financial Modeling Prep (FMP)**: company profiles and metadata
-- **Twelve Data**: market price and time-series data
-- **FRED**: macroeconomic time series
-- **Local bootstrap/config files**: factor, signal, and classification metadata
+- year-over-year change
+- quarter-over-quarter change
+- consistency across periods
+- acceleration or deceleration
+- turnaround signals
+- loss narrowing where applicable
+- missing or incomplete data coverage
 
-## System Flow
+This makes it possible to distinguish companies with similar headline growth but
+different underlying quality.
+
+## Data Used
+
+Geo Portfolio combines local and external data sources:
+
+- **SEC Company Facts** for structured financial statement data
+- **SEC filing metadata** for fiscal periods and filing context
+- **Financial Modeling Prep** for company profiles and metadata
+- **Twelve Data** for market price and time-series data
+- **FRED** for macroeconomic series
+- **Local configuration** for factor definitions, display metadata, and
+  interpretation rules
+
+## Analysis Views
+
+The app is designed around inspectable views rather than black-box output.
+
+Typical questions it helps answer:
+
+- What is this company, and how is it classified?
+- Which financial metrics are available for this ticker?
+- How stable is revenue growth?
+- Are profitability metrics improving with revenue?
+- Does cash flow support the reported growth story?
+- Is capital expenditure expanding, contracting, or behaving unusually?
+- Which metrics are missing, sparse, or difficult to compare?
+- How does this ticker relate to nearby companies or clusters?
+- What macro series may be relevant to the broader context?
+
+## Why It Exists
+
+Geo Portfolio is an experimental workspace for building a more structured way to
+look at companies.
+
+Instead of starting from prose commentary or a single valuation number, the app
+starts from repeatable data reconstruction:
 
 ```text
-external / local data
-  -> backend clients
-  -> backend services
-  -> workflows
-  -> PostgreSQL tables
-  -> API routes
-  -> frontend feature fetchers
-  -> UI views
+raw filings
+  -> normalized company series
+  -> metric signals
+  -> factor interpretation
+  -> ticker and portfolio views
 ```
 
-For user-facing live data, the preferred application boundary is:
+That structure keeps the analysis explainable. A score or summary should always
+be traceable back to the metric behavior that produced it.
 
-```text
-page
-  -> feature component
-  -> feature service fetcher
-  -> API route
-  -> backend service
-  -> database / external client / workflow
-```
+## Current Limitations
 
-See `docs/developer/frontend-backend-flow.md` for the detailed layering policy.
+- Coverage varies by company and reporting style.
+- Some SEC tags require careful mapping before they can be compared.
+- Derived metrics are still being expanded.
+- Market, macro, and narrative-implied factors are less mature than SEC
+  fundamentals.
+- The system is for research and analysis, not investment advice.
 
-## Project Layout
+## Developer Docs
 
-```text
-src/app
-  Next.js pages and API routes
+Developer setup and implementation notes live under `docs/`.
 
-src/backend
-  Server-side clients, services, workflows, tools, and orchestration code
-
-src/backend/config
-  Factor, SEC, and analysis configuration
-
-data
-  Local bootstrap data and downloaded SEC assets
-
-db
-  Database schema and migration-style SQL files
-
-docs
-  User docs, developer notes, operating policies, and reference material
-
-scripts
-  Bootstrap, database, SEC inspection, and factor scaffolding scripts
-```
-
-## Local Development
-
-Install dependencies:
-
-```bash
-npm install
-```
-
-Create a local environment file:
-
-```bash
-cp .env.example .env.local
-```
-
-Fill in the database URL and any vendor API keys required by the workflows you
-plan to run.
-
-Start the app:
-
-```bash
-npm run dev
-```
-
-Other useful commands:
-
-```bash
-npm run build
-npm run lint
-```
-
-## Environment
-
-The app expects a local PostgreSQL database and uses environment variables for
-external providers. See `.env.example` for the current baseline.
-
-Database helper scripts live under `scripts/db/`.
-
-## Common Workflows
-
-Initialize or refresh local data:
-
-```bash
-./scripts/bootstrap.sh
-```
-
-Create a new factor metric scaffold:
-
-```bash
-./scripts/factors/scaffold-factor-metric.sh <factor> <metric_key>
-```
-
-Inspect SEC data:
-
-```bash
-node scripts/sec/inspect-companyfacts.mjs
-node scripts/sec/inspect-submissions.mjs
-node scripts/sec/inspect-frames.mjs
-```
-
-## Design Principles
-
-- Model analysis as `factor -> axis -> metric`
-- Prefer explainable signals over single weighted scores
-- Keep raw data, metric feature computation, factor signal selection, and commentary separate
-- Treat shared factor metrics as explicit roles: core, supporting, or context
-- Treat missing company data as expected input, not necessarily an error
-- Use API routes as the normal boundary for user-facing live data
-- Keep backend services responsible for domain logic and data access
-
-## Known Limitations
-
-- Metric coverage varies by company and reporting structure
-- Most metrics currently rely on canonical SEC tags
-- Derived metrics such as free cash flow are not fully implemented
-- Several workflows and helper scripts are still evolving
-- The system is intended for analysis and modeling, not investment advice
-
-## Documentation
-
-- `docs/README.md`: documentation map
-- `docs/developer/quick-start.md`: development setup and adding metrics
-- `docs/developer/frontend-backend-flow.md`: frontend/API/backend boundary rules
-- `docs/developer/ticker-factor-metric-clustering.md`: clustering workflow notes
-- `docs/operations/backend-structure-policy.md`: backend organization policy
-- `docs/operations/database-access-policy.md`: database access policy
-- `docs/operations/scripts-data-policy.md`: scripts and data ownership policy
-- `docs/operations/naming-policy.md`: naming conventions and philosophy
+- `docs/README.md`
+- `docs/developer/quick-start.md`
+- `docs/developer/frontend-backend-flow.md`
+- `docs/developer/ticker-factor-metric-clustering.md`
+- `docs/operations/backend-structure-policy.md`
+- `docs/operations/database-access-policy.md`
+- `docs/operations/scripts-data-policy.md`
+- `docs/operations/naming-policy.md`
