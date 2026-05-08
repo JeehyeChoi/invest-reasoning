@@ -14,6 +14,7 @@ import {
 } from "@/shared/data-pipeline/jobs";
 import {
   DEFAULT_UNIVERSE_KEYS,
+  UNIVERSE_LABELS,
   UNIVERSE_KEYS,
   type UniverseKey,
 } from "@/shared/universe/universes";
@@ -28,23 +29,52 @@ import { fetchSecBulkIngestState } from "@/features/data-pipeline/services/fetch
 import { fetchDatabaseSizeReport } from "@/features/data-pipeline/services/fetchDatabaseSizeReport";
 
 type ButtonAction = "run" | "status" | "secBulk" | "dbSize";
+type TickerDailyPriceTargetMode = "universe" | "specific";
+type TickerCoreTargetMode = "universe" | "specific";
 
 const SEC_COMPANYFACT_JOB_KEYS: DataPipelineRefreshJobKey[] = [
   "sec_bulk_ingest",
-  "fiscal_profile",
-  "metric_series",
   "series_validation",
 ];
 
-const SIGNAL_MACRO_JOB_KEYS: DataPipelineRefreshJobKey[] = [
-  "macro_fred_series_sync",
-  "factor_metric_features",
-  "factor_signals",
+const ENRICHED_OUTPUT_JOB_KEYS: DataPipelineRefreshJobKey[] = [
+  "sec_metric_series_enriched",
+  "valuation_metric_series_enriched",
 ];
 
-const GLOBAL_ANALYTICS_JOB_KEYS: DataPipelineRefreshJobKey[] = [
+const UNIVERSE_MEMBERSHIP_JOB_KEYS: DataPipelineRefreshJobKey[] = [
+  "universe_memberships_sync",
+];
+
+const COMPANY_PROFILE_JOB_KEYS: DataPipelineRefreshJobKey[] = [
+  "ticker_core_sync",
+];
+
+const FEATURE_JOB_KEYS: DataPipelineRefreshJobKey[] = [
+  "factor_metric_features",
+  "market_price_factor_features",
+];
+
+const MARKET_DATA_JOB_KEYS: DataPipelineRefreshJobKey[] = [
+  "ticker_daily_price_history_sync",
+  "macro_fred_series_sync",
+];
+
+const SIGNAL_JOB_KEYS: DataPipelineRefreshJobKey[] = [
+  "factor_signals",
   "factor_metric_clustering",
 ];
+
+const DEFAULT_SELECTED_JOB_KEYS = DATA_PIPELINE_REFRESH_JOB_KEYS.filter(
+  (job) =>
+    job !== "universe_memberships_sync" &&
+    job !== "ticker_core_sync" &&
+    job !== "macro_fred_series_sync" &&
+    job !== "ticker_daily_price_history_sync" &&
+    job !== "sec_bulk_ingest" &&
+    job !== "metric_series" &&
+    job !== "series_validation",
+);
 
 function formatLocalDateTime(value?: string | null) {
   if (!value) return "-";
@@ -79,13 +109,33 @@ function formatFileSizeGb(value?: string | number | null) {
   return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
 }
 
+function parseTickerInput(value: string): string[] {
+  const seen = new Set<string>();
+  const tickers: string[] = [];
+
+  for (const part of value.split(/[\s,]+/)) {
+    const ticker = part.trim().toUpperCase();
+
+    if (!ticker || seen.has(ticker)) continue;
+
+    seen.add(ticker);
+    tickers.push(ticker);
+  }
+
+  return tickers;
+}
+
+function formatDataPipelineJobLabel(job: DataPipelineRefreshJobKey) {
+  return DATA_PIPELINE_REFRESH_JOB_LABELS[job] ?? job;
+}
+
 export function DataPipelineRefreshPanel() {
   const [secBulkState, setSecBulkState] =
     useState<SecBulkIngestState | null>(null);
 
   const [selectedJobs, setSelectedJobs] =
     useState<DataPipelineRefreshJobKey[]>([
-      ...DATA_PIPELINE_REFRESH_JOB_KEYS,
+      ...DEFAULT_SELECTED_JOB_KEYS,
     ]);
 
   const [databaseSizeReport, setDatabaseSizeReport] =
@@ -99,14 +149,28 @@ export function DataPipelineRefreshPanel() {
 
   const [rebuildMode] = useState<DataPipelineRebuildMode>("all");
   const [companyScope, setCompanyScope] =
-    useState<DataPipelineCompanyScope>("all");
-  const [universeRefreshMode, setUniverseRefreshMode] =
+    useState<DataPipelineCompanyScope>("bulk_changed");
+  const [secTagCandidateDiscovery, setSecTagCandidateDiscovery] =
+    useState(false);
+  const [universeRefreshMode] =
     useState<DataPipelineUniverseRefreshMode>("skip");
   const [selectedUniverseKeys, setSelectedUniverseKeys] =
     useState<UniverseKey[]>([...DEFAULT_UNIVERSE_KEYS]);
-  const [tickerCoreSyncMode, setTickerCoreSyncMode] =
+  const [tickerCoreSyncMode] =
     useState<DataPipelineTickerCoreSyncMode>("skip");
   const [tickerCoreMaxRequests, setTickerCoreMaxRequests] = useState(200);
+  const [tickerCoreTickerInput, setTickerCoreTickerInput] = useState("");
+  const [tickerCoreTargetMode, setTickerCoreTargetMode] =
+    useState<TickerCoreTargetMode>("universe");
+  const [tickerDailyPriceYearsBack, setTickerDailyPriceYearsBack] = useState(30);
+  const [tickerDailyPriceMaxTickers, setTickerDailyPriceMaxTickers] =
+    useState(350);
+  const [tickerDailyPriceMaxRequests, setTickerDailyPriceMaxRequests] =
+    useState(700);
+  const [tickerDailyPriceTickerInput, setTickerDailyPriceTickerInput] =
+    useState("");
+  const [tickerDailyPriceTargetMode, setTickerDailyPriceTargetMode] =
+    useState<TickerDailyPriceTargetMode>("universe");
 
   const [status, setStatus] = useState<PipelineStatus>({
     status: "idle",
@@ -125,6 +189,14 @@ export function DataPipelineRefreshPanel() {
   const lastStatusRef = useRef<PipelineStatus["status"]>("idle");
 
   const isRunning = status.status === "running";
+  const tickerCoreInputTickers = parseTickerInput(tickerCoreTickerInput);
+  const tickerCoreTickers =
+    tickerCoreTargetMode === "specific" ? tickerCoreInputTickers : [];
+  const tickerDailyPriceInputTickers = parseTickerInput(tickerDailyPriceTickerInput);
+  const tickerDailyPriceTickers =
+    tickerDailyPriceTargetMode === "specific"
+      ? tickerDailyPriceInputTickers
+      : [];
   const areAllSecCompanyfactJobsSelected = SEC_COMPANYFACT_JOB_KEYS.every(
     (job) => selectedJobs.includes(job),
   );
@@ -205,15 +277,34 @@ export function DataPipelineRefreshPanel() {
     setActiveButtonAction("run");
 
     try {
+      const refreshJobs: DataPipelineRefreshJobKey[] = selectedJobs.includes(
+        "sec_bulk_ingest",
+      )
+        ? selectedJobs.includes("metric_series")
+          ? selectedJobs
+          : [...selectedJobs, "metric_series"]
+        : selectedJobs.filter((job) => job !== "metric_series");
+
       const response = await triggerDataPipelineRefresh({
-        jobs: selectedJobs,
+        jobs: refreshJobs,
         rebuild: true,
         rebuildMode,
         companyScope,
-        universeRefreshMode,
+        universeRefreshMode: selectedJobs.includes("universe_memberships_sync")
+          ? "selected"
+          : universeRefreshMode,
         universeKeys: selectedUniverseKeys,
-        tickerCoreSyncMode,
+        tickerCoreSyncMode: selectedJobs.includes("ticker_core_sync")
+          ? "missing_or_stale"
+          : tickerCoreSyncMode,
         tickerCoreMaxRequests,
+        tickerCoreTickers,
+        secTagCandidateDiscovery,
+        tickerDailyPriceEndDate: "2026-05-05",
+        tickerDailyPriceYearsBack,
+        tickerDailyPriceMaxTickers,
+        tickerDailyPriceMaxRequests,
+        tickerDailyPriceTickers,
       });
 
       if (response.status === 409) {
@@ -336,6 +427,14 @@ export function DataPipelineRefreshPanel() {
             <span className="block text-xs text-gray-600">
               {DATA_PIPELINE_REFRESH_JOB_DESCRIPTIONS[job]}
             </span>
+            {job === "sec_bulk_ingest" ? (
+              <ol className="mt-2 space-y-1 border-l border-gray-400 pl-4 text-[11px] leading-4 text-gray-600">
+                <li>1. Stage raw companyfacts rows per CIK.</li>
+                <li>2. Build fiscal and metric sign profiles.</li>
+                <li>3. Extract transient tag rows and optional candidate stats.</li>
+                <li>4. Build persistent metric series, then delete tag/raw rows.</li>
+              </ol>
+            ) : null}
           </span>
         </span>
       </label>
@@ -364,7 +463,8 @@ export function DataPipelineRefreshPanel() {
 						) : null}
 						{status.currentJob ? (
 							<p>
-								<span className="font-bold">Current job:</span> {status.currentJob}
+								<span className="font-bold">Current job:</span>{" "}
+								{formatDataPipelineJobLabel(status.currentJob)}
 							</p>
 						) : null}
 						{status.progress ? (
@@ -423,7 +523,9 @@ export function DataPipelineRefreshPanel() {
 										<span className="font-mono">
 											{formatLocalDateTime(event.timestamp)}
 										</span>{" "}
-										{event.job ? <span>[{event.job}] </span> : null}
+										{event.job ? (
+											<span>[{formatDataPipelineJobLabel(event.job)}] </span>
+										) : null}
 										<span>{event.message}</span>
 									</li>
 								))}
@@ -480,112 +582,42 @@ export function DataPipelineRefreshPanel() {
 						<div className="space-y-4">
 							<div className="space-y-2 border-t border-black pt-3">
 								<h3 className="font-bold">Universe Memberships</h3>
-								<div className="grid gap-2 text-sm">
-									<label className="block">
-										<input
-											type="radio"
-											name="universeRefreshMode"
-											value="skip"
-											checked={universeRefreshMode === "skip"}
-											onChange={() => setUniverseRefreshMode("skip")}
-										/>{" "}
-										Use stored memberships
-									</label>
-									<label className="block">
-										<input
-											type="radio"
-											name="universeRefreshMode"
-											value="selected"
-											checked={universeRefreshMode === "selected"}
-											onChange={() => setUniverseRefreshMode("selected")}
-										/>{" "}
-										Sync selected universe memberships
-									</label>
+								<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+									{UNIVERSE_MEMBERSHIP_JOB_KEYS.map(renderJobCheckbox)}
 								</div>
-								<div className="ml-4 grid grid-cols-[auto_1fr] gap-x-2 text-sm">
-									<CornerDownRight
-										className="mt-1 h-4 w-4 text-gray-500"
-										aria-hidden="true"
-									/>
-									<div className="space-y-2 bg-[#f7f7f7] p-2">
-										<div className="text-[11px] font-bold uppercase tracking-wide text-gray-600">
-											Memberships to sync
-										</div>
-										<div className="grid gap-2 sm:grid-cols-3">
-											{UNIVERSE_KEYS.map((universeKey) => (
-												<label key={universeKey} className="block">
-													<input
-														type="checkbox"
-														checked={selectedUniverseKeys.includes(universeKey)}
-														onChange={(event) => {
-															setSelectedUniverseKeys((current) =>
-																event.target.checked
-																	? [...current, universeKey]
-																	: current.filter((item) => item !== universeKey),
-															);
-														}}
-													/>{" "}
-													{universeKey}
-												</label>
-											))}
-										</div>
+								<div className="space-y-2 bg-[#f7f7f7] p-3 text-sm">
+									<div className="text-[11px] font-bold uppercase tracking-wide text-gray-600">
+										Memberships selected
+									</div>
+									<div className="grid gap-2 sm:grid-cols-3">
+										{UNIVERSE_KEYS.map((universeKey) => (
+											<label key={universeKey} className="block">
+												<input
+													type="checkbox"
+													checked={selectedUniverseKeys.includes(universeKey)}
+													onChange={(event) => {
+														setSelectedUniverseKeys((current) =>
+															event.target.checked
+																? [...current, universeKey]
+																: current.filter((item) => item !== universeKey),
+														);
+													}}
+												/>{" "}
+												{UNIVERSE_LABELS[universeKey]}
+											</label>
+										))}
 									</div>
 								</div>
 								<p className="text-xs text-gray-600">
-									Sync only refreshes selected membership lists. Downstream
-									company jobs use all stored active memberships from the
-									database. S&amp;P 500 uses FMP constituents; S&amp;P 400,
-									S&amp;P 600, and DJIA use ETF holdings files. If stored
-									memberships are empty, the pipeline falls back to ticker
-									identities.
+									If this job is unchecked, downstream jobs use stored active
+									memberships for the selected universes. If checked, selected
+									memberships sync first.
 								</p>
 							</div>
 							<div className="space-y-2 border-t border-black pt-3">
 								<h3 className="font-bold">Company Profile &amp; Classification</h3>
-								<div className="grid gap-2 text-sm sm:grid-cols-2">
-									<label className="block border border-black bg-white p-2">
-										<span className="flex items-start gap-2">
-											<input
-												type="radio"
-												name="tickerCoreSyncMode"
-												value="skip"
-												checked={tickerCoreSyncMode === "skip"}
-												onChange={() => setTickerCoreSyncMode("skip")}
-											/>
-											<span>
-												<span className="block font-bold">
-													Use stored company profiles
-												</span>
-												<span className="block text-xs text-gray-600">
-													Read existing profile and classification records from
-													the database without calling the provider.
-												</span>
-											</span>
-										</span>
-									</label>
-									<label className="block border border-black bg-white p-2">
-										<span className="flex items-start gap-2">
-											<input
-												type="radio"
-												name="tickerCoreSyncMode"
-												value="missing_or_stale"
-												checked={tickerCoreSyncMode === "missing_or_stale"}
-												onChange={() =>
-													setTickerCoreSyncMode("missing_or_stale")
-												}
-											/>
-											<span>
-												<span className="block font-bold">
-													Sync missing/stale profiles &amp; classifications
-												</span>
-												<span className="block text-xs text-gray-600">
-													Fetch only missing or outdated company profile data,
-													then update sector, industry, exchange, country, and
-													related classification fields before the pipeline runs.
-												</span>
-											</span>
-										</span>
-									</label>
+								<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+									{COMPANY_PROFILE_JOB_KEYS.map(renderJobCheckbox)}
 								</div>
 								<label className="block text-sm">
 									Max provider requests{" "}
@@ -605,12 +637,172 @@ export function DataPipelineRefreshPanel() {
 										className="ml-2 w-24 border border-black px-2 py-1"
 									/>
 								</label>
+								<div className="space-y-2 text-sm">
+									<div className="grid gap-2 sm:grid-cols-2">
+										<label className="block border border-black bg-white p-2">
+											<input
+												type="radio"
+												name="tickerCoreTargetMode"
+												value="universe"
+												checked={tickerCoreTargetMode === "universe"}
+												onChange={() => setTickerCoreTargetMode("universe")}
+											/>{" "}
+											Selected universe memberships
+										</label>
+										<label className="block border border-black bg-white p-2">
+											<input
+												type="radio"
+												name="tickerCoreTargetMode"
+												value="specific"
+												checked={tickerCoreTargetMode === "specific"}
+												onChange={() => setTickerCoreTargetMode("specific")}
+											/>{" "}
+											Specific tickers
+										</label>
+									</div>
+									<textarea
+										value={tickerCoreTickerInput}
+										onChange={(event) => {
+											const value = event.target.value;
+											setTickerCoreTickerInput(value);
+											setTickerCoreTargetMode(
+												parseTickerInput(value).length > 0
+													? "specific"
+													: "universe",
+											);
+										}}
+										placeholder="AAPL, MSFT, NVDA"
+										rows={2}
+										className="mt-1 block w-full border border-black px-2 py-1 font-mono text-xs"
+									/>
+									<span className="mt-1 block text-xs text-gray-600">
+										Specific tickers refresh directly through FMP in input
+										order after duplicate removal. Max provider requests still
+										caps how many tickers run.
+									</span>
+								</div>
 								<p className="text-xs text-gray-600">
-									Company profiles include ticker identity, company name,
-									exchange, sector, industry, country, and related classification
-									fields. Free FMP accounts allow 250 calls per day, so the
-									default request cap is 200.
+									If this job is unchecked, downstream jobs use stored company
+									profiles and classifications. If checked with selected
+									universes, only missing or stale records are fetched. If checked
+									with specific tickers, those tickers are refreshed directly.
+									Free FMP accounts allow 250 calls per day, so the default
+									request cap is 200.
 								</p>
+							</div>
+							<div className="space-y-2 border-t border-black pt-3">
+								<h3 className="font-bold">Market Data</h3>
+								<p className="text-xs text-gray-600">
+									External market and macro data collection for downstream
+									features. Feature calculations run later in Features.
+								</p>
+								<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+									{MARKET_DATA_JOB_KEYS.map(renderJobCheckbox)}
+								</div>
+								<div className="grid gap-2 text-sm sm:grid-cols-3">
+									<label className="block">
+										Years back{" "}
+										<input
+											type="number"
+											min={1}
+											max={50}
+											value={tickerDailyPriceYearsBack}
+											onChange={(event) => {
+												const value = Number(event.target.value);
+												setTickerDailyPriceYearsBack(
+													Number.isFinite(value)
+														? Math.min(50, Math.max(1, Math.trunc(value)))
+														: 30,
+												);
+											}}
+											className="mt-1 block w-24 border border-black px-2 py-1"
+										/>
+									</label>
+									<label className="block">
+										Max tickers{" "}
+										<input
+											type="number"
+											min={1}
+											max={500}
+											value={tickerDailyPriceMaxTickers}
+											onChange={(event) => {
+												const value = Number(event.target.value);
+												setTickerDailyPriceMaxTickers(
+													Number.isFinite(value)
+														? Math.min(500, Math.max(1, Math.trunc(value)))
+														: 350,
+												);
+											}}
+											className="mt-1 block w-24 border border-black px-2 py-1"
+										/>
+									</label>
+									<label className="block">
+										Max requests{" "}
+										<input
+											type="number"
+											min={1}
+											max={800}
+											value={tickerDailyPriceMaxRequests}
+											onChange={(event) => {
+												const value = Number(event.target.value);
+												setTickerDailyPriceMaxRequests(
+													Number.isFinite(value)
+														? Math.min(800, Math.max(1, Math.trunc(value)))
+														: 700,
+												);
+											}}
+											className="mt-1 block w-24 border border-black px-2 py-1"
+										/>
+									</label>
+								</div>
+								<div className="space-y-2 text-sm">
+									<div className="grid gap-2 sm:grid-cols-2">
+										<label className="block border border-black bg-white p-2">
+											<input
+												type="radio"
+												name="tickerDailyPriceTargetMode"
+												value="universe"
+												checked={tickerDailyPriceTargetMode === "universe"}
+												onChange={() =>
+													setTickerDailyPriceTargetMode("universe")
+												}
+											/>{" "}
+											Selected universe memberships
+										</label>
+										<label className="block border border-black bg-white p-2">
+											<input
+												type="radio"
+												name="tickerDailyPriceTargetMode"
+												value="specific"
+												checked={tickerDailyPriceTargetMode === "specific"}
+												onChange={() =>
+													setTickerDailyPriceTargetMode("specific")
+												}
+											/>{" "}
+											Specific tickers
+										</label>
+									</div>
+									<textarea
+										value={tickerDailyPriceTickerInput}
+										onChange={(event) => {
+											const value = event.target.value;
+											setTickerDailyPriceTickerInput(value);
+											setTickerDailyPriceTargetMode(
+												parseTickerInput(value).length > 0
+													? "specific"
+													: "universe",
+											);
+										}}
+										placeholder="AAPL, MSFT, NVDA"
+										rows={2}
+										className="mt-1 block w-full border border-black px-2 py-1 font-mono text-xs"
+									/>
+									<span className="mt-1 block text-xs text-gray-600">
+										Typing a ticker switches to Specific tickers. Clear the
+										input or select universe memberships to use the selected
+										universe list.
+									</span>
+								</div>
 							</div>
 							<div className="space-y-2 border-t border-black pt-3">
 								<div className="flex items-center gap-3">
@@ -626,8 +818,10 @@ export function DataPipelineRefreshPanel() {
 									</button>
 								</div>
 								<p className="text-xs text-gray-600">
-									These jobs build from the SEC companyfacts archive through
-									fiscal, tag, metric, and validation outputs.
+									SEC bulk ingest now includes metric-series creation. Tag rows
+									are transient; metric series is the lowest retained SEC
+									companyfacts series layer. Validation is optional, and enriched
+									tables run later in Enriched Outputs.
 								</p>
 								<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
 									{SEC_COMPANYFACT_JOB_KEYS.map(renderJobCheckbox)}
@@ -643,8 +837,10 @@ export function DataPipelineRefreshPanel() {
 												SEC Company Scope
 											</h4>
 											<p className="mt-1 text-[11px] leading-4 text-gray-600">
-												Applies to SEC bulk ingest, fiscal profile, metric
-												series, and series validation.
+												Applies to SEC bulk ingest, metric series, series
+												validation, and enriched outputs. Fiscal
+												profile and tag extraction are internal SEC bulk ingest
+												steps because they require temporary raw rows.
 											</p>
 										</div>
 										<div className="grid gap-2 sm:grid-cols-2">
@@ -706,28 +902,58 @@ export function DataPipelineRefreshPanel() {
 											scope. Use All SEC companies for full rebuilds after logic
 											changes.
 										</div>
+										<label className="flex items-start gap-2 border-t border-gray-300 pt-2 text-xs">
+											<input
+												type="checkbox"
+												checked={secTagCandidateDiscovery}
+												onChange={(event) =>
+													setSecTagCandidateDiscovery(event.target.checked)
+												}
+												disabled={!selectedJobs.includes("sec_bulk_ingest")}
+											/>
+											<span>
+												<span className="block font-bold">
+													Collect tag candidate stats
+												</span>
+												<span className="block text-[11px] leading-4 text-gray-600">
+													While each CIK raw rows are staged, aggregate
+													unmapped us-gaap tags into candidate stats before raw
+													and tag cleanup. This does not keep raw rows.
+												</span>
+											</span>
+										</label>
 									</div>
 								</div>
 							</div>
 							<div className="space-y-2 border-t border-black pt-3">
-								<h3 className="font-bold">Signals / Macro</h3>
+								<h3 className="font-bold">Enriched Outputs</h3>
 								<p className="text-xs text-gray-600">
-									Macro FRED sync feeds macro contrasts. Factor metric features
-									must run before factor signals because signal selection reads
-									completed feature rows.
+									These jobs read cleaned series and build enriched input
+									tables. Feature rows are calculated later in Features.
 								</p>
 								<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-									{SIGNAL_MACRO_JOB_KEYS.map(renderJobCheckbox)}
+									{ENRICHED_OUTPUT_JOB_KEYS.map(renderJobCheckbox)}
 								</div>
 							</div>
 							<div className="space-y-2 border-t border-black pt-3">
-								<h3 className="font-bold">Global Analytics</h3>
+								<h3 className="font-bold">Features</h3>
 								<p className="text-xs text-gray-600">
-									These jobs ignore Company Scope and run across all available
-									metric feature position rows.
+									Feature jobs convert prepared SEC, valuation, and market data
+									into factor-owned feature rows and comparison outputs.
 								</p>
 								<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-									{GLOBAL_ANALYTICS_JOB_KEYS.map(renderJobCheckbox)}
+									{FEATURE_JOB_KEYS.map(renderJobCheckbox)}
+								</div>
+							</div>
+							<div className="space-y-2 border-t border-black pt-3">
+								<h3 className="font-bold">Signals</h3>
+								<p className="text-xs text-gray-600">
+									Signal jobs select factor signals from completed feature rows
+									and cluster signal activation patterns. These jobs ignore
+									Company Scope.
+								</p>
+								<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+									{SIGNAL_JOB_KEYS.map(renderJobCheckbox)}
 								</div>
 							</div>
 						</div>

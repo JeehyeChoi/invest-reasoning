@@ -16,10 +16,12 @@ class TwelveDataRequestQueue {
 
   private readonly requestsPerMinute: number;
   private readonly windowMs: number;
+  private readonly minIntervalMs: number;
 
-  constructor(options?: { requestsPerMinute?: number }) {
-    this.requestsPerMinute = options?.requestsPerMinute ?? 8;
+  constructor(options?: { requestsPerMinute?: number; minIntervalMs?: number }) {
+    this.requestsPerMinute = options?.requestsPerMinute ?? 800;
     this.windowMs = 60_000;
+    this.minIntervalMs = options?.minIntervalMs ?? 50;
   }
 
   async enqueue<T>(key: string, run: () => Promise<T>): Promise<T> {
@@ -75,26 +77,25 @@ class TwelveDataRequestQueue {
           continue;
         }
 
-        const batch = this.queue.splice(0, available);
-        const executedAt = Date.now();
+        const lastSentAt = this.sentTimestamps.at(-1);
+        const sinceLastRequest = lastSentAt === undefined ? Infinity : now - lastSentAt;
 
-        const results = await Promise.allSettled(
-          batch.map((job) => job.run())
-        );
-
-        for (let i = 0; i < batch.length; i += 1) {
-          this.sentTimestamps.push(executedAt);
+        if (sinceLastRequest < this.minIntervalMs) {
+          await sleep(this.minIntervalMs - sinceLastRequest);
+          continue;
         }
 
-        for (let i = 0; i < batch.length; i += 1) {
-          const job = batch[i];
-          const result = results[i];
+        const job = this.queue.shift();
+        if (!job) continue;
 
-          if (result.status === "fulfilled") {
-            job.resolve(result.value);
-          } else {
-            job.reject(result.reason);
-          }
+        const executedAt = Date.now();
+        this.sentTimestamps.push(executedAt);
+
+        try {
+          const result = await job.run();
+          job.resolve(result);
+        } catch (error) {
+          job.reject(error);
         }
       }
     } finally {
@@ -115,7 +116,8 @@ declare global {
 export function getTwelveDataRequestQueue(): TwelveDataRequestQueue {
   if (!globalThis.__twelveDataRequestQueue__) {
     globalThis.__twelveDataRequestQueue__ = new TwelveDataRequestQueue({
-      requestsPerMinute: 8,
+      requestsPerMinute: 800,
+      minIntervalMs: 50,
     });
   }
 

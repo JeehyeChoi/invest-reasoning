@@ -46,31 +46,39 @@ export async function getPrices({
 
   const queue = getTwelveDataRequestQueue();
 
-  const results = await Promise.all(
-    normalizedItems.map(async ({ ticker }) => {
-      try {
-        const price = await queue.enqueue(
-          `twelvedata:price:${ticker}`,
-          async () => fetchTwelveDataPrice(ticker)
-        );
+  const results: Array<{
+    ticker: string;
+    price: number | null;
+    error: string | null;
+  }> = [];
 
-        return {
-          ticker,
-          price,
-          error: null as string | null,
-        };
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Unknown price fetch error";
+  for (const { ticker } of normalizedItems) {
+    try {
+      const price = await queue.enqueue(
+        `twelvedata:price:${ticker}`,
+        async () => fetchTwelveDataPrice(ticker),
+      );
 
-        return {
-          ticker,
-          price: null as number | null,
-          error: message,
-        };
+      results.push({
+        ticker,
+        price,
+        error: null,
+      });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Unknown price fetch error";
+
+      results.push({
+        ticker,
+        price: null,
+        error: message,
+      });
+
+      if (isTwelveDataDailyLimitMessage(message)) {
+        break;
       }
-    })
-  );
+    }
+  }
 
   for (const result of results) {
     if (typeof result.price === "number" && Number.isFinite(result.price)) {
@@ -78,14 +86,13 @@ export async function getPrices({
       continue;
     }
 
-    const message = `${result.ticker}: ${result.error}`;
+    const normalizedError = normalizePriceFetchError(result.error);
+    const message = `${result.ticker}: ${normalizedError}`;
     warnings.push(message);
 
     if (!error) {
-      error = result.error ?? "Unknown price fetch error";
+      error = normalizedError;
     }
-
-    console.error(`[getPrices] ${result.ticker}:`, result.error);
   }
 
   return {
@@ -93,6 +100,23 @@ export async function getPrices({
     warnings,
     error,
   };
+}
+
+function normalizePriceFetchError(error: string | null): string {
+  if (!error) return "Twelve Data price fetch failed";
+
+  if (isTwelveDataDailyLimitMessage(error)) {
+    return "Twelve Data daily API credit limit reached";
+  }
+
+  return `Twelve Data price fetch failed: ${error}`;
+}
+
+function isTwelveDataDailyLimitMessage(message: string): boolean {
+  return (
+    message.includes("You have run out of API credits for the day") ||
+    message.includes("current limit being 800")
+  );
 }
 
 function normalizePriceItems(items: PriceRequestItem[]): PriceRequestItem[] {

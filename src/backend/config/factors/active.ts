@@ -3,12 +3,12 @@ import { promises as fs } from "node:fs";
 
 import type { FactorKey } from "@/shared/factors/factors";
 import type { FactorAxisKey } from "@/shared/factors/axes";
-import type { SecMetricKey } from "@/shared/sec/metrics";
+import type { FactorBlueprintMetricKey } from "@/backend/config/factors/blueprints";
 
 export type FactorConfigResolveInput = {
   factor: FactorKey;
   axis: FactorAxisKey;
-  metricKey: SecMetricKey;
+  metricKey: FactorBlueprintMetricKey | string;
 };
 
 function buildFactorDisplayPath(input: FactorConfigResolveInput): string {

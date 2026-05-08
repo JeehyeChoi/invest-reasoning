@@ -16,6 +16,13 @@ export async function triggerDataPipelineRefresh(input: {
   universeKeys: UniverseKey[];
   tickerCoreSyncMode: DataPipelineTickerCoreSyncMode;
   tickerCoreMaxRequests: number;
+  tickerCoreTickers: string[];
+  secTagCandidateDiscovery: boolean;
+  tickerDailyPriceEndDate?: string;
+  tickerDailyPriceYearsBack: number;
+  tickerDailyPriceMaxTickers: number;
+  tickerDailyPriceMaxRequests: number;
+  tickerDailyPriceTickers: string[];
 }): Promise<Response> {
   return fetch("/api/internal/data-pipeline/refresh", {
     method: "POST",

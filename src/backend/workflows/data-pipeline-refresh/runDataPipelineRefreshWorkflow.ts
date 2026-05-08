@@ -1,6 +1,7 @@
 // src/backend/workflows/data-pipeline-refresh/runDataPipelineRefreshWorkflow.ts
 import {
   DATA_PIPELINE_REFRESH_JOB_KEYS,
+  DATA_PIPELINE_REFRESH_JOB_LABELS,
   type DataPipelineCompanyScope,
   type DataPipelineRefreshJobKey,
   type DataPipelineRebuildMode,
@@ -12,6 +13,7 @@ import type { UniverseKey } from "@/shared/universe/universes";
 import { db } from "@/backend/config/db";
 import { getTickerCikMap } from "@/backend/services/tickers/getTickerCikMap";
 import { runSecBulkIngestWorkflow } from "@/backend/workflows/sec-bulk-ingest/runSecBulkIngestWorkflow";
+import { runSecCompanyFactsMetricSeriesEnrichedWorkflow } from "@/backend/workflows/sec-companyfacts-metric-series-enriched/runSecCompanyFactsMetricSeriesEnrichedWorkflow";
 import { runSecCompanyFactsMetricSeriesWorkflow } from "@/backend/workflows/sec-companyfacts-metric-series/runSecCompanyFactsMetricSeriesWorkflow";
 import { runSecCompanyFactsSeriesValidationWorkflow } from "@/backend/workflows/sec-companyfacts-series-validation/runSecCompanyFactsSeriesValidationWorkflow";
 import { runTickerFactorMetricClusteringWorkflow } from "@/backend/workflows/ticker-factor-metric-clustering/runTickerFactorMetricClusteringWorkflow";
@@ -23,6 +25,13 @@ import {
 } from "@/backend/workflows/ticker-core-sync/runTickerCoreSyncWorkflow";
 import { runUniverseSelectionWorkflow } from "@/backend/workflows/universe-selection/runUniverseSelectionWorkflow";
 import { runMacroFredSeriesSyncWorkflow } from "@/backend/workflows/macro-fred-series/runMacroFredSeriesSyncWorkflow";
+import { runTickerDailyPriceHistorySyncWorkflow } from "@/backend/workflows/ticker-daily-prices/runTickerDailyPriceHistorySyncWorkflow";
+import { runTickerMarketPriceFactorFeaturesWorkflow } from "@/backend/workflows/ticker-market-price-factor-features/runTickerMarketPriceFactorFeaturesWorkflow";
+import { runTickerValuationMetricSeriesEnrichedWorkflow } from "@/backend/workflows/ticker-valuation-metric-series-enriched/runTickerValuationMetricSeriesEnrichedWorkflow";
+import type {
+  DailyPriceAdjustmentPolicy,
+  DailyPriceProviderKey,
+} from "@/backend/services/market/history/types";
 import {
   addDataPipelineRefreshEvent,
   updateDataPipelineRefreshStatus,
@@ -37,10 +46,24 @@ export type RunDataPipelineRefreshWorkflowInput = {
   universeKeys?: UniverseKey[];
   tickerCoreSyncMode?: DataPipelineTickerCoreSyncMode;
   tickerCoreMaxRequests?: number;
+  tickerCoreTickers?: string[];
+  secTagCandidateDiscovery?: boolean;
+  tickerDailyPriceProvider?: DailyPriceProviderKey;
+  tickerDailyPriceAdjustmentPolicy?: DailyPriceAdjustmentPolicy;
+  tickerDailyPriceEndDate?: string;
+  tickerDailyPriceYearsBack?: number;
+  tickerDailyPriceMaxTickers?: number;
+  tickerDailyPriceMaxRequests?: number;
+  tickerDailyPriceTickers?: string[];
 };
 
 const DEFAULT_DATA_PIPELINE_REFRESH_JOBS: DataPipelineRefreshJobKey[] =
-  [...DATA_PIPELINE_REFRESH_JOB_KEYS];
+  DATA_PIPELINE_REFRESH_JOB_KEYS.filter(
+    (job) =>
+      job !== "universe_memberships_sync" &&
+      job !== "ticker_core_sync" &&
+      job !== "ticker_daily_price_history_sync",
+  );
 
 type WorkflowProgress = {
   job?: DataPipelineRefreshJobKey;
@@ -49,6 +72,19 @@ type WorkflowProgress = {
   current?: number;
   total?: number;
   label?: string;
+};
+
+type TickerDailyPriceHistorySyncSummary = {
+  provider: DailyPriceProviderKey;
+  adjustmentPolicy: DailyPriceAdjustmentPolicy;
+  targetStartDate: string;
+  targetEndDate: string;
+  processedCount: number;
+  failedCount: number;
+  rowCount: number;
+  requestCount: number;
+  stoppedByRequestBudget: boolean;
+  stoppedByProviderLimit: boolean;
 };
 
 function reportDataPipelineProgress(progress: WorkflowProgress) {
@@ -75,16 +111,67 @@ function reportDataPipelineProgress(progress: WorkflowProgress) {
   });
 }
 
+function getTickerDailyPriceHistorySyncSummaryMessage(
+  result: TickerDailyPriceHistorySyncSummary,
+): string {
+  const suffix = `provider=${result.provider}, adjustment=${result.adjustmentPolicy}, targetStart=${result.targetStartDate}, targetEnd=${result.targetEndDate}, processed=${result.processedCount}, failed=${result.failedCount}, rows=${result.rowCount}, requests=${result.requestCount}.`;
+
+  if (result.stoppedByProviderLimit) {
+    return `Ticker daily price history sync stopped by provider daily limit. ${suffix}`;
+  }
+
+  if (result.stoppedByRequestBudget) {
+    return `Ticker daily price history sync stopped by request budget. ${suffix}`;
+  }
+
+  return `Ticker daily price history sync completed. ${suffix}`;
+}
+
+function getJobLabel(job: DataPipelineRefreshJobKey): string {
+  return DATA_PIPELINE_REFRESH_JOB_LABELS[job] ?? job;
+}
+
 export async function runDataPipelineRefreshWorkflow(
   input: RunDataPipelineRefreshWorkflowInput = {},
 ) {
   const requestedJobs = input.jobs ?? DEFAULT_DATA_PIPELINE_REFRESH_JOBS;
-  const jobs = new Set<DataPipelineRefreshJobKey>(requestedJobs);
+  const normalizedJobs = requestedJobs.filter(
+    (job) =>
+      job !== "metric_series" || requestedJobs.includes("sec_bulk_ingest"),
+  );
+  const jobs = new Set<DataPipelineRefreshJobKey>(
+    requestedJobs.includes("sec_bulk_ingest") &&
+    !normalizedJobs.includes("metric_series")
+      ? [...normalizedJobs, "metric_series"]
+      : normalizedJobs,
+  );
   const companyScope: DataPipelineCompanyScope =
     input.companyScope === "bulk_changed" ? "bulk_changed" : "all";
   const shouldForceReadAllSecCompanyFacts = companyScope === "all";
-  const universeRefreshMode = input.universeRefreshMode ?? "skip";
-  const tickerCoreSyncMode = input.tickerCoreSyncMode ?? "skip";
+  const universeRefreshMode =
+    jobs.has("universe_memberships_sync") ||
+    input.universeRefreshMode === "selected"
+      ? "selected"
+      : "skip";
+  const tickerCoreSyncMode =
+    jobs.has("ticker_core_sync") ||
+    input.tickerCoreSyncMode === "missing_or_stale"
+      ? "missing_or_stale"
+      : "skip";
+  const needsSecCompanyPipeline =
+    jobs.has("sec_bulk_ingest") ||
+    jobs.has("metric_series") ||
+    jobs.has("series_validation") ||
+    jobs.has("sec_metric_series_enriched") ||
+    jobs.has("factor_metric_features");
+  const needsMarketPriceFeatures = jobs.has("market_price_factor_features");
+  const needsFeatureOutputs =
+    jobs.has("factor_metric_features") || needsMarketPriceFeatures;
+  const needsValuationMetricSeriesEnriched = jobs.has(
+    "valuation_metric_series_enriched",
+  );
+  const needsGlobalFeatureOutputs =
+    jobs.has("factor_signals") || jobs.has("factor_metric_clustering");
 
   if (jobs.has("macro_fred_series_sync")) {
     reportDataPipelineProgress({
@@ -122,10 +209,8 @@ export async function runDataPipelineRefreshWorkflow(
   reportDataPipelineProgress({
     message:
       universeSelection.refreshedUniverseKeys.length > 0
-        ? `Ticker universe prepared from all stored active memberships. refreshed=${universeSelection.refreshedUniverseKeys.join(", ")}, activeTickers=${tickers.length}.`
-        : universeSelection.usedTickerIdentityFallback
-          ? `Stored universe memberships are empty; loaded ticker identities instead. activeTickers=${tickers.length}.`
-          : `Ticker universe loaded from all stored active memberships. activeTickers=${tickers.length}.`,
+        ? `Ticker universe prepared. universes=${universeSelection.universeKeys.join(", ")}, refreshed=${universeSelection.refreshedUniverseKeys.join(", ")}, activeTickers=${tickers.length}.`
+        : `Ticker universe loaded from stored memberships. universes=${universeSelection.universeKeys.join(", ")}, activeTickers=${tickers.length}.`,
   });
 
   if (universeSelection.unsupportedRefreshUniverseKeys.length > 0) {
@@ -142,6 +227,7 @@ export async function runDataPipelineRefreshWorkflow(
     const tickerCoreResult = await runTickerCoreSyncWorkflow({
       universeKeys: universeSelection.universeKeys,
       maxRequests: input.tickerCoreMaxRequests,
+      tickers: input.tickerCoreTickers,
       onProgress: (progress) =>
         reportDataPipelineProgress({
           message: progress.message,
@@ -157,7 +243,7 @@ export async function runDataPipelineRefreshWorkflow(
         ? `Ticker core sync stopped by provider rate limit. staleAfterDays=${tickerCoreResult.staleAfterDays}, processed=${tickerCoreResult.processedCount}, failed=${tickerCoreResult.failedCount}, candidates=${tickerCoreResult.candidateCount}, requestCap=${tickerCoreResult.maxRequests}.`
         : `Ticker core sync completed. staleAfterDays=${tickerCoreResult.staleAfterDays}, processed=${tickerCoreResult.processedCount}, failed=${tickerCoreResult.failedCount}, candidates=${tickerCoreResult.candidateCount}, requestCap=${tickerCoreResult.maxRequests}.`,
     });
-  } else {
+  } else if (needsSecCompanyPipeline) {
     const tickerCoreCandidates =
       await countMissingOrStaleTickerCoreSyncCandidates({
         universeKeys: universeSelection.universeKeys,
@@ -166,6 +252,51 @@ export async function runDataPipelineRefreshWorkflow(
     reportDataPipelineProgress({
       message: `Using stored company profiles. FMP ticker core sync skipped. staleAfterDays=${tickerCoreCandidates.staleAfterDays}, missingOrStaleCandidates=${tickerCoreCandidates.candidateCount}.`,
     });
+  }
+
+  if (jobs.has("ticker_daily_price_history_sync")) {
+    reportDataPipelineProgress({
+      job: "ticker_daily_price_history_sync",
+      message: "Ticker daily price history sync started.",
+    });
+
+    const result = await runTickerDailyPriceHistorySyncWorkflow({
+      universeKeys: universeSelection.universeKeys,
+      provider: input.tickerDailyPriceProvider,
+      adjustmentPolicy: input.tickerDailyPriceAdjustmentPolicy,
+      endDate: input.tickerDailyPriceEndDate,
+      tickers: input.tickerDailyPriceTickers,
+      yearsBack: input.tickerDailyPriceYearsBack,
+      maxTickers: input.tickerDailyPriceMaxTickers,
+      maxRequests: input.tickerDailyPriceMaxRequests,
+      onProgress: (progress) =>
+        reportDataPipelineProgress({
+          job: "ticker_daily_price_history_sync",
+          message: progress.message,
+          level: progress.level,
+          current: progress.current,
+          total: progress.total,
+          label: progress.label,
+        }),
+    });
+
+    reportDataPipelineProgress({
+      job: "ticker_daily_price_history_sync",
+      message: getTickerDailyPriceHistorySyncSummaryMessage(result),
+    });
+  }
+
+  if (
+    !needsSecCompanyPipeline &&
+    !needsValuationMetricSeriesEnriched &&
+    !needsFeatureOutputs &&
+    !needsGlobalFeatureOutputs
+  ) {
+    reportDataPipelineProgress({
+      message:
+        "Selected jobs completed. SEC Companyfacts / Series jobs were not selected, so CIK resolution and SEC ingest were skipped.",
+    });
+    return;
   }
 
   reportDataPipelineProgress({
@@ -187,6 +318,10 @@ export async function runDataPipelineRefreshWorkflow(
   let bulkChangedCiks = new Set<string>();
   let didRunBulkIngest = false;
   const buildTagSeriesDuringBulkIngest = jobs.has("sec_bulk_ingest");
+  const buildMetricSeriesDuringBulkIngest =
+    jobs.has("sec_bulk_ingest") && jobs.has("metric_series");
+  const validateMetricSeriesDuringBulkIngest =
+    buildMetricSeriesDuringBulkIngest && jobs.has("series_validation");
 
   if (jobs.has("sec_bulk_ingest")) {
     didRunBulkIngest = true;
@@ -203,6 +338,10 @@ export async function runDataPipelineRefreshWorkflow(
       forceReadAll: shouldForceReadAllSecCompanyFacts,
       tickerByCik: buildTickerByCik(tickerCikMap),
       buildTagSeriesBeforeRawCleanup: buildTagSeriesDuringBulkIngest,
+      buildMetricSeriesBeforeTagCleanup: buildMetricSeriesDuringBulkIngest,
+      validateMetricSeriesBeforeCleanup: validateMetricSeriesDuringBulkIngest,
+      cleanupTagSeriesAfterMetric: buildMetricSeriesDuringBulkIngest,
+      collectTagCandidateStats: input.secTagCandidateDiscovery === true,
       onProgress: reportDataPipelineProgress,
     });
     bulkChangedCiks = new Set(bulkIngestResult.changedCiks);
@@ -250,7 +389,7 @@ export async function runDataPipelineRefreshWorkflow(
     });
   }
 
-  if (jobs.has("metric_series")) {
+  if (jobs.has("metric_series") && !buildMetricSeriesDuringBulkIngest) {
     await runSecCompanyFactsMetricSeriesWorkflow({
       tickerCikMap: scopedTickerCikMap,
       rebuild: input.rebuild ?? true,
@@ -259,17 +398,54 @@ export async function runDataPipelineRefreshWorkflow(
     });
   }
 
-  if (jobs.has("series_validation")) {
+  if (jobs.has("series_validation") && !validateMetricSeriesDuringBulkIngest) {
     await runSecCompanyFactsSeriesValidationWorkflow({
       tickerCikMap: scopedTickerCikMap,
       onProgress: reportDataPipelineProgress,
     });
   }
 
+  if (jobs.has("sec_metric_series_enriched")) {
+    await runSecCompanyFactsMetricSeriesEnrichedWorkflow({
+      tickerCikMap: scopedTickerCikMap,
+      rebuildMode: input.rebuildMode ?? "all",
+      onProgress: reportDataPipelineProgress,
+    });
+  }
+
+  if (needsValuationMetricSeriesEnriched) {
+    reportDataPipelineProgress({
+      job: "valuation_metric_series_enriched",
+      message: "Valuation metric enriched series started.",
+    });
+
+    const result = await runTickerValuationMetricSeriesEnrichedWorkflow({
+      tickers: input.tickerDailyPriceTickers?.length
+        ? input.tickerDailyPriceTickers
+        : scopedTickers,
+      tickerCikMap: scopedTickerCikMap,
+      provider: input.tickerDailyPriceProvider,
+      adjustmentPolicy: input.tickerDailyPriceAdjustmentPolicy,
+      onProgress: (progress) =>
+        reportDataPipelineProgress({
+          job: "valuation_metric_series_enriched",
+          message: progress.message,
+          current: progress.current,
+          total: progress.total,
+          label: progress.label,
+        }),
+    });
+
+    reportDataPipelineProgress({
+      job: "valuation_metric_series_enriched",
+      message: `Valuation metric enriched series completed. tickers=${result.tickerCount}, enrichedRows=${result.enrichedRowCount}, asOf=${result.asOfDate ?? "-"}.`,
+    });
+  }
+
   if (jobs.has("factor_metric_features")) {
     reportDataPipelineProgress({
       job: "factor_metric_features",
-      message: "Factor metric features started.",
+      message: `${getJobLabel("factor_metric_features")} started.`,
     });
 
     await runTickerFactorMetricFeaturesWorkflow({
@@ -280,7 +456,46 @@ export async function runDataPipelineRefreshWorkflow(
 
     reportDataPipelineProgress({
       job: "factor_metric_features",
-      message: "Factor metric features completed.",
+      message: `${getJobLabel("factor_metric_features")} completed.`,
+    });
+  }
+
+  if (needsMarketPriceFeatures) {
+    reportDataPipelineProgress({
+      job: "market_price_factor_features",
+      message: `${getJobLabel("market_price_factor_features")} started.`,
+    });
+
+    const result = await runTickerMarketPriceFactorFeaturesWorkflow({
+      tickers: input.tickerDailyPriceTickers?.length
+        ? input.tickerDailyPriceTickers
+        : tickers,
+      provider: input.tickerDailyPriceProvider,
+      adjustmentPolicy: input.tickerDailyPriceAdjustmentPolicy,
+      onProgress: (progress) =>
+        reportDataPipelineProgress({
+          job: "market_price_factor_features",
+          message: progress.message,
+          current: progress.current,
+          total: progress.total,
+          label: progress.label,
+        }),
+    });
+
+    reportDataPipelineProgress({
+      job: "market_price_factor_features",
+      message: `Market price factor features completed. tickers=${result.tickerCount}, rows=${result.featureRowCount}, asOf=${result.asOfDate ?? "-"}.`,
+    });
+  }
+
+  if (needsFeatureOutputs) {
+    const completedFeatureJobLabels = [
+      jobs.has("factor_metric_features") ? getJobLabel("factor_metric_features") : null,
+      needsMarketPriceFeatures ? getJobLabel("market_price_factor_features") : null,
+    ].filter((label): label is string => label !== null);
+
+    reportDataPipelineProgress({
+      message: `Feature jobs completed sequentially. jobs=${completedFeatureJobLabels.join(", ")}.`,
     });
   }
 

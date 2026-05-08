@@ -3,15 +3,15 @@
  * - factor keys: scripts/bootstrap/factors/factor-definitions.json
  * - factor axes: src/shared/factors/axes.ts
  * - metric feature storage: db/ticker_factor_metric_features.sql
- * - metric feature baseline storage: db/ticker_factor_metric_feature_baselines.sql
  * - factor signal definition storage: db/ticker_factor_signal_definitions.sql
  * - factor signal result storage: db/ticker_factor_signals.sql
  */
 
 export const FACTOR_KEYS = [
-  "consumer_strength",
+  "consumer_linked",
   "capex_cycle",
   "rate_sensitive",
+  "credit_sensitive",
   "energy_linked",
   "china_exposure",
   "quality",

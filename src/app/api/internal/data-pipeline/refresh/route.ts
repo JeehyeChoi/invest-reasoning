@@ -14,6 +14,15 @@ export async function POST(request: Request) {
       universeKeys: body.universeKeys,
       tickerCoreSyncMode: body.tickerCoreSyncMode,
       tickerCoreMaxRequests: body.tickerCoreMaxRequests,
+      tickerCoreTickers: body.tickerCoreTickers,
+      secTagCandidateDiscovery: body.secTagCandidateDiscovery,
+      tickerDailyPriceProvider: body.tickerDailyPriceProvider,
+      tickerDailyPriceAdjustmentPolicy: body.tickerDailyPriceAdjustmentPolicy,
+      tickerDailyPriceEndDate: body.tickerDailyPriceEndDate,
+      tickerDailyPriceYearsBack: body.tickerDailyPriceYearsBack,
+      tickerDailyPriceMaxTickers: body.tickerDailyPriceMaxTickers,
+      tickerDailyPriceMaxRequests: body.tickerDailyPriceMaxRequests,
+      tickerDailyPriceTickers: body.tickerDailyPriceTickers,
     });
 
     if (result.status === "already_running") {

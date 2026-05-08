@@ -23,8 +23,21 @@ function setStoredStatus(next: PipelineStatus) {
   runtimeGlobal.__geoPortfolioDataPipelineRefreshStatus = next;
 }
 
+function normalizeStoredStatus(status: PipelineStatus): PipelineStatus {
+  if (status.status === "running" && status.finishedAt) {
+    return {
+      ...status,
+      status: status.error ? "failed" : "idle",
+      currentJob: undefined,
+      progress: undefined,
+    };
+  }
+
+  return status;
+}
+
 export function getDataPipelineRefreshStatus(): PipelineStatus {
-  const status = getStoredStatus();
+  const status = normalizeStoredStatus(getStoredStatus());
 
   if (status.status === "success") {
     return {
@@ -50,8 +63,14 @@ export function setDataPipelineRefreshStatus(next: PipelineStatus) {
 export function updateDataPipelineRefreshStatus(
   patch: Partial<PipelineStatus>,
 ) {
+  const current = normalizeStoredStatus(getStoredStatus());
+
+  if (patch.status === "running" && current.finishedAt) {
+    return;
+  }
+
   setStoredStatus({
-    ...getStoredStatus(),
+    ...current,
     ...patch,
     updatedAt: patch.updatedAt ?? new Date().toISOString(),
   });
