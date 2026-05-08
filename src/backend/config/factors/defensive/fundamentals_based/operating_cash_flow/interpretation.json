@@ -23,10 +23,10 @@
         "periodType": "quarter"
       }
     },
-    "defensiveBufferTrend": {
-      "source": "duration_adjusted_ttm_val",
+    "defensiveBufferPosition": {
+      "source": "duration_adjusted_val",
       "reference": "duration_adjusted_rolling4_avg",
-      "method": "relative_deviation",
+      "method": "ratio_deviation",
       "valueType": "ratio",
       "comparison": true,
       "macroContrast": false,
@@ -39,7 +39,7 @@
       }
     },
     "defensiveShockAbsorption": {
-      "source": "qoq",
+      "source": "duration_adjusted_qoq",
       "lookback": 8,
       "method": "positive_ratio",
       "valueType": "ratio",

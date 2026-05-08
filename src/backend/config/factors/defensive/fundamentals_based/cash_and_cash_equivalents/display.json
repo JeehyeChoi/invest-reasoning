@@ -3,5 +3,5 @@
   "chart": {
     "title": "Cash Buffer"
   },
-  "description": "Defensive signal based on cash-buffer stability, trend support, and shock absorption."
+  "description": "Defensive signal based on cash-buffer stability, buffer position, and shock absorption."
 }

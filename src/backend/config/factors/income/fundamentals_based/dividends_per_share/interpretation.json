@@ -8,8 +8,8 @@
     "createdAt": "2026-05"
   },
   "features": {
-    "incomeDistributionConsistency": {
-      "source": "duration_adjusted_yoy",
+    "dividendConsistency": {
+      "source": "yoy",
       "lookback": 8,
       "method": "positive_ratio",
       "valueType": "ratio",
@@ -23,10 +23,10 @@
         "periodType": "quarter"
       }
     },
-    "incomeDistributionTrend": {
-      "source": "ttm_val",
-      "reference": "duration_adjusted_rolling4_avg",
-      "method": "relative_deviation",
+    "dividendPosition": {
+      "source": "val",
+      "reference": "rolling4_avg",
+      "method": "ratio_deviation",
       "valueType": "ratio",
       "comparison": true,
       "macroContrast": false,
@@ -38,10 +38,10 @@
         "periodType": "quarter"
       }
     },
-    "incomeDistributionMomentum": {
-      "source": "duration_adjusted_ttm_delta",
+    "dividendMomentum": {
+      "source": "ttm_yoy",
       "method": "direct",
-      "valueType": "value",
+      "valueType": "ratio",
       "comparison": false,
       "macroContrast": false,
       "clustering": false,

@@ -1,7 +1,0 @@
-{
-  "metricKey": "net_income",
-  "chart": {
-    "title": "Net Income Income Support"
-  },
-  "description": "Income support signal based on earnings consistency, trend support, and momentum."
-}

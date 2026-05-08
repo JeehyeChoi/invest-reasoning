@@ -5,7 +5,7 @@
   },
   "featureOrder": [
     "defensiveStability",
-    "defensiveBufferTrend",
+    "defensiveBufferPosition",
     "defensiveShockAbsorption",
     "defensiveBurdenRelief",
     "defensiveBurdenTrendRelief",
@@ -18,7 +18,7 @@
   },
   "featureLabels": {
     "defensiveStability": "Defensive Stability",
-    "defensiveBufferTrend": "Buffer Trend",
+    "defensiveBufferPosition": "Defensive Buffer Position",
     "defensiveShockAbsorption": "Shock Absorption",
     "defensiveBurdenRelief": "Burden Relief",
     "defensiveBurdenTrendRelief": "Burden Trend Relief",

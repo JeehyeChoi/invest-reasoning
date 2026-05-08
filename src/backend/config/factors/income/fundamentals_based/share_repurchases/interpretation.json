@@ -1,0 +1,11 @@
+{
+  "version": "interpretation_v1",
+  "factor": "income",
+  "axis": "fundamentals_based",
+  "metricKey": "share_repurchases",
+  "meta": {
+    "description": "Share repurchase interpretation for shareholder return using enriched SEC companyfact metric series.",
+    "createdAt": "2026-05"
+  },
+  "features": {}
+}

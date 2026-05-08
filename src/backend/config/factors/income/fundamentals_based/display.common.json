@@ -4,9 +4,12 @@
     "type": "timeseries"
   },
   "featureOrder": [
-    "incomeDistributionConsistency",
-    "incomeDistributionTrend",
-    "incomeDistributionMomentum"
+    "dividendConsistency",
+    "dividendPosition",
+    "dividendMomentum",
+    "dividendCoverageRatio",
+    "dividendPayoutRatio",
+    "shareCountReduction"
   ],
   "baselineLabels": {
     "sectorPercentile": "Sector Percentile",
@@ -14,8 +17,11 @@
     "excessVsUsNominalGdp": "Excess vs US Nominal GDP"
   },
   "featureLabels": {
-    "incomeDistributionConsistency": "Distribution Consistency",
-    "incomeDistributionTrend": "Distribution Trend",
-    "incomeDistributionMomentum": "Distribution Momentum"
+    "dividendConsistency": "Dividend Consistency",
+    "dividendPosition": "Dividend Position",
+    "dividendMomentum": "Dividend Momentum",
+    "dividendCoverageRatio": "Dividend Coverage",
+    "dividendPayoutRatio": "Dividend Payout Ratio",
+    "shareCountReduction": "Share Count Reduction"
   }
 }

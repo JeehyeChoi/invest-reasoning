@@ -3,5 +3,5 @@
   "chart": {
     "title": "Dividend Payments"
   },
-  "description": "Income signal based on distribution consistency, trend support, and distribution momentum."
+  "description": "Income feature source for dividend consistency, dividend position, dividend momentum, and dividend payout ratio."
 }

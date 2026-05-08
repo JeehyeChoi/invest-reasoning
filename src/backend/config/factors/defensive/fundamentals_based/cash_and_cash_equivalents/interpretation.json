@@ -23,7 +23,7 @@
       "macroContrast": false,
       "clustering": true
     },
-    "defensiveBufferTrend": {
+    "defensiveBufferPosition": {
       "series": {
         "table": "sec_companyfact_metric_series_enriched",
         "version": "enriched_v2",
@@ -32,7 +32,7 @@
       },
       "source": "val",
       "reference": "rolling4_avg",
-      "method": "relative_deviation",
+      "method": "ratio_deviation",
       "valueType": "ratio",
       "comparison": true,
       "macroContrast": false,

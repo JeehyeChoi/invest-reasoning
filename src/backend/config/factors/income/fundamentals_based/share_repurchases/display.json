@@ -1,0 +1,7 @@
+{
+  "metricKey": "share_repurchases",
+  "chart": {
+    "title": "Share Repurchases"
+  },
+  "description": "Share repurchase source retained for future buyback yield, consistency, or resumption features."
+}
