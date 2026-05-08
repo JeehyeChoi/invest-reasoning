@@ -1,4 +1,4 @@
-// backend/services/filings/signals/extractDividendSignal.ts
+// backend/services/disclosures/sec/signals/extractDividendSignal.ts
 
 export type DividendSignal = {
   previousPerShare?: number | null;

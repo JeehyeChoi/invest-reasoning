@@ -1,13 +1,13 @@
-// features/filings/schemas/recentFilings.ts
-import type { FilingForm } from "@/shared/filings/constants";
+// shared/disclosures/sec/types.ts
+import type { FilingForm } from "@/shared/disclosures/sec/constants";
 
-export type RecentFilingsRequest = {
+export type RecentSecDisclosuresRequest = {
   tickers: string[];
   days?: number;
   forms?: FilingForm[];
 };
 
-export type RecentFilingItem = {
+export type RecentSecDisclosureItem = {
   ticker: string;
   companyName: string | null;
   cik: string | null;
@@ -18,15 +18,15 @@ export type RecentFilingItem = {
   secUrl: string | null;
 
   // (optional)
-  filingItems?: FilingItemEntry[];
-  exhibits?: FilingExhibitEntry[];
+  filingItems?: SecDisclosureFilingItemEntry[];
+  exhibits?: SecDisclosureExhibitEntry[];
 };
 
-export type RecentFilingsResponse = {
-  items: RecentFilingItem[];
+export type RecentSecDisclosuresResponse = {
+  items: RecentSecDisclosureItem[];
 };
 
-export type FilingItemEntry = {
+export type SecDisclosureFilingItemEntry = {
   itemCode: string;
   itemTitle: string | null;
   signal?: {
@@ -35,7 +35,7 @@ export type FilingItemEntry = {
   } | null;
 };
 
-export type FilingExhibitEntry = {
+export type SecDisclosureExhibitEntry = {
   exhibitNo: string;
   description: string | null;
 };

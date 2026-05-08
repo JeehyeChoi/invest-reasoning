@@ -1,24 +1,23 @@
-// features/filings/components/RecentFilingsPanel.tsx
+// features/disclosures/sec/components/RecentSecDisclosuresPanel.tsx
 
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { fetchRecentFilings } from "@/features/filings/services/fetchRecentFilings";
-import type { RecentFilingItem } from "@/features/filings/schemas/recentFilings";
-import { DEFAULT_FILINGS_LOOKBACK_DAYS } from "@/shared/filings/constants";
-import { FILING_FORM_LABELS, FILING_ITEM_LABELS, FILING_EXHIBIT_LABELS } from "@/shared/filings/constants";
-import type { FilingItemEntry, FilingExhibitEntry } from "../schemas/recentFilings";
+import { fetchRecentSecDisclosures } from "@/features/disclosures/sec/services/fetchRecentSecDisclosures";
+import { DEFAULT_FILINGS_LOOKBACK_DAYS } from "@/shared/disclosures/sec/constants";
+import { FILING_FORM_LABELS, FILING_ITEM_LABELS, FILING_EXHIBIT_LABELS } from "@/shared/disclosures/sec/constants";
+import type { RecentSecDisclosureItem } from "@/shared/disclosures/sec/types";
 
-type RecentFilingsPanelProps = {
+type RecentSecDisclosuresPanelProps = {
   tickers: string[];
   days?: number;
 };
 
-export function RecentFilingsPanel({
+export function RecentSecDisclosuresPanel({
   tickers,
   days = DEFAULT_FILINGS_LOOKBACK_DAYS,
-}: RecentFilingsPanelProps) {
-  const [items, setItems] = useState<RecentFilingItem[]>([]);
+}: RecentSecDisclosuresPanelProps) {
+  const [items, setItems] = useState<RecentSecDisclosureItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,7 +44,7 @@ export function RecentFilingsPanel({
       setError(null);
 
       try {
-        const result = await fetchRecentFilings({
+        const result = await fetchRecentSecDisclosures({
           tickers: normalizedTickers,
           days,
         });

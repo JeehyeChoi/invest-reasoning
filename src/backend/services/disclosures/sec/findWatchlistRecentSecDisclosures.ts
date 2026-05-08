@@ -1,19 +1,13 @@
-// backend/services/filings/findWatchlistRecentFilings.ts
+// backend/services/disclosures/sec/findWatchlistRecentSecDisclosures.ts
 
 import { fetchSecSubmissions } from "@/backend/clients/sec";
 import { fetchSecDocument } from "@/backend/clients/secDocument";
 import { normalizeCikForArchivePath } from "@/backend/utils/sec";
-import { DEFAULT_FILING_FORMS, DEFAULT_FILINGS_LOOKBACK_DAYS, type FilingForm } from "@/shared/filings/constants";
+import { DEFAULT_FILING_FORMS, DEFAULT_FILINGS_LOOKBACK_DAYS, type FilingForm } from "@/shared/disclosures/sec/constants";
 import type { SecSubmissionsResponse } from "@/backend/clients/sec/types";
-import type {
-  FilingExhibitEntry,
-  FilingItemEntry,
-  RecentFilingItem,
-} from "@/features/filings/schemas/recentFilings";
+import type { RecentSecDisclosureItem } from "@/shared/disclosures/sec/types";
 import { getTickerProfilesByTickers } from "@/backend/services/metadata/tickerReadRepository";
-import { parseFilingItems } from "@/backend/services/filings/parseFilingItems";
-import { parseFilingExhibits } from "@/backend/services/filings/parseFilingExhibits";
-import { parseItem801Signals } from "@/backend/services/filings/parseItem801Signals";
+import { parseSecDisclosureDocument } from "@/backend/services/disclosures/sec/parseSecDisclosureDocument";
 
 import { normalizeTickers } from "@/shared/tickers/utils";
 
@@ -69,7 +63,7 @@ async function mapRecentSubmissionItems(params: {
   submissions: SecSubmissionsResponse;
   forms: FilingForm[];
   days: number;
-}): Promise<RecentFilingItem[]> {
+}): Promise<RecentSecDisclosureItem[]> {
   const { ticker, companyName, cik, submissions, forms, days } = params;
 
   const recent = submissions.filings?.recent;
@@ -90,7 +84,7 @@ async function mapRecentSubmissionItems(params: {
     primaryDocuments.length
   );
 
-  const items: RecentFilingItem[] = [];
+  const items: RecentSecDisclosureItem[] = [];
 
 	for (let i = 0; i < maxLength; i += 1) {
 		const accessionNumber = accessionNumbers[i];
@@ -112,25 +106,21 @@ async function mapRecentSubmissionItems(params: {
 
 		const secUrl = buildSecFilingUrl(cik, accessionNumber, primaryDocument);
 
-		let filingItems: RecentFilingItem["filingItems"] = [];
-		let exhibits: RecentFilingItem["exhibits"] = [];
+		let filingItems: RecentSecDisclosureItem["filingItems"] = [];
+		let exhibits: RecentSecDisclosureItem["exhibits"] = [];
 
-		if (form === "8-K" && secUrl) {
+		if (secUrl) {
 			const rawDocument = await fetchSecDocument(secUrl);
 
 			if (rawDocument) {
-				const parsedItems = parseFilingItems(rawDocument);
+				const parsedDocument = parseSecDisclosureDocument({
+					form,
+					rawDocument,
+					filingKey: secUrl,
+				});
 
-				filingItems = parsedItems.map((item) => ({
-					itemCode: item.itemCode,
-					itemTitle: item.itemTitle,
-					signal:
-						item.itemCode === "8.01"
-							? parseItem801Signals(item.body)
-							: null,
-				}));
-
-				exhibits = parseFilingExhibits(rawDocument, secUrl);
+				filingItems = parsedDocument.filingItems;
+				exhibits = parsedDocument.exhibits;
 			}
 		}
 
@@ -151,22 +141,22 @@ async function mapRecentSubmissionItems(params: {
   return items;
 }
 
-type FindWatchlistRecentFilingsInput = {
+type FindWatchlistRecentSecDisclosuresInput = {
   tickers: string[];
   days?: number;
   forms?: FilingForm[];
 };
 
-type FindWatchlistRecentFilingsResult = {
-  items: RecentFilingItem[];
+type FindWatchlistRecentSecDisclosuresResult = {
+  items: RecentSecDisclosureItem[];
   warnings: string[];
 };
 
-export async function findWatchlistRecentFilings({
+export async function findWatchlistRecentSecDisclosures({
   tickers,
   days = DEFAULT_FILINGS_LOOKBACK_DAYS,
   forms = [...DEFAULT_FILING_FORMS],
-}: FindWatchlistRecentFilingsInput): Promise<FindWatchlistRecentFilingsResult> {
+}: FindWatchlistRecentSecDisclosuresInput): Promise<FindWatchlistRecentSecDisclosuresResult> {
   const normalizedTickers = normalizeTickers(tickers);
   const normalizedForms = normalizeForms(forms);
 
@@ -181,7 +171,7 @@ export async function findWatchlistRecentFilings({
   );
 
   const warnings: string[] = [];
-  const allItems: RecentFilingItem[] = [];
+  const allItems: RecentSecDisclosureItem[] = [];
 
   for (const ticker of normalizedTickers) {
     const profile = profileByTicker.get(ticker);
@@ -219,7 +209,7 @@ export async function findWatchlistRecentFilings({
       const message =
         error instanceof Error ? error.message : "Unknown filings fetch error";
 
-      console.error(`[findWatchlistRecentFilings] ${ticker}:`, error);
+      console.error(`[findWatchlistRecentSecDisclosures] ${ticker}:`, error);
       warnings.push(`${ticker}: ${message}`);
     }
   }

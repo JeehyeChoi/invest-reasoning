@@ -1,10 +1,10 @@
-// features/filings/utils/normalizeFilingsRequest.ts
+// features/disclosures/sec/utils/normalizeSecDisclosuresRequest.ts
 
-import type { FilingForm } from "@/shared/filings/constants";
-import { DEFAULT_FILING_FORMS } from "@/shared/filings/constants";
+import type { FilingForm } from "@/shared/disclosures/sec/constants";
+import { DEFAULT_FILING_FORMS } from "@/shared/disclosures/sec/constants";
 import { normalizeTickerInput } from "@/shared/tickers/utils";
 
-export function normalizeFilingsRequest(input: unknown) {
+export function normalizeSecDisclosuresRequest(input: unknown) {
   const body = (input ?? {}) as {
     tickers?: unknown;
     days?: unknown;

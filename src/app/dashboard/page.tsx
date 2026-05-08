@@ -18,7 +18,7 @@ import { AnalysisResult } from "@/features/analysis/components/AnalysisResult"
 import { AnalysisLoading } from "@/features/analysis/components/AnalysisLoading"
 import { analyzePortfolio } from "@/features/analysis/services/analyzePortfolio"
 import { loadPortfolioPrices } from "@/features/portfolio/services/loadPortfolioPrices"
-import { RecentFilingsPanel } from "@/features/filings/components/RecentFilingsPanel"
+import { RecentSecDisclosuresPanel } from "@/features/disclosures/sec/components/RecentSecDisclosuresPanel"
 import { MarketStatus } from "@/features/market/components/MarketStatus"
 
 const CASH_TICKER = "__CASH__"
@@ -723,7 +723,7 @@ export default function HomePage() {
 				<MarketStatus />
 
 				<div className="mt-6">
-					<RecentFilingsPanel tickers={watchlistTickers} />
+					<RecentSecDisclosuresPanel tickers={watchlistTickers} />
 				</div>
 
         <div className="flex min-h-[120px] items-center justify-center rounded border bg-gray-50 p-4">

@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { findWatchlistRecentFilings } from "@/backend/services/filings/findWatchlistRecentFilings";
-import { normalizeFilingsRequest } from "@/features/filings/utils/normalizeFilingsRequest";
+import { findWatchlistRecentSecDisclosures } from "@/backend/services/disclosures/sec/findWatchlistRecentSecDisclosures";
+import { normalizeSecDisclosuresRequest } from "@/features/disclosures/sec/utils/normalizeSecDisclosuresRequest";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { tickers, days, forms } = normalizeFilingsRequest(body);
+    const { tickers, days, forms } = normalizeSecDisclosuresRequest(body);
 
     if (tickers.length === 0) {
       return NextResponse.json(
@@ -17,7 +17,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const result = await findWatchlistRecentFilings({
+    const result = await findWatchlistRecentSecDisclosures({
       tickers,
       days,
       forms,

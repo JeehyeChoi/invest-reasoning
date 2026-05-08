@@ -1,6 +1,6 @@
-// backend/services/filings/parseFilingExhibits.ts
+// backend/services/disclosures/sec/parseFilingExhibits.ts
 
-import type { FilingExhibitEntry } from "@/features/filings/schemas/recentFilings";
+import type { SecDisclosureExhibitEntry } from "@/shared/disclosures/sec/types";
 import { normalizeFilingText } from "@/backend/utils/filingText";
 
 function extractExhibitSection(text: string): string | null {
@@ -79,7 +79,7 @@ function parseExhibitLine(
 export function parseFilingExhibits(
   rawDocument: string,
 	filingKey?: string,
-): FilingExhibitEntry[] {
+): SecDisclosureExhibitEntry[] {
   if (!rawDocument) {
     return [];
   }
@@ -97,7 +97,7 @@ export function parseFilingExhibits(
     .filter(Boolean);
 
   const seen = new Set<string>();
-  const results: FilingExhibitEntry[] = [];
+  const results: SecDisclosureExhibitEntry[] = [];
 
   for (const line of lines) {
     if (isLikelySectionLine(line) && !/^\(\s*d\s*\)\s*Exhibits?\.?/i.test(line)) {
