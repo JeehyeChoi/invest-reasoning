@@ -3,5 +3,5 @@
   "chart": {
     "title": "Incurred CapEx Cycle"
   },
-  "description": "Incurred CapEx cycle signal based on ramp intensity, acceleration, and trend stretch."
+  "description": "Incurred CapEx cycle signal based on investment intensity change, TTM increase, acceleration, and quarter/annual stretch."
 }

@@ -3,5 +3,5 @@
   "chart": {
     "title": "Energy Inventory"
   },
-  "description": "Energy-linked inventory signal based on crude oil, natural gas, and related energy commodity inventory."
+  "description": "Energy-linked inventory feature source based on crude oil, natural gas, and related energy commodity inventory."
 }

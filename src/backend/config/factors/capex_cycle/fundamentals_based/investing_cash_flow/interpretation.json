@@ -8,7 +8,7 @@
     "createdAt": "2026-05"
   },
   "features": {
-    "capexCycleRamp": {
+    "capexInvestmentIntensityChange": {
       "source": "ttm_delta",
       "method": "ratio_to_denominator",
       "denominator": {
@@ -37,7 +37,7 @@
         "periodType": "quarter"
       }
     },
-    "capexCycleRampValue": {
+    "capexTtmIncreaseValue": {
       "source": "ttm_delta",
       "method": "direct",
       "signProfilePolicy": {
@@ -60,7 +60,7 @@
       }
     },
     "capexCycleAcceleration": {
-      "source": "duration_adjusted_qoq",
+      "source": "qoq",
       "method": "direct",
       "signProfilePolicy": {
         "negativeDominant": "invert",
@@ -81,18 +81,25 @@
         "periodType": "quarter"
       }
     },
-    "capexCycleTrendStretch": {
-      "source": "ttm_val",
+    "capexCycleQuarterStretch": {
+      "source": "val",
       "reference": "rolling4_avg",
-      "method": "relative_deviation",
-      "signProfilePolicy": {
-        "negativeDominant": "invert",
-        "positiveDominant": "null",
-        "mixed": "null",
-        "unknown": "null",
-        "zeroOrSparse": "null",
-        "minConfidence": 0.5
-      },
+      "method": "ratio_deviation",
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "investing_cash_flow",
+        "periodType": "quarter"
+      }
+    },
+    "capexCycleAnnualStretch": {
+      "source": "ttm_val",
+      "method": "lag_ratio_deviation",
+      "lookback": 4,
       "valueType": "ratio",
       "comparison": true,
       "macroContrast": false,

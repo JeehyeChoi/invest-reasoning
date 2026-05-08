@@ -4,10 +4,11 @@
     "type": "timeseries"
   },
   "featureOrder": [
-    "capexCycleRamp",
-    "capexCycleRampValue",
+    "capexInvestmentIntensityChange",
+    "capexTtmIncreaseValue",
     "capexCycleAcceleration",
-    "capexCycleTrendStretch"
+    "capexCycleQuarterStretch",
+    "capexCycleAnnualStretch"
   ],
   "baselineLabels": {
     "sectorPercentile": "Sector Percentile",
@@ -15,9 +16,10 @@
     "excessVsUsNominalGdp": "Excess vs US Nominal GDP"
   },
   "featureLabels": {
-    "capexCycleRamp": "CapEx Ramp / Assets",
-    "capexCycleRampValue": "CapEx Ramp Value",
+    "capexInvestmentIntensityChange": "CapEx Intensity Change",
+    "capexTtmIncreaseValue": "CapEx TTM Increase",
     "capexCycleAcceleration": "CapEx Acceleration",
-    "capexCycleTrendStretch": "CapEx Trend Stretch"
+    "capexCycleQuarterStretch": "CapEx Quarter Stretch",
+    "capexCycleAnnualStretch": "CapEx Annual Stretch"
   }
 }

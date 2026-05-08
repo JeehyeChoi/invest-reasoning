@@ -4,9 +4,12 @@
     "type": "timeseries"
   },
   "featureOrder": [
-    "energyExposureRamp",
-    "energyExposureAcceleration",
-    "energyExposureStretch",
+    "energyActivityGrowth",
+    "energyActivityAcceleration",
+    "energyActivityStretch",
+    "energyAssetInventoryGrowth",
+    "energyAssetInventoryAcceleration",
+    "energyAssetInventoryStretch",
     "energyCostPressure",
     "energyCostAcceleration",
     "energyCostStretch"
@@ -16,9 +19,12 @@
     "sp500Percentile": "S&P 500 Percentile"
   },
   "featureLabels": {
-    "energyExposureRamp": "Energy Exposure Ramp",
-    "energyExposureAcceleration": "Energy Exposure Acceleration",
-    "energyExposureStretch": "Energy Exposure Stretch",
+    "energyActivityGrowth": "Energy Activity Growth",
+    "energyActivityAcceleration": "Energy Activity Acceleration",
+    "energyActivityStretch": "Energy Activity Stretch",
+    "energyAssetInventoryGrowth": "Energy Asset & Inventory Growth",
+    "energyAssetInventoryAcceleration": "Energy Asset & Inventory Acceleration",
+    "energyAssetInventoryStretch": "Energy Asset & Inventory Stretch",
     "energyCostPressure": "Energy Cost Pressure",
     "energyCostAcceleration": "Energy Cost Acceleration",
     "energyCostStretch": "Energy Cost Stretch"

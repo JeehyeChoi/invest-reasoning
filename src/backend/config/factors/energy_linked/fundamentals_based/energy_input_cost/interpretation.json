@@ -37,9 +37,9 @@
       }
     },
     "energyCostStretch": {
-      "source": "duration_adjusted_ttm_val",
+      "source": "duration_adjusted_val",
       "reference": "duration_adjusted_rolling4_avg",
-      "method": "relative_deviation",
+      "method": "ratio_deviation",
       "valueType": "ratio",
       "comparison": true,
       "macroContrast": false,

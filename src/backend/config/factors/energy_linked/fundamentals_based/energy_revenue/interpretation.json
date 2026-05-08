@@ -8,10 +8,10 @@
     "createdAt": "2026-05"
   },
   "features": {
-    "energyExposureRamp": {
-      "source": "duration_adjusted_ttm_delta",
+    "energyActivityGrowth": {
+      "source": "duration_adjusted_ttm_yoy",
       "method": "direct",
-      "valueType": "value",
+      "valueType": "ratio",
       "comparison": false,
       "macroContrast": false,
       "clustering": false,
@@ -22,7 +22,7 @@
         "periodType": "quarter"
       }
     },
-    "energyExposureAcceleration": {
+    "energyActivityAcceleration": {
       "source": "duration_adjusted_yoy_delta",
       "method": "direct",
       "valueType": "ratio",
@@ -36,10 +36,10 @@
         "periodType": "quarter"
       }
     },
-    "energyExposureStretch": {
-      "source": "duration_adjusted_ttm_val",
+    "energyActivityStretch": {
+      "source": "duration_adjusted_val",
       "reference": "duration_adjusted_rolling4_avg",
-      "method": "relative_deviation",
+      "method": "ratio_deviation",
       "valueType": "ratio",
       "comparison": true,
       "macroContrast": false,

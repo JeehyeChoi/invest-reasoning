@@ -3,5 +3,5 @@
   "chart": {
     "title": "Energy Exploration Expense"
   },
-  "description": "Energy-linked activity signal based on exploration expense ramp, acceleration, and stretch versus recent history."
+  "description": "Energy-linked activity feature source based on exploration expense growth, acceleration, and stretch versus recent history."
 }

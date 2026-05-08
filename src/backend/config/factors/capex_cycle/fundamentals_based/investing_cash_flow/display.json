@@ -3,5 +3,5 @@
   "chart": {
     "title": "Investing Cash Flow Cycle"
   },
-  "description": "Investing cash flow cycle signal based on ramp intensity, acceleration, and trend stretch."
+  "description": "Investing cash flow cycle signal based on investment intensity change, TTM increase, acceleration, and quarter/annual stretch."
 }

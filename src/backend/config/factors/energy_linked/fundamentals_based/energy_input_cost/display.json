@@ -3,5 +3,5 @@
   "chart": {
     "title": "Energy Input Cost"
   },
-  "description": "Energy-linked cost pressure signal based on purchased oil, gas, natural gas, fuel, and petroleum operating expense."
+  "description": "Energy-linked cost pressure feature source based on purchased oil, gas, natural gas, fuel, and petroleum operating expense."
 }

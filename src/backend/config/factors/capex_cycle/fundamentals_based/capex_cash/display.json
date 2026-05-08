@@ -3,5 +3,5 @@
   "chart": {
     "title": "Cash CapEx Cycle"
   },
-  "description": "Cash CapEx cycle signal based on ramp intensity, acceleration, and trend stretch."
+  "description": "Cash CapEx cycle signal based on investment intensity change, TTM increase, acceleration, and quarter/annual stretch."
 }

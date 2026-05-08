@@ -8,7 +8,7 @@
     "createdAt": "2026-05"
   },
   "features": {
-    "energyExposureRamp": {
+    "energyAssetInventoryGrowth": {
       "source": "yoy",
       "method": "direct",
       "valueType": "ratio",
@@ -22,7 +22,7 @@
         "periodType": "instant"
       }
     },
-    "energyExposureAcceleration": {
+    "energyAssetInventoryAcceleration": {
       "source": "yoy_delta",
       "method": "direct",
       "valueType": "ratio",
@@ -36,10 +36,10 @@
         "periodType": "instant"
       }
     },
-    "energyExposureStretch": {
+    "energyAssetInventoryStretch": {
       "source": "val",
       "reference": "rolling4_avg",
-      "method": "relative_deviation",
+      "method": "ratio_deviation",
       "valueType": "ratio",
       "comparison": true,
       "macroContrast": false,
