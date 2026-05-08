@@ -16,7 +16,6 @@
 - `scripts/bootstrap/**` may contain versioned seed inputs required by its local bootstrap script.
 - `data/sec/bulk/**` contains downloaded SEC bulk archives. `SEC_DATA_DIR` should point here.
 - `data/sec/inspection/**` contains exploratory SEC inspection output.
-- `data/sec/tag-inventory/**` contains SEC taxonomy tag inventory exports.
 - `docs/reference/**` contains curated reference material that should be remembered but is not imported by runtime code.
 
 ## Tag Naming
@@ -30,11 +29,19 @@
 
 ```text
 scripts/bootstrap.sh
-  -> scripts/db/create.sh
-  -> scripts/db/init.sh
-  -> scripts/bootstrap/classification-tags/extract-definition-candidates.mjs
-  -> scripts/bootstrap/classification-tags/import-definitions.mjs
   -> scripts/bootstrap/factors/import-definitions.mjs
 ```
 
-Scripts may be commented out in the entrypoint while the bootstrap sequence is being developed, but paths should still point to the canonical locations.
+Portfolio classification tag seeds are retained under
+`data/bootstrap/classification-tags/**`, but their import is disabled until the
+portfolio tag flow is reworked.
+
+Database creation and schema initialization are explicit setup steps:
+
+```text
+scripts/db/create.sh
+scripts/db/init.sh
+```
+
+Operational data refresh jobs should run through the startup page and
+`/api/internal/data-pipeline/refresh`, not one-off `.mjs` scripts.

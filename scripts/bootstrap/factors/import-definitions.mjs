@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-dotenv.config({ path: ".env.local" });
+dotenv.config({ path: ".env.local.psql" });
 
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -21,6 +21,8 @@ async function main() {
   const client = await pool.connect();
 
   try {
+    await client.query("BEGIN");
+
     const filePath = path.resolve(
       "scripts",
       "bootstrap",
@@ -33,10 +35,13 @@ async function main() {
 
     let imported = 0;
 
+    await client.query("DELETE FROM public.scenario_factor_shocks");
+    await client.query("DELETE FROM public.factor_definitions");
+
     for (const item of factors) {
       await client.query(
         `
-        INSERT INTO factor_definitions (
+        INSERT INTO public.factor_definitions (
           key,
           name,
           category,
@@ -77,7 +82,11 @@ async function main() {
       imported += 1;
     }
 
+    await client.query("COMMIT");
     console.log(`✅ Imported ${imported} factor definitions`);
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
   } finally {
     client.release();
     await pool.end();

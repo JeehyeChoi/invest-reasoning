@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-dotenv.config({ path: ".env.local" });
+dotenv.config({ path: ".env.local.psql" });
 
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -59,6 +59,8 @@ async function main() {
   const client = await pool.connect();
 
   try {
+    await client.query("BEGIN");
+
     const filePath = path.resolve(
       "data",
       "bootstrap",
@@ -77,6 +79,8 @@ async function main() {
 
     let inserted = 0;
 
+    await client.query("DELETE FROM public.tag_definitions");
+
     for (let i = 0; i < sorted.length; i++) {
       const item = sorted[i];
       const displayOrder = (i + 1) * 10;
@@ -84,7 +88,7 @@ async function main() {
 
       await client.query(
         `
-        INSERT INTO tag_definitions (
+        INSERT INTO public.tag_definitions (
           key,
           name,
           category,
@@ -118,7 +122,11 @@ async function main() {
       inserted += 1;
     }
 
+    await client.query("COMMIT");
     console.log(`✅ Imported ${inserted} classification tag definitions`);
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
   } finally {
     client.release();
     await pool.end();

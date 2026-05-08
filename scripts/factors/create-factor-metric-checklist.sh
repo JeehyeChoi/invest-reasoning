@@ -2,16 +2,33 @@
 set -euo pipefail
 
 FACTOR="${1:-}"
-METRIC_KEY="${2:-}"
-VERIFY_TICKER="${3:-MSFT}"
+AXIS_OR_METRIC="${2:-}"
+METRIC_OR_TICKER="${3:-}"
+VERIFY_TICKER_ARG="${4:-}"
+
+case "$AXIS_OR_METRIC" in
+  fundamentals_based|market_price|valuation|macro_linked|etf_exposure|narrative_implied)
+    AXIS="$AXIS_OR_METRIC"
+    METRIC_KEY="$METRIC_OR_TICKER"
+    VERIFY_TICKER="${VERIFY_TICKER_ARG:-MSFT}"
+    ;;
+  *)
+    AXIS="fundamentals_based"
+    METRIC_KEY="$AXIS_OR_METRIC"
+    VERIFY_TICKER="${METRIC_OR_TICKER:-MSFT}"
+    ;;
+esac
 
 if [ -z "$FACTOR" ] || [ -z "$METRIC_KEY" ]; then
-  echo "Usage: ./scripts/factors/create-factor-metric-checklist.sh <factor> <metric_key> [verify_ticker]"
+  echo "Usage: ./scripts/factors/create-factor-metric-checklist.sh <factor> [axis] <metric_key> [verify_ticker]"
+  echo "Examples:"
+  echo "  ./scripts/factors/create-factor-metric-checklist.sh growth revenue"
+  echo "  ./scripts/factors/create-factor-metric-checklist.sh momentum market_price price"
   exit 1
 fi
 
 OUT_DIR="tmp"
-OUT_FILE="${OUT_DIR}/${FACTOR}-${METRIC_KEY}-checklist.md"
+OUT_FILE="${OUT_DIR}/${FACTOR}-${AXIS}-${METRIC_KEY}-checklist.md"
 
 mkdir -p "$OUT_DIR"
 
@@ -35,6 +52,17 @@ mark_required_grep() {
   local pattern="$2"
 
   if [ -f "$file" ] && grep -q "$pattern" "$file"; then
+    echo "[v]"
+  else
+    echo "[ ]"
+  fi
+}
+
+mark_ts_object_key() {
+  local file="$1"
+  local key="$2"
+
+  if [ -f "$file" ] && grep -Eq "^[[:space:]]*${key}:" "$file"; then
     echo "[v]"
   else
     echo "[ ]"
@@ -201,19 +229,36 @@ mark_feature_definition_owned() {
   fi
 }
 
-CONFIG_DIR="src/backend/config/factors/${FACTOR}/fundamentals_based/${METRIC_KEY}"
+CONFIG_DIR="src/backend/config/factors/${FACTOR}/${AXIS}/${METRIC_KEY}"
 
 SCAFFOLD_CONFIG_MARK=$(mark_dir_exists "$CONFIG_DIR")
 
-SEC_METRICS_MARK=$(mark_required_grep \
-  "src/shared/sec/metrics.ts" \
-  "\"${METRIC_KEY}\""
-)
+if [ "$AXIS" = "fundamentals_based" ]; then
+  METRIC_REGISTRY_MARK=$(mark_required_grep \
+    "src/shared/sec/metrics.ts" \
+    "\"${METRIC_KEY}\""
+  )
 
-SEC_METRIC_DEFINITION_MARK=$(mark_required_grep \
-  "src/backend/config/sec/metrics.ts" \
-  "${METRIC_KEY}:"
-)
+  BACKEND_METRIC_DEFINITION_MARK=$(mark_ts_object_key \
+    "src/backend/config/sec/metrics.ts" \
+    "$METRIC_KEY"
+  )
+
+  API_MARK=$(mark_api_series_ok "$VERIFY_TICKER" "$METRIC_KEY")
+  METRIC_RELIABILITY_OUTPUTS_MARK=$(mark_metric_reliability_outputs_exist \
+    "$VERIFY_TICKER" \
+    "$METRIC_KEY"
+  )
+else
+  METRIC_REGISTRY_MARK=$(mark_required_grep \
+    "src/shared/market/priceMetrics.ts" \
+    "\"${METRIC_KEY}\""
+  )
+
+  BACKEND_METRIC_DEFINITION_MARK="[n/a]"
+  API_MARK="[n/a]"
+  METRIC_RELIABILITY_OUTPUTS_MARK="[n/a]"
+fi
 
 FACTOR_KEY_MARK=$(mark_required_grep \
   "src/shared/factors/factors.ts" \
@@ -223,27 +268,20 @@ FACTOR_KEY_MARK=$(mark_required_grep \
 BLUEPRINTS_MARK=$(mark_blueprint_registered \
   "src/backend/config/factors/blueprints.ts" \
   "$FACTOR" \
-  "fundamentals_based" \
+  "$AXIS" \
   "$METRIC_KEY"
 )
 
 FEATURE_DEFINITION_OWNERSHIP_MARK=$(mark_feature_definition_owned \
   "$FACTOR" \
-  "fundamentals_based" \
+  "$AXIS" \
   "$METRIC_KEY"
 )
-
-API_MARK=$(mark_api_series_ok "$VERIFY_TICKER" "$METRIC_KEY")
 
 FEATURE_AND_SIGNAL_OUTPUTS_MARK=$(mark_feature_and_signal_outputs_exist \
   "$VERIFY_TICKER" \
   "$FACTOR" \
-  "fundamentals_based" \
-  "$METRIC_KEY"
-)
-
-METRIC_RELIABILITY_OUTPUTS_MARK=$(mark_metric_reliability_outputs_exist \
-  "$VERIFY_TICKER" \
+  "$AXIS" \
   "$METRIC_KEY"
 )
 
@@ -253,43 +291,45 @@ if [ "$FEATURE_AND_SIGNAL_OUTPUTS_MARK" != "[v]" ]; then
 fi
 
 METRIC_RELIABILITY_OUTPUTS_NOTE=""
-if [ "$METRIC_RELIABILITY_OUTPUTS_MARK" != "[v]" ]; then
+if [ "$AXIS" = "fundamentals_based" ] && [ "$METRIC_RELIABILITY_OUTPUTS_MARK" != "[v]" ]; then
   METRIC_RELIABILITY_OUTPUTS_NOTE="- Metric reliability output check is unchecked. Run the metric_series job so ticker_metric_series_reliability is rebuilt after enriched metric series, then regenerate this checklist."
 fi
 
 cat > "$OUT_FILE" <<EOF
-# Checklist for ${FACTOR}/${METRIC_KEY}
+# Checklist for ${FACTOR}/${AXIS}/${METRIC_KEY}
 
 ## Scaffold
 - ${SCAFFOLD_CONFIG_MARK} ${CONFIG_DIR}
 
 ## Shared/backend type checks
-- ${SEC_METRICS_MARK} src/shared/sec/metrics.ts
-- ${SEC_METRIC_DEFINITION_MARK} src/backend/config/sec/metrics.ts
+- ${METRIC_REGISTRY_MARK} shared metric registry includes ${METRIC_KEY}
+- ${BACKEND_METRIC_DEFINITION_MARK} backend SEC metric definition exists for ${METRIC_KEY} (fundamentals_based only)
 - ${FACTOR_KEY_MARK} src/shared/factors/factors.ts
 
 ## Registry checks (critical)
-- ${BLUEPRINTS_MARK} blueprint includes ${FACTOR}/fundamentals_based/${METRIC_KEY}
+- ${BLUEPRINTS_MARK} blueprint includes ${FACTOR}/${AXIS}/${METRIC_KEY}
 - ${FEATURE_DEFINITION_OWNERSHIP_MARK} ${CONFIG_DIR}/interpretation.json feature definitions are not reused by another factor
 
 ## Verification (manual/runtime)
-- ${API_MARK} API returns series for ${METRIC_KEY} (ticker=${VERIFY_TICKER})
-- ${METRIC_RELIABILITY_OUTPUTS_MARK} metric series reliability records exist for ${METRIC_KEY} (ticker=${VERIFY_TICKER})
+- ${API_MARK} source metric API returns series for ${METRIC_KEY} (ticker=${VERIFY_TICKER}; fundamentals_based only)
+- ${METRIC_RELIABILITY_OUTPUTS_MARK} metric series reliability records exist for ${METRIC_KEY} (ticker=${VERIFY_TICKER}; fundamentals_based only)
 - ${FEATURE_AND_SIGNAL_OUTPUTS_MARK} metric feature and factor signal outputs exist for ${METRIC_KEY} (ticker=${VERIFY_TICKER})
 
 ## AI review
 - [review] ${CONFIG_DIR}/display.json is filled if empty, then labels, chart title, and description match the metric and factor context.
 - [review] ${CONFIG_DIR}/interpretation.json is filled if empty, then feature mapping from enriched source columns is coherent.
+- [review] ${CONFIG_DIR}/interpretation.json follows the standard top-level schema: version, factor, axis, metricKey, meta, and features; each feature key is the persisted feature_key.
 - [review] Every feature in ${CONFIG_DIR}/interpretation.json defines its own series metadata (table, version, metricKey, periodType); do not rely on a top-level source default.
 - [review] ${CONFIG_DIR}/interpretation.json lists only active feature definitions; remove inactive candidates instead of keeping boolean enablement flags.
 - [review] Each ${CONFIG_DIR}/interpretation.json feature explicitly defines method, valueType, comparison, macroContrast, and clustering; omit reference only when the method does not need a comparison source.
-- [review] valueType is ratio for peer-comparable ratios/normalized features and value for raw amount features; comparison=true means feature baselines/positions may be built when that layer is enabled.
+- [review] valueType is ratio for peer-comparable ratios/normalized features and value for raw amount features; comparison=true is reserved for the benchmark comparison layer.
 - [review] macroContrast=true is used only when the feature can be compared to an external macro ratio such as FRED YoY series.
-- [review] Every source/reference/sources column used by ${CONFIG_DIR}/interpretation.json exists in db/sec_companyfact_metric_series_enriched.sql and is produced by src/backend/services/sec/companyFacts/series/enriched/buildCompanyFactsMetricSeriesEnrichedForCik.ts; add enriched fields there first when a new feature method needs a new calculation basis.
-- [review] Every source/reference/sources column used by ${CONFIG_DIR}/interpretation.json produces non-null values for the metric's actual factType and periodType; column existence alone is not enough.
+- [review] Every source/reference/sources/denominator.source/counterpart.source column used by ${CONFIG_DIR}/interpretation.json exists in db/sec_companyfact_metric_series_enriched.sql and is produced by src/backend/services/sec/companyFacts/series/enriched/buildCompanyFactsMetricSeriesEnrichedForCik.ts; add enriched fields there first when a new feature method needs a new calculation basis.
+- [review] Every source/reference/sources/denominator.source/counterpart.source column used by ${CONFIG_DIR}/interpretation.json produces non-null values for the metric's actual factType and periodType; column existence alone is not enough.
+- [review] If a feature uses denominator or counterpart, that nested series metadata explicitly defines table, version, metricKey, periodType, and source; confirm the denominator/counterpart metric is registered and has enriched rows before accepting the feature.
 - [review] If ${CONFIG_DIR}/interpretation.json uses any duration_adjusted_* source/reference, confirm src/backend/config/sec/metrics.ts sets ${METRIC_KEY} durationPolicy=duration_adjust_growth; reported_only and not_applicable metrics should use reported/point fields that are actually produced.
 - [review] ${CONFIG_DIR}/interpretation.json may reuse the metric as an input, but each feature definition remains ${FACTOR}-owned unless it is an explicit shared concept such as turnaroundMomentum; do not accidentally reuse the same source/method/reference/lookback/sources feature definition from another factor.
-- [review] src/backend/config/factors/blueprints.ts sets an explicit metricProfiles role for ${FACTOR}/fundamentals_based/${METRIC_KEY}; use core for the factor's main evidence, supporting for secondary factor evidence, and context for cross-factor context metrics.
+- [review] src/backend/config/factors/blueprints.ts sets an explicit metricProfiles role for ${FACTOR}/${AXIS}/${METRIC_KEY}; use core for the factor's main evidence, supporting for secondary factor evidence, and context for cross-factor context metrics.
 - [review] If ${METRIC_KEY} is newly introduced to the metric registry, src/backend/services/sec/companyFacts/series/tagMeta.ts defines every SEC source tag used to build it; raw SEC companyfacts do not store flow/instant semantics as a trusted column, so tagMeta.ts is the canonical manual mapping.
 - [review] For every tagMeta.ts mapping for ${METRIC_KEY}, confirm the intended unit, fact type (flow, instant, per_share, or share_count), tag priority order, and whether the tag currently appears with sufficient coverage in raw/tag inventory for representative tickers.
 - [review] If multiple SEC tags can represent ${METRIC_KEY}, document why the priority order is correct and whether any tag should be filtered by sector/industry-specific tag family instead of merged into a generic metric candidate pool.
@@ -303,20 +343,22 @@ cat > "$OUT_FILE" <<EOF
 - [review] If metric reliability keys or display semantics change, update src/shared/sec/metricSeriesReliability.ts so backend calculations, ticker detail payloads, and methodology/UI labels share the same definitions.
 - [review] src/backend/services/sec/companyFacts/series/reliability/buildMetricSeriesReliabilityForCik.ts treats ${METRIC_KEY} reliability as metric-owned, not factor-owned.
 - [review] src/backend/services/sec/companyFacts/series/signal/buildTickerFactorSignals.ts aggregates ${FACTOR}-owned metric features into ticker factor signals without compatibility redirection.
-- [review] src/backend/services/sec/companyFacts/series/signal/buildTickerFactorSignals.ts covers the ${FACTOR}/fundamentals_based signal selection path using ticker_factor_signal_definitions, including observed metric counts, confidence, and supporting evidence for the feature methods used by ${CONFIG_DIR}/interpretation.json.
-- [review] If ${METRIC_KEY} introduces a new feature method, factor use case, or instant/snapshot interpretation, update factor signal definitions deliberately instead of relying on growth/flow defaults.
+- [review] src/backend/services/sec/companyFacts/series/signal/buildTickerFactorSignals.ts covers the ${FACTOR}/${AXIS} signal selection path using ticker_factor_signal_definitions, including observed metric counts, confidence, and supporting evidence for the feature methods used by ${CONFIG_DIR}/interpretation.json.
+- [review] If ${METRIC_KEY} introduces a new feature method, factor use case, denominator/counterpart dependency, or instant/snapshot interpretation, update factor signal definitions deliberately instead of relying on growth/flow defaults.
 - [review] db/ticker_factor_signal_definitions.sql includes any new ${FACTOR} signal label, selection rule, evidence rule, and confidence rule needed by ${METRIC_KEY}; do not add prose commentary until the commentary layer is deliberately reintroduced.
-- [review] If ${FACTOR}/fundamentals_based/${METRIC_KEY} changes the feature set or downstream usage flags, rerun feature outputs and factor signals, then confirm stale feature keys are gone from features and signal evidence.
+- [review] If ${FACTOR}/${AXIS}/${METRIC_KEY} changes the feature set or downstream usage flags, rerun feature outputs and factor signals, then confirm stale feature keys are gone from features and signal evidence.
 
 ## Notes
 - Config files are scaffold-checked by path, but display content and feature mapping should be filled/reviewed in the AI review step.
 - Metrics can be reused across factors as source inputs; factor feature definitions should not be reused across factors unless the source/method/reference/lookback/sources concept is intentionally changed at the source or the feature key is an explicit shared concept such as turnaroundMomentum.
+- Axis semantics matter: do not mix company funding liquidity with market trading liquidity, or fundamental exposure with market/macro reaction, unless the factor-axis definition explicitly says that is the evidence being measured.
 - active.ts only resolves display config; factor metric calculation uses blueprint and interpretation config directly.
 - API verification assumes the local app is running at http://localhost:3000.
 - DB verification uses DATABASE_URL from .env.local.psql when present.
-- Metric reliability records are rebuilt by metric_series after enriched metric series exists.
-- Feature and factor signal builders delete the current execution scope before re-inserting, so reruns should clear stale feature keys.
-- Clustering reads ticker_factor_metric_feature_positions, but clustering is a later layer outside this checklist's core acceptance path.
+- Metric reliability records are rebuilt by the Metric series job after enriched metric series exists.
+- For fundamentals_based metrics, run metric_series, sec_metric_series_enriched, factor_metric_features, and factor_signals. For market_price metrics, run ticker_daily_price_history_sync as needed, then market_price_factor_features and factor_signals. For valuation features, ensure both SEC metric series and price history are current, then run valuation_metric_series_enriched, factor_metric_features, and factor_signals.
+- Factor metric features and factor signals each delete the current execution scope before re-inserting, so reruns should clear stale feature and evidence keys.
+- Clustering reads feature or signal vectors after feature/signal jobs complete, but clustering is a later layer outside this checklist's core acceptance path.
 - UI chart/headline rendering is the final browser verification step after config, registry, API, feature outputs, and factor signal outputs pass.
 ${FEATURE_AND_SIGNAL_OUTPUTS_NOTE}
 ${METRIC_RELIABILITY_OUTPUTS_NOTE}

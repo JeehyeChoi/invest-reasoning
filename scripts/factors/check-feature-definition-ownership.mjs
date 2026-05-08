@@ -49,6 +49,24 @@ function featureDefinitionIdentity(definition) {
       source: definition.source ?? null,
       sources: definition.sources ?? null,
       reference: definition.reference ?? null,
+      denominator: definition.denominator
+        ? {
+            table: definition.denominator.table ?? null,
+            version: definition.denominator.version ?? null,
+            metricKey: definition.denominator.metricKey ?? null,
+            periodType: definition.denominator.periodType ?? null,
+            source: definition.denominator.source ?? null,
+          }
+        : null,
+      counterpart: definition.counterpart
+        ? {
+            table: definition.counterpart.table ?? null,
+            version: definition.counterpart.version ?? null,
+            metricKey: definition.counterpart.metricKey ?? null,
+            periodType: definition.counterpart.periodType ?? null,
+            source: definition.counterpart.source ?? null,
+          }
+        : null,
       lookback: definition.lookback ?? null,
       method: definition.method ?? "direct",
       signProfilePolicy: definition.signProfilePolicy ?? null,

@@ -14,10 +14,11 @@ npm install
 
 ## 2. Configure Environment
 
-Create a local environment file:
+Create local environment files:
 
 ```bash
 cp .env.example .env.local
+cp .env.example .env.local.psql
 ```
 
 Fill in the values needed for the workflows you plan to run:
@@ -28,6 +29,10 @@ Fill in the values needed for the workflows you plan to run:
 - `FMP_API_KEY`
 - `TWELVE_DATA_API_KEY`
 - `ANTHROPIC_API_KEY`
+
+`scripts/db/create.sh` reads `DB_PASSWORD` from `.env.local`.
+`scripts/db/init.sh` and bootstrap import scripts use `DATABASE_URL` from
+`.env.local.psql` when present.
 
 The app expects PostgreSQL locally. The default helper scripts create/use:
 
@@ -56,7 +61,7 @@ and scenario tables.
 
 ## 4. Bootstrap Local Metadata
 
-Run the bootstrap script:
+Run the active bootstrap metadata imports:
 
 ```bash
 ./scripts/bootstrap.sh
@@ -64,8 +69,10 @@ Run the bootstrap script:
 
 This currently imports:
 
-- classification tag definitions
 - factor definitions
+
+Portfolio classification tag definitions are kept as a seed, but should stay
+commented out until the portfolio tag flow is reworked.
 
 Database creation and schema initialization are kept as explicit steps above;
 `scripts/bootstrap.sh` does not run them by default.
@@ -75,6 +82,13 @@ Database creation and schema initialization are kept as explicit steps above;
 ```bash
 npm run dev
 ```
+
+Open `http://localhost:3000`. A fresh database may show empty screens or sparse
+results; that is expected until operational data is loaded.
+
+Use `http://localhost:3000/startup` to run data download and refresh jobs such
+as universe membership sync, ticker core sync, price history, SEC bulk ingest,
+metric series, feature generation, and factor signals.
 
 The local app runs through Next.js. User-facing live data should flow through:
 
@@ -114,7 +128,6 @@ Useful inspection scripts:
 node scripts/sec/inspect-companyfacts.mjs
 node scripts/sec/inspect-submissions.mjs
 node scripts/sec/inspect-frames.mjs
-node scripts/sec/export-company-raw-tag-inventory.mjs
 ```
 
 SEC bulk data is expected under:
@@ -150,7 +163,8 @@ Expected config files:
 - `display.json`
 - `interpretation.json`
 
-The scaffold also writes a checklist to `tmp/<factor>-<metric_key>-checklist.md`.
+The scaffold also writes a checklist to
+`tmp/<factor>-<axis>-<metric_key>-checklist.md`.
 
 ## 9. Register A Metric
 

@@ -27,8 +27,6 @@ const emptyAxisBlueprint = {
 };
 const emptyFactorBlueprint = {
   fundamentals_based: emptyAxisBlueprint,
-  etf_implied: emptyAxisBlueprint,
-  narrative_implied: emptyAxisBlueprint,
 };
 
 const sandbox = {

@@ -18,8 +18,8 @@ echo " "
 echo "--------------------------------"
 echo "-- initialize classification tag definitions --"
 echo "--------------------------------"
-node scripts/bootstrap/classification-tags/extract-definition-candidates.mjs
-node scripts/bootstrap/classification-tags/import-definitions.mjs
+# Portfolio classification tags are not used by runtime flows yet.
+# node scripts/bootstrap/classification-tags/import-definitions.mjs
 
 echo " "
 echo "-----------------------------------"
