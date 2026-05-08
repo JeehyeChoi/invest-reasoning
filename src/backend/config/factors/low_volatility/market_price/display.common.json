@@ -1,0 +1,9 @@
+{
+  "axisLabel": "Market Price",
+  "featureLabels": {
+    "realizedVolatility1Y": "1Y Realized Volatility",
+    "realizedVolatility3Y": "3Y Realized Volatility",
+    "downsideVolatility1Y": "1Y Downside Volatility",
+    "maxDrawdown1Y": "1Y Max Drawdown"
+  }
+}

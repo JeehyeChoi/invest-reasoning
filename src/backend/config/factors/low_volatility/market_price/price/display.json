@@ -1,0 +1,4 @@
+{
+  "label": "Price",
+  "description": "Price-derived absolute volatility and drawdown features from daily close returns."
+}

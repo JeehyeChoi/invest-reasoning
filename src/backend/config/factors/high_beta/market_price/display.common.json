@@ -1,0 +1,16 @@
+{
+  "axisLabel": "Market Price",
+  "featureLabels": {
+    "marketBeta1Y": "1Y Market Beta",
+    "marketBeta3Y": "3Y Market Beta",
+    "correlationToMarket3Y": "3Y Market Correlation",
+    "upsideCapture1Y": "1Y Upside Capture",
+    "downsideCapture1Y": "1Y Downside Capture",
+    "qqqBeta1Y": "1Y QQQ Beta",
+    "qqqBeta3Y": "3Y QQQ Beta",
+    "qqqCorrelation3Y": "3Y QQQ Correlation",
+    "diaBeta1Y": "1Y DIA Beta",
+    "diaBeta3Y": "3Y DIA Beta",
+    "diaCorrelation3Y": "3Y DIA Correlation"
+  }
+}

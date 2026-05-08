@@ -1,0 +1,199 @@
+{
+  "version": "interpretation_v1",
+  "factor": "momentum",
+  "axis": "market_price",
+  "metricKey": "price",
+  "meta": {
+    "description": "Price momentum interpretation using stored daily close history.",
+    "createdAt": "2026-05"
+  },
+  "features": {
+    "priceReturn3M": {
+      "label": "3M Price Return",
+      "description": "Latest close compared with roughly three trading months earlier.",
+      "source": "close",
+      "method": "point_return",
+      "lookback": 63,
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "ticker_daily_prices",
+        "version": "splits_adjusted_close",
+        "metricKey": "price",
+        "periodType": "daily"
+      },
+      "showInVector": true
+    },
+    "priceReturn6M": {
+      "label": "6M Price Return",
+      "description": "Latest close compared with roughly six trading months earlier.",
+      "source": "close",
+      "method": "point_return",
+      "lookback": 126,
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "ticker_daily_prices",
+        "version": "splits_adjusted_close",
+        "metricKey": "price",
+        "periodType": "daily"
+      },
+      "showInVector": true
+    },
+    "priceReturn12M": {
+      "label": "12M Price Return",
+      "description": "Latest close compared with roughly one trading year earlier.",
+      "source": "close",
+      "method": "point_return",
+      "lookback": 252,
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "ticker_daily_prices",
+        "version": "splits_adjusted_close",
+        "metricKey": "price",
+        "periodType": "daily"
+      },
+      "showInVector": true
+    },
+    "priceMomentum12MEx1M": {
+      "label": "12M Momentum ex 1M",
+      "description": "Twelve-month price momentum excluding the most recent trading month.",
+      "source": "close",
+      "method": "skip_month_return",
+      "lookback": 252,
+      "skip": 21,
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "ticker_daily_prices",
+        "version": "splits_adjusted_close",
+        "metricKey": "price",
+        "periodType": "daily"
+      },
+      "showInVector": true
+    },
+    "relativeReturn3M": {
+      "label": "3M Return vs SPY",
+      "description": "Three-month stock price return minus SPY three-month price return.",
+      "source": "close",
+      "benchmark": "SPY",
+      "method": "relative_point_return",
+      "lookback": 63,
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "ticker_daily_prices",
+        "version": "splits_adjusted_close",
+        "metricKey": "price",
+        "periodType": "daily"
+      },
+      "showInVector": true
+    },
+    "relativeReturn6M": {
+      "label": "6M Return vs SPY",
+      "description": "Six-month stock price return minus SPY six-month price return.",
+      "source": "close",
+      "benchmark": "SPY",
+      "method": "relative_point_return",
+      "lookback": 126,
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "ticker_daily_prices",
+        "version": "splits_adjusted_close",
+        "metricKey": "price",
+        "periodType": "daily"
+      },
+      "showInVector": true
+    },
+    "relativeReturn12M": {
+      "label": "12M Return vs SPY",
+      "description": "Twelve-month stock price return minus SPY twelve-month price return.",
+      "source": "close",
+      "benchmark": "SPY",
+      "method": "relative_point_return",
+      "lookback": 252,
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "ticker_daily_prices",
+        "version": "splits_adjusted_close",
+        "metricKey": "price",
+        "periodType": "daily"
+      },
+      "showInVector": true
+    },
+    "relativeMomentum12MEx1M": {
+      "label": "12M Momentum ex 1M vs SPY",
+      "description": "Twelve-month stock momentum excluding the most recent trading month minus the matching SPY momentum.",
+      "source": "close",
+      "benchmark": "SPY",
+      "method": "relative_skip_month_return",
+      "lookback": 252,
+      "skip": 21,
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "ticker_daily_prices",
+        "version": "splits_adjusted_close",
+        "metricKey": "price",
+        "periodType": "daily"
+      },
+      "showInVector": true
+    },
+    "momentumConsistency12M": {
+      "label": "12M Momentum Consistency",
+      "description": "Share of observed monthly price windows with positive returns over the last trading year.",
+      "source": "close",
+      "method": "positive_monthly_return_ratio",
+      "lookback": 252,
+      "window": 21,
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "ticker_daily_prices",
+        "version": "splits_adjusted_close",
+        "metricKey": "price",
+        "periodType": "daily"
+      },
+      "showInVector": true
+    },
+    "distanceFrom52WeekHigh": {
+      "label": "Distance From 52W High",
+      "description": "Latest close relative to the highest close over the last trading year.",
+      "source": "close",
+      "method": "distance_from_rolling_high",
+      "lookback": 252,
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "ticker_daily_prices",
+        "version": "splits_adjusted_close",
+        "metricKey": "price",
+        "periodType": "daily"
+      },
+      "showInVector": true
+    }
+  }
+}
