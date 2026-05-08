@@ -2,7 +2,13 @@ import dotenv from "dotenv";
 import path from "path";
 
 dotenv.config({
+  path: path.resolve(process.cwd(), ".env.local"),
+  quiet: true,
+});
+
+dotenv.config({
   path: path.resolve(process.cwd(), ".env.local.psql"),
+  override: true,
   quiet: true,
 });
 
