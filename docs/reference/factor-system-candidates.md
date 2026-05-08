@@ -1,6 +1,6 @@
 # Factor System Candidates
 
-This note tracks the 20-factor target set and how each factor should own metric
+This note tracks the factor target set and how each factor should own metric
 features. Shared SEC metrics are allowed, but their factor role must be explicit
 in `src/backend/config/factors/blueprints.ts`.
 
@@ -29,7 +29,7 @@ Cross-factor duplicated feature meaning currently exists only for:
 Other repeated feature definitions are currently inside one factor and are
 intended metric-level applications of that factor's feature vocabulary.
 
-## 20 Factor Candidates
+## Factor Candidates
 
 | Factor | Status | Primary Evidence Direction |
 |---|---|---|
@@ -43,9 +43,10 @@ intended metric-level applications of that factor's feature vocabulary.
 | `low_volatility` | candidate | lower realized volatility and stability |
 | `defensive` | implemented | buffer, burden relief, and shock absorption |
 | `cyclical` | candidate | economic expansion sensitivity |
-| `consumer_strength` | candidate | consumer demand and discretionary exposure |
+| `consumer_linked` | candidate | consumer-linked market behavior and consumer basket exposure |
 | `capex_cycle` | implemented | capital spending and investment cycle |
 | `rate_sensitive` | candidate | interest-rate sensitivity |
+| `credit_sensitive` | candidate | corporate credit-spread and funding-stress sensitivity |
 | `duration_sensitive` | candidate | long-duration equity sensitivity |
 | `liquidity_sensitive` | candidate | financial conditions sensitivity |
 | `inflation_hedge` | candidate | pricing power and hard-asset linkage |
@@ -62,7 +63,7 @@ intended metric-level applications of that factor's feature vocabulary.
 
 ## Deferred Normalization Layers
 
-Feature baselines, feature positions, macro contrasts, and clustering are
-downstream normalized layers. Temporary compatibility normalization can exist at
-read boundaries for stale rows, but the clean long-term path is to recompute or
-migrate stored rows so canonical feature keys are persisted directly.
+Macro contrasts, benchmark comparisons, and clustering are downstream layers.
+Temporary compatibility normalization can exist at read boundaries for stale
+rows, but the clean long-term path is to recompute or migrate stored rows so
+canonical feature keys are persisted directly.

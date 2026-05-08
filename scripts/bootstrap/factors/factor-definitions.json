@@ -23,8 +23,8 @@
     "key": "quality",
     "name": "Quality",
     "category": "style",
-    "description": "Exposure to companies perceived as having durable earnings, resilient margins, or stronger balance-sheet quality.",
-    "interpretation_hint": "Stronger signal suggests stronger alignment with quality-style market behavior.",
+    "description": "Exposure to companies with cash-backed earnings, durable profitability, and efficient asset-level profit generation.",
+    "interpretation_hint": "Stronger signal suggests stronger accounting profitability quality rather than balance-sheet defensiveness.",
     "polarity": "defensive",
     "is_active": true,
     "display_order": 30
@@ -100,11 +100,11 @@
     "display_order": 100
   },
   {
-    "key": "consumer_strength",
-    "name": "Consumer Strength",
+    "key": "consumer_linked",
+    "name": "Consumer Linked",
     "category": "cycle",
-    "description": "Exposure to consumer demand, discretionary spending, or household balance-sheet strength.",
-    "interpretation_hint": "Stronger signal suggests stronger linkage to consumer-led economic strength.",
+    "description": "Exposure to consumer-linked market behavior inferred from consumer baskets, ETFs, or other market-implied proxies.",
+    "interpretation_hint": "Stronger signal suggests stronger linkage to consumer-oriented equity baskets rather than direct evidence of consumer demand strength.",
     "polarity": "pro_risk",
     "is_active": true,
     "display_order": 110
@@ -128,6 +128,16 @@
     "polarity": "rate_linked",
     "is_active": true,
     "display_order": 130
+  },
+  {
+    "key": "credit_sensitive",
+    "name": "Credit Sensitive",
+    "category": "macro",
+    "description": "Exposure to corporate credit-spread conditions, funding stress, and credit-risk repricing.",
+    "interpretation_hint": "Stronger signal suggests stronger sensitivity to widening or tightening corporate credit spreads.",
+    "polarity": "credit_linked",
+    "is_active": true,
+    "display_order": 135
   },
   {
     "key": "duration_sensitive",
