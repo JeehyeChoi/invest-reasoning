@@ -229,7 +229,27 @@ export const COMPANY_FACTS_SERIES_TAG_META: Record<
   StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest:
     instant("stockholders_equity", 2),
   CashAndCashEquivalentsAtCarryingValue: instant("cash_and_cash_equivalents"),
-  LongTermDebtAndCapitalLeaseObligations: instant("long_term_debt"),
+  CashCashEquivalentsAndShortTermInvestments: instant(
+    "cash_and_short_term_investments",
+    1,
+  ),
+  AccountsReceivableNetCurrent: instant("accounts_receivable"),
+  InventoryNet: instant("inventory"),
+  AccountsPayableCurrent: instant("accounts_payable"),
+  DebtCurrent: instant("short_term_debt", 1),
+  LongTermDebtCurrent: instant("short_term_debt", 2),
+  LongTermDebtAndCapitalLeaseObligationsCurrent: instant("short_term_debt", 3),
+  OtherLongTermDebtCurrent: instant("short_term_debt", 4),
+  ConvertibleDebtCurrent: instant("short_term_debt", 5),
+  LongTermDebtAndCapitalLeaseObligations: instant("long_term_debt", 1),
+  LongTermDebtNoncurrent: instant("long_term_debt", 2),
+  LongTermDebt: instant("long_term_debt", 3),
+  OtherLongTermDebtNoncurrent: instant("long_term_debt", 4),
+  DebtLongtermAndShorttermCombinedAmount: instant("total_debt", 1),
+  LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities: instant(
+    "total_debt",
+    2,
+  ),
   CommonStocksIncludingAdditionalPaidInCapital: instant("common_stock_and_apic"),
   RetainedEarningsAccumulatedDeficit: instant("retained_earnings"),
 
@@ -248,6 +268,13 @@ export const COMPANY_FACTS_SERIES_TAG_META: Record<
   // dividends / shareholder return
   PaymentsOfDividends: flow("dividend_payments", 99),
   CommonStockDividendsPerShareDeclared: perShare("dividends_per_share"),
+  PaymentsForRepurchaseOfCommonStock: flow("share_repurchases", 1),
+  PaymentsForRepurchaseOfEquity: flow("share_repurchases", 2),
+  PaymentsForRepurchaseOfCommonStockAndPreferredStock: flow(
+    "share_repurchases",
+    3,
+  ),
+  PurchaseOfTreasuryStock: flow("share_repurchases", 4),
 
   // other operating items
   ShareBasedCompensation: flow("share_based_compensation", 99),
@@ -255,8 +282,19 @@ export const COMPANY_FACTS_SERIES_TAG_META: Record<
     "depreciation_depletion_and_amortization",
     99,
   ),
-  InterestExpense: flow("interest_expense", 99),
-  InterestIncomeExpenseNonoperatingNet: flow("net_interest_nonoperating", 99),
+  InterestExpense: flow("interest_expense", 1),
+  InterestExpenseNonoperating: flow("interest_expense", 2),
+  InterestExpenseDebt: flow("interest_expense", 3),
+  InterestAndDebtExpense: flow("interest_expense", 4),
+  InterestExpenseLongTermDebt: flow("interest_expense", 5),
+  InterestExpenseDebtExcludingAmortization: flow("interest_expense", 6),
+  InterestExpenseShortTermBorrowings: flow("interest_expense", 7),
+  InterestExpenseOther: flow("interest_expense", 98),
+  InvestmentIncomeInterest: flow("interest_income", 1),
+  InterestIncomeOther: flow("interest_income", 2),
+  InterestIncomeOperating: flow("interest_income", 3),
+  InterestIncomeExpenseNet: flow("net_interest_nonoperating", 1),
+  InterestIncomeExpenseNonoperatingNet: flow("net_interest_nonoperating", 2),
 
   // eps
   EarningsPerShareBasic: perShare("eps_basic", 1),
