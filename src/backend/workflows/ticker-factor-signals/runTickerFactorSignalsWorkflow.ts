@@ -1,5 +1,5 @@
-import { FACTOR_BLUEPRINTS } from "@/backend/config/factors/blueprints";
 import { buildTickerFactorSignals } from "@/backend/services/sec/companyFacts/series/signal/buildTickerFactorSignals";
+import { db } from "@/backend/config/db";
 import type { FactorAxisKey } from "@/shared/factors/axes";
 import type { FactorKey } from "@/shared/factors/factors";
 
@@ -22,23 +22,23 @@ export type TickerFactorSignalsWorkflowResult = {
   processed: number;
 };
 
-function buildSignalTargetsFromBlueprints(): TickerFactorSignalTarget[] {
-  const targets: TickerFactorSignalTarget[] = [];
+async function loadSignalTargetsFromDefinitions(): Promise<
+  TickerFactorSignalTarget[]
+> {
+  const result = await db.query<TickerFactorSignalTarget>(
+    `
+    SELECT DISTINCT
+      factor,
+      axis
+    FROM public.ticker_factor_signal_definitions
+    WHERE model_key = 'factor_signal'
+      AND model_version = 'v0'
+      AND is_active = true
+    ORDER BY factor ASC, axis ASC
+    `,
+  );
 
-  for (const [factor, factorBlueprint] of Object.entries(FACTOR_BLUEPRINTS)) {
-    if (!factorBlueprint) continue;
-
-    for (const [axis, axisBlueprint] of Object.entries(factorBlueprint)) {
-      if (axisBlueprint.metricKeys.length === 0) continue;
-
-      targets.push({
-        factor: factor as FactorKey,
-        axis: axis as FactorAxisKey,
-      });
-    }
-  }
-
-  return dedupeSignalTargets(targets);
+  return dedupeSignalTargets(result.rows);
 }
 
 function dedupeSignalTargets(
@@ -63,7 +63,7 @@ export async function runTickerFactorSignalsWorkflow(
 ): Promise<TickerFactorSignalsWorkflowResult> {
   const targets = input.targets
     ? dedupeSignalTargets(input.targets)
-    : buildSignalTargetsFromBlueprints();
+    : await loadSignalTargetsFromDefinitions();
 
   for (const [index, target] of targets.entries()) {
     const label = `${target.factor}/${target.axis}`;

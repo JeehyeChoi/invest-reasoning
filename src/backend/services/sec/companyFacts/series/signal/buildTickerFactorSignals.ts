@@ -2,7 +2,6 @@ import { db } from "@/backend/config/db";
 import { requireDateKey } from "@/backend/services/sec/companyFacts/series/utils/dateKey";
 import type { FactorAxisKey } from "@/shared/factors/axes";
 import type { FactorKey } from "@/shared/factors/factors";
-import type { SecMetricKey } from "@/shared/sec/metrics";
 
 type BuildTickerFactorSignalsInput = {
   factor?: FactorKey;
@@ -59,7 +58,7 @@ type LatestFeatureRow = {
   cik: string | null;
   factor: FactorKey;
   axis: FactorAxisKey;
-  metric_key: SecMetricKey;
+  metric_key: string;
   feature_key: string;
   feature_value: number | string;
   period_end: Date | string;
@@ -73,6 +72,10 @@ type FeatureAggregate = {
   value: number;
   observedMetricCount: number;
   evidenceRows: LatestFeatureRow[];
+};
+
+type SelectionMatch = {
+  matchedFeatureKey: string | null;
 };
 
 type FactorFeatureGroup = {
@@ -304,11 +307,18 @@ function buildSignalRowFromFeatureGroup(input: {
   }
 
   const aggregates = buildFeatureAggregates(input.group.features);
-  const definition = input.definitions.find((candidate) =>
-    matchesSelectionRules(candidate.selection_rules, aggregates),
-  );
+  const matchedDefinition = input.definitions.flatMap((candidate) => {
+    const selectionMatch = matchSelectionRules(
+      candidate.selection_rules,
+      aggregates,
+    );
 
-  if (!definition) return null;
+    return selectionMatch ? [{ definition: candidate, selectionMatch }] : [];
+  })[0];
+
+  if (!matchedDefinition) return null;
+
+  const { definition, selectionMatch } = matchedDefinition;
 
   const supportingEvidence = buildEvidenceItems({
     aggregates,
@@ -327,8 +337,14 @@ function buildSignalRowFromFeatureGroup(input: {
     definition,
     aggregates,
     supportingEvidence,
+    selectionMatch,
   });
-  const primaryEvidence = supportingEvidence[0] ?? null;
+  const primaryEvidence =
+    supportingEvidence.find(
+      (evidence) => evidence.featureKey === primaryAggregate?.featureKey,
+    ) ??
+    supportingEvidence[0] ??
+    null;
   const signalValue = primaryAggregate?.value ?? primaryEvidence?.featureValue ?? null;
   const latestFeature = input.group.features.reduce((current, candidate) =>
     compareFeatureDate(candidate, current) > 0 ? candidate : current,
@@ -357,32 +373,100 @@ function buildSignalRowFromFeatureGroup(input: {
     signal_effective_date: input.asOfDate ?? requireDateKey(latestFeature.effective_date),
     latest_growth_value: resolveFeatureBucketValue(aggregates, [
       "latestGrowth",
-      "capexCycleRamp",
-      "incomeDistributionMomentum",
+      "capexInvestmentIntensityChange",
+      "dividendMomentum",
+      "energyActivityGrowth",
+      "energyAssetInventoryGrowth",
+      "energyCostPressure",
+      "receivablesChange",
+      "inventoryChange",
+      "payablesChange",
+      "priceReturn3M",
+      "priceReturn6M",
+      "priceReturn12M",
+      "priceMomentum12MEx1M",
+      "relativeReturn3M",
+      "relativeReturn6M",
+      "relativeReturn12M",
+      "relativeMomentum12MEx1M",
       "defensiveBurdenRelief",
+      "assetBaseGrowth",
+      "bookEquityGrowth",
+      "dilutedTtmEpsGrowth",
+      "basicTtmEpsGrowth",
+      "dividendYield",
+      "buybackYield",
+      "shareholderYield",
+      "dividendYieldShare",
+      "buybackYieldShare",
     ]),
     durable_growth_value: resolveFeatureBucketValue(aggregates, [
       "durableGrowth",
     ]),
     consistency_value: resolveFeatureBucketValue(aggregates, [
-      "qualityConsistency",
-      "incomeDistributionConsistency",
+      "profitabilityConsistency",
+      "dividendConsistency",
       "defensiveStability",
       "defensiveBurdenContractionConsistency",
     ]),
     acceleration_value: resolveFeatureBucketValue(aggregates, [
-      "acceleration",
+      "yoyGrowthAcceleration",
       "capexCycleAcceleration",
+      "energyActivityAcceleration",
+      "energyAssetInventoryAcceleration",
+      "energyCostAcceleration",
     ]),
     trend_deviation_value: resolveFeatureBucketValue(aggregates, [
-      "qualityTrendSupport",
-      "capexCycleTrendStretch",
-      "incomeDistributionTrend",
-      "defensiveBufferTrend",
+      "profitabilityPosition",
+      "capexCycleQuarterStretch",
+      "capexCycleAnnualStretch",
+      "dividendPosition",
+      "energyActivityStretch",
+      "energyAssetInventoryStretch",
+      "energyCostStretch",
+      "receivablesBuild",
+      "inventoryBuild",
+      "payablesBuild",
+      "receivablesToRevenue",
+      "inventoryToRevenue",
+      "payablesToRevenue",
+      "distanceFrom52WeekHigh",
+      "realizedVolatility1Y",
+      "realizedVolatility3Y",
+      "downsideVolatility1Y",
+      "maxDrawdown1Y",
+      "marketBeta1Y",
+      "marketBeta3Y",
+      "correlationToMarket3Y",
+      "upsideCapture1Y",
+      "downsideCapture1Y",
+      "qqqBeta1Y",
+      "qqqBeta3Y",
+      "qqqCorrelation3Y",
+      "diaBeta1Y",
+      "diaBeta3Y",
+      "diaCorrelation3Y",
+      "defensiveBufferPosition",
       "defensiveBurdenTrendRelief",
+      "bookEquityToAssets",
+      "bookEquityPosition",
+      "retainedEarningsToAssets",
+      "cashToAssets",
+      "liabilitiesToAssets",
+      "debtToAssets",
+      "assetBasePosition",
+      "priceToDilutedTtmEps",
+      "priceToBasicTtmEps",
+      "priceToBook",
+      "priceToSales",
+      "priceToEarnings",
+      "priceToOperatingCashFlow",
+      "marketCapitalization",
+      "logMarketCapitalization",
     ]),
     turnaround_momentum_value: resolveFeatureBucketValue(aggregates, [
       "turnaroundMomentum",
+      "profitabilityTurnaround",
     ]),
     shock_absorption_value: resolveFeatureBucketValue(aggregates, [
       "defensiveShockAbsorption",
@@ -445,19 +529,28 @@ function buildFeatureAggregates(
   );
 }
 
-function matchesSelectionRules(
+function matchSelectionRules(
   rules: SignalSelectionRules,
   aggregates: Map<string, FeatureAggregate>,
-): boolean {
-  if (rules.default) return aggregates.size > 0;
+): SelectionMatch | null {
+  if (rules.default) {
+    return aggregates.size > 0 ? { matchedFeatureKey: null } : null;
+  }
 
   const all = rules.all ?? [];
   const any = rules.any ?? [];
-
-  return (
-    (all.length === 0 || all.every((condition) => matchesCondition(condition, aggregates))) &&
-    (any.length === 0 || any.some((condition) => matchesCondition(condition, aggregates)))
+  const matchedAll = all.flatMap((condition) =>
+    matchesCondition(condition, aggregates) ? [condition] : [],
   );
+  const matchedAny = any.find((condition) => matchesCondition(condition, aggregates));
+
+  if (all.length > 0 && matchedAll.length !== all.length) return null;
+  if (any.length > 0 && !matchedAny) return null;
+
+  return {
+    matchedFeatureKey:
+      matchedAny?.featureKey ?? matchedAll[0]?.featureKey ?? null,
+  };
 }
 
 function matchesCondition(
@@ -498,29 +591,54 @@ function buildEvidenceItems(input: {
   featureKeys: string[];
   maxPresentedItems: number;
 }): SignalEvidenceItem[] {
-  const featureKeySet = new Set(input.featureKeys);
+  const itemsByFeatureKey = input.featureKeys.map((featureKey) => {
+    const aggregate = input.aggregates.get(featureKey);
 
-  return Array.from(input.aggregates.values())
-    .filter((aggregate) => featureKeySet.has(aggregate.featureKey))
-    .flatMap((aggregate) =>
-      aggregate.evidenceRows.map((row) => ({
+    return {
+      featureKey,
+      items: aggregate
+        ? aggregate.evidenceRows.map((row) => ({
         metricKey: row.metric_key,
         featureKey: row.feature_key,
         featureValue: Number(row.feature_value),
         periodEnd: requireDateKey(row.period_end),
         effectiveDate: requireDateKey(row.effective_date),
-      })),
-    )
-    .sort((a, b) => Math.abs(b.featureValue) - Math.abs(a.featureValue))
-    .slice(0, input.maxPresentedItems);
+      })).sort((a, b) => Math.abs(b.featureValue) - Math.abs(a.featureValue))
+        : [],
+    };
+  });
+
+  const output: SignalEvidenceItem[] = [];
+  let rowIndex = 0;
+
+  while (output.length < input.maxPresentedItems) {
+    let added = false;
+
+    for (const feature of itemsByFeatureKey) {
+      const item = feature.items[rowIndex];
+      if (!item) continue;
+
+      output.push(item);
+      added = true;
+
+      if (output.length >= input.maxPresentedItems) break;
+    }
+
+    if (!added) break;
+    rowIndex += 1;
+  }
+
+  return output;
 }
 
 function resolvePrimaryAggregate(input: {
   definition: SignalDefinitionRow;
   aggregates: Map<string, FeatureAggregate>;
   supportingEvidence: SignalEvidenceItem[];
+  selectionMatch: SelectionMatch;
 }): FeatureAggregate | null {
   const firstRuleFeatureKey =
+    input.selectionMatch.matchedFeatureKey ??
     input.definition.selection_rules.all?.[0]?.featureKey ??
     input.definition.selection_rules.any?.[0]?.featureKey ??
     input.supportingEvidence[0]?.featureKey;
