@@ -1,0 +1,48 @@
+{
+  "version": "interpretation_v1",
+  "factor": "rate_sensitive",
+  "axis": "fundamentals_based",
+  "metricKey": "total_debt",
+  "meta": {
+    "description": "Total debt exposure as the broadest balance-sheet rate transmission proxy when reported by SEC tags.",
+    "createdAt": "2026-05"
+  },
+  "features": {
+    "rateTotalDebtToAssets": {
+      "source": "val",
+      "method": "ratio_to_denominator",
+      "denominator": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "assets",
+        "periodType": "instant",
+        "source": "val"
+      },
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "total_debt",
+        "periodType": "instant"
+      }
+    },
+    "rateTotalDebtPosition": {
+      "source": "val",
+      "reference": "rolling4_avg",
+      "method": "relative_deviation",
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "total_debt",
+        "periodType": "instant"
+      }
+    }
+  }
+}

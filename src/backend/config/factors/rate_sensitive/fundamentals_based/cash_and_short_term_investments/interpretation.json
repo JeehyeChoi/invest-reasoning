@@ -1,0 +1,75 @@
+{
+  "version": "interpretation_v1",
+  "factor": "rate_sensitive",
+  "axis": "fundamentals_based",
+  "metricKey": "cash_and_short_term_investments",
+  "meta": {
+    "description": "Cash and short-term investment offset against debt and interest-cost exposure.",
+    "createdAt": "2026-05"
+  },
+  "features": {
+    "rateCashInvestmentsToAssets": {
+      "source": "val",
+      "method": "ratio_to_denominator",
+      "denominator": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "assets",
+        "periodType": "instant",
+        "source": "val"
+      },
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "cash_and_short_term_investments",
+        "periodType": "instant"
+      }
+    },
+    "rateCashInvestmentsToTotalDebt": {
+      "source": "val",
+      "method": "ratio_to_denominator",
+      "denominator": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "total_debt",
+        "periodType": "instant",
+        "source": "val"
+      },
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "cash_and_short_term_investments",
+        "periodType": "instant"
+      }
+    },
+    "rateCashInvestmentsToInterestExpense": {
+      "source": "val",
+      "method": "ratio_to_denominator",
+      "denominator": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "interest_expense",
+        "periodType": "quarter",
+        "source": "duration_adjusted_ttm_val"
+      },
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "cash_and_short_term_investments",
+        "periodType": "instant"
+      }
+    }
+  }
+}

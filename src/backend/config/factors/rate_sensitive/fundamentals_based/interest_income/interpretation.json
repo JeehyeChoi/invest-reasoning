@@ -1,0 +1,68 @@
+{
+  "version": "interpretation_v1",
+  "factor": "rate_sensitive",
+  "axis": "fundamentals_based",
+  "metricKey": "interest_income",
+  "meta": {
+    "description": "Interest-income offset using duration-adjusted TTM interest income against operating cash flow and interest expense.",
+    "createdAt": "2026-05"
+  },
+  "features": {
+    "rateInterestIncomeToOperatingCashFlow": {
+      "source": "duration_adjusted_ttm_val",
+      "method": "ratio_to_denominator",
+      "denominator": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "operating_cash_flow",
+        "periodType": "quarter",
+        "source": "duration_adjusted_ttm_val"
+      },
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "interest_income",
+        "periodType": "quarter"
+      }
+    },
+    "rateInterestIncomeToInterestExpense": {
+      "source": "duration_adjusted_ttm_val",
+      "method": "ratio_to_denominator",
+      "denominator": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "interest_expense",
+        "periodType": "quarter",
+        "source": "duration_adjusted_ttm_val"
+      },
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "interest_income",
+        "periodType": "quarter"
+      }
+    },
+    "rateInterestIncomeGrowth": {
+      "source": "duration_adjusted_ttm_yoy",
+      "method": "direct",
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "interest_income",
+        "periodType": "quarter"
+      }
+    }
+  }
+}

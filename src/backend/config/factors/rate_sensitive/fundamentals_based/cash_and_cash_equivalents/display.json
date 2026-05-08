@@ -1,0 +1,5 @@
+{
+  "metricKey": "cash_and_cash_equivalents",
+  "label": "Cash and Cash Equivalents",
+  "description": "Liquid balance-sheet offset against debt-funded rate exposure."
+}

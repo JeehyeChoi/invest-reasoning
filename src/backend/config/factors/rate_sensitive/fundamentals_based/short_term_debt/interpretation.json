@@ -1,0 +1,69 @@
+{
+  "version": "interpretation_v1",
+  "factor": "rate_sensitive",
+  "axis": "fundamentals_based",
+  "metricKey": "short_term_debt",
+  "meta": {
+    "description": "Short-term debt exposure as a faster-repricing rate transmission proxy.",
+    "createdAt": "2026-05"
+  },
+  "features": {
+    "rateShortTermDebtToAssets": {
+      "source": "val",
+      "method": "ratio_to_denominator",
+      "denominator": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "assets",
+        "periodType": "instant",
+        "source": "val"
+      },
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "short_term_debt",
+        "periodType": "instant"
+      }
+    },
+    "rateShortTermDebtShare": {
+      "source": "val",
+      "method": "ratio_to_denominator",
+      "denominator": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "total_debt",
+        "periodType": "instant",
+        "source": "val"
+      },
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "short_term_debt",
+        "periodType": "instant"
+      }
+    },
+    "rateShortTermDebtPosition": {
+      "source": "val",
+      "reference": "rolling4_avg",
+      "method": "relative_deviation",
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "short_term_debt",
+        "periodType": "instant"
+      }
+    }
+  }
+}

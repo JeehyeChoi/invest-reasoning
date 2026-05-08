@@ -1,0 +1,33 @@
+{
+  "version": "interpretation_v1",
+  "factor": "value",
+  "axis": "fundamentals_based",
+  "metricKey": "retained_earnings",
+  "meta": {
+    "description": "Retained-earnings value interpretation using enriched SEC companyfact metric series.",
+    "createdAt": "2026-05"
+  },
+  "features": {
+    "retainedEarningsToAssets": {
+      "source": "val",
+      "method": "ratio_to_denominator",
+      "denominator": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "assets",
+        "periodType": "instant",
+        "source": "val"
+      },
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "sec_companyfact_metric_series_enriched",
+        "version": "enriched_v2",
+        "metricKey": "retained_earnings",
+        "periodType": "instant"
+      }
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "headlineTitle": "Liquidity Sensitive",
+  "chart": {
+    "type": "timeseries"
+  },
+  "featureOrder": [
+    "receivablesChange",
+    "receivablesBuild",
+    "receivablesToRevenue",
+    "inventoryChange",
+    "inventoryBuild",
+    "inventoryToRevenue",
+    "payablesChange",
+    "payablesBuild",
+    "payablesToRevenue"
+  ],
+  "baselineLabels": {
+    "sectorPercentile": "Sector Percentile",
+    "sp500Percentile": "S&P 500 Percentile"
+  },
+  "featureLabels": {
+    "receivablesChange": "Receivables Change",
+    "receivablesBuild": "Receivables Build",
+    "receivablesToRevenue": "Receivables to Revenue",
+    "inventoryChange": "Inventory Change",
+    "inventoryBuild": "Inventory Build",
+    "inventoryToRevenue": "Inventory to Revenue",
+    "payablesChange": "Payables Change",
+    "payablesBuild": "Payables Build",
+    "payablesToRevenue": "Payables to Revenue"
+  }
+}

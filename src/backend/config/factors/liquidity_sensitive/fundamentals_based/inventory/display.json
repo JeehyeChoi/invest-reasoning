@@ -1,0 +1,7 @@
+{
+  "metricKey": "inventory",
+  "chart": {
+    "title": "Inventory"
+  },
+  "description": "Liquidity-sensitive feature source for inventory growth, inventory build, and inventory relative to revenue."
+}

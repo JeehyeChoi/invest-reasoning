@@ -1,0 +1,7 @@
+{
+  "metricKey": "accounts_receivable",
+  "chart": {
+    "title": "Accounts Receivable"
+  },
+  "description": "Liquidity-sensitive feature source for receivables growth, receivables build, and receivables relative to revenue."
+}

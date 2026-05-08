@@ -1,0 +1,49 @@
+{
+  "headlineTitle": "Rate Sensitive",
+  "chart": {
+    "type": "timeseries"
+  },
+  "featureOrder": [
+    "rateGrossInterestToOperatingIncome",
+    "rateGrossInterestToOperatingCashFlow",
+    "rateInterestExpenseGrowth",
+    "rateInterestIncomeToOperatingCashFlow",
+    "rateInterestIncomeToInterestExpense",
+    "rateInterestIncomeGrowth",
+    "rateNetInterestToOperatingCashFlow",
+    "rateNetInterestToOperatingIncome",
+    "rateNetInterestGrowth",
+    "rateShortTermDebtToAssets",
+    "rateShortTermDebtShare",
+    "rateTotalDebtToAssets",
+    "rateCashToTotalDebt",
+    "rateCashInvestmentsToTotalDebt",
+    "rateCashInvestmentsToInterestExpense"
+  ],
+  "baselineLabels": {
+    "sectorPercentile": "Sector Percentile",
+    "sp500Percentile": "S&P 500 Percentile"
+  },
+  "featureLabels": {
+    "rateGrossInterestToOperatingIncome": "Interest Expense to Operating Income",
+    "rateGrossInterestToOperatingCashFlow": "Interest Expense to Operating Cash Flow",
+    "rateInterestExpenseGrowth": "Interest Expense Growth",
+    "rateInterestIncomeToOperatingCashFlow": "Interest Income to Operating Cash Flow",
+    "rateInterestIncomeToInterestExpense": "Interest Income to Interest Expense",
+    "rateInterestIncomeGrowth": "Interest Income Growth",
+    "rateNetInterestToOperatingCashFlow": "Net Interest to Operating Cash Flow",
+    "rateNetInterestToOperatingIncome": "Net Interest to Operating Income",
+    "rateNetInterestGrowth": "Net Interest Growth",
+    "rateLongTermDebtPosition": "Long-Term Debt Position",
+    "rateShortTermDebtToAssets": "Short-Term Debt to Assets",
+    "rateShortTermDebtShare": "Short-Term Debt Share",
+    "rateShortTermDebtPosition": "Short-Term Debt Position",
+    "rateTotalDebtToAssets": "Total Debt to Assets",
+    "rateTotalDebtPosition": "Total Debt Position",
+    "rateCashToLongTermDebt": "Cash to Long-Term Debt",
+    "rateCashToTotalDebt": "Cash to Total Debt",
+    "rateCashInvestmentsToAssets": "Cash & Investments to Assets",
+    "rateCashInvestmentsToTotalDebt": "Cash & Investments to Total Debt",
+    "rateCashInvestmentsToInterestExpense": "Cash & Investments to Interest Expense"
+  }
+}

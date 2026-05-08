@@ -1,0 +1,5 @@
+{
+  "metricKey": "long_term_debt",
+  "label": "Long-Term Debt",
+  "description": "Balance-sheet debt exposure that can transmit higher rates through refinancing or floating-rate cost."
+}

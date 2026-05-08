@@ -1,0 +1,33 @@
+{
+  "headlineTitle": "Value",
+  "chart": {
+    "type": "timeseries"
+  },
+  "featureOrder": [
+    "bookEquityToAssets",
+    "bookEquityGrowth",
+    "bookEquityPosition",
+    "retainedEarningsToAssets",
+    "cashToAssets",
+    "liabilitiesToAssets",
+    "debtToAssets",
+    "assetBaseGrowth",
+    "assetBasePosition"
+  ],
+  "baselineLabels": {
+    "sectorPercentile": "Sector Percentile",
+    "sp500Percentile": "S&P 500 Percentile",
+    "excessVsUsNominalGdp": "Excess vs US Nominal GDP"
+  },
+  "featureLabels": {
+    "bookEquityToAssets": "Book Equity to Assets",
+    "bookEquityGrowth": "Book Equity Growth",
+    "bookEquityPosition": "Book Equity Position",
+    "retainedEarningsToAssets": "Retained Earnings to Assets",
+    "cashToAssets": "Cash to Assets",
+    "liabilitiesToAssets": "Liabilities to Assets",
+    "debtToAssets": "Long-Term Debt to Assets",
+    "assetBaseGrowth": "Asset Base Growth",
+    "assetBasePosition": "Asset Base Position"
+  }
+}

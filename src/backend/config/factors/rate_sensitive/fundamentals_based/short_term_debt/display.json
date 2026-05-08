@@ -1,0 +1,5 @@
+{
+  "metricKey": "short_term_debt",
+  "label": "Short-Term Debt",
+  "description": "Nearer-maturity debt exposure that can reprice more quickly when rates move."
+}
