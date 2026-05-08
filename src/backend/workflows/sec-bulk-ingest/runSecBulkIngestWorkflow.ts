@@ -1,7 +1,12 @@
 import { ingestCompanyFactsBulk } from "@/backend/services/sec/companyFacts/bulk/ingestCompanyFactsBulk";
 import { buildCompanyFiscalProfileForCik } from "@/backend/services/sec/companyFacts/series/fiscal/buildCompanyFiscalProfileForCik";
+import { runCompanyFactsSeriesProcessingForCik } from "@/backend/services/sec/companyFacts/series/runCompanyFactsSeriesProcessingForCik";
 import { buildCompanyFactsTagSeriesForCik } from "@/backend/services/sec/companyFacts/series/tag/buildCompanyFactsTagSeriesForCik";
-import { truncateCompanyFactRawRows } from "@/backend/services/sec/companyFacts/series/deleteCompanyFactRawRowsForCik";
+import { upsertCompanyFactTagCandidateStatsForCik } from "@/backend/services/sec/companyFacts/series/tag/upsertCompanyFactTagCandidateStatsForCik";
+import {
+  deleteCompanyFactTagSeriesRowsForCik,
+  truncateCompanyFactRawRows,
+} from "@/backend/services/sec/companyFacts/series/deleteCompanyFactRawRowsForCik";
 import type { DataPipelineRefreshJobKey } from "@/shared/data-pipeline/jobs";
 import type { SecBulkIngestWorkflowResult } from "./workflow.types";
 
@@ -19,6 +24,10 @@ export async function runSecBulkIngestWorkflow(input: {
   forceReadAll?: boolean;
   tickerByCik?: Map<string, string>;
   buildTagSeriesBeforeRawCleanup?: boolean;
+  buildMetricSeriesBeforeTagCleanup?: boolean;
+  validateMetricSeriesBeforeCleanup?: boolean;
+  cleanupTagSeriesAfterMetric?: boolean;
+  collectTagCandidateStats?: boolean;
   onProgress?: (progress: WorkflowProgress) => void;
 }): Promise<SecBulkIngestWorkflowResult> {
   const result = await ingestCompanyFactsBulk({
@@ -46,28 +55,67 @@ export async function runSecBulkIngestWorkflow(input: {
         return;
       }
 
-      await buildCompanyFiscalProfileForCik({ ticker, cik: context.cik });
-      input.onProgress?.({
-        job: "sec_bulk_ingest",
-        message: `[SEC BULK -> FISCAL] Fiscal profile completed for ${ticker}.`,
-        label: ticker,
-      });
-
-      if (input.buildTagSeriesBeforeRawCleanup) {
-        await buildCompanyFactsTagSeriesForCik({ ticker, cik: context.cik });
+      try {
+        await buildCompanyFiscalProfileForCik({ ticker, cik: context.cik });
         input.onProgress?.({
           job: "sec_bulk_ingest",
-          message: `[SEC BULK -> TAG] Tag series completed for ${ticker}.`,
+          message: `[SEC BULK -> FISCAL] Fiscal profile completed for ${ticker}.`,
+          label: ticker,
+        });
+
+        if (input.buildTagSeriesBeforeRawCleanup) {
+          if (input.collectTagCandidateStats) {
+            const candidateStatsResult =
+              await upsertCompanyFactTagCandidateStatsForCik({
+                ticker,
+                cik: context.cik,
+              });
+            input.onProgress?.({
+              job: "sec_bulk_ingest",
+              message: `[SEC BULK -> TAG CANDIDATES] Candidate stats updated for ${ticker}. candidates=${candidateStatsResult.candidateCount}.`,
+              label: ticker,
+            });
+          }
+
+          await buildCompanyFactsTagSeriesForCik({ ticker, cik: context.cik });
+          input.onProgress?.({
+            job: "sec_bulk_ingest",
+            message: `[SEC BULK -> TAG] Tag series completed for ${ticker}.`,
+            label: ticker,
+          });
+
+          if (input.buildMetricSeriesBeforeTagCleanup) {
+            const metricResult = await runCompanyFactsSeriesProcessingForCik({
+              ticker,
+              cik: context.cik,
+              validate: input.validateMetricSeriesBeforeCleanup,
+            });
+            input.onProgress?.({
+              job: "sec_bulk_ingest",
+              message: input.validateMetricSeriesBeforeCleanup
+                ? `[SEC BULK -> METRIC -> VALIDATION] Metric series and validation completed for ${ticker}. validationWarnings=${metricResult.validationWarningCount ?? 0}, validationErrors=${metricResult.validationErrorCount ?? 0}.`
+                : `[SEC BULK -> METRIC] Metric series completed for ${ticker}.`,
+              label: ticker,
+            });
+
+            if (input.cleanupTagSeriesAfterMetric ?? true) {
+              await deleteCompanyFactTagSeriesRowsForCik(context.cik);
+              input.onProgress?.({
+                job: "sec_bulk_ingest",
+                message: `[SEC BULK] Tag series rows truncated after metric build for ${ticker}.`,
+                label: ticker,
+              });
+            }
+          }
+        }
+      } finally {
+        await truncateCompanyFactRawRows();
+        input.onProgress?.({
+          job: "sec_bulk_ingest",
+          message: `[SEC BULK] Raw rows truncated after ${ticker}.`,
           label: ticker,
         });
       }
-
-      await truncateCompanyFactRawRows();
-      input.onProgress?.({
-        job: "sec_bulk_ingest",
-        message: `[SEC BULK] Raw rows truncated after ${ticker}.`,
-        label: ticker,
-      });
     },
   });
 

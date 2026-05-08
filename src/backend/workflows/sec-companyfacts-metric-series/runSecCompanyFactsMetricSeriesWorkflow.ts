@@ -1,7 +1,5 @@
 import { buildCompanyFactsMetricSeriesForCik } from "@/backend/services/sec/companyFacts/series/metric/buildCompanyFactsMetricSeriesForCik";
 import { assignPeriodLabelsToMetricSeriesForCik } from "@/backend/services/sec/companyFacts/series/period/assignPeriodLabelsToMetricSeriesForCik";
-import { buildCompanyFactsMetricSeriesEnrichedForCik } from "@/backend/services/sec/companyFacts/series/enriched/buildCompanyFactsMetricSeriesEnrichedForCik";
-import { buildMetricSeriesReliabilityForCik } from "@/backend/services/sec/companyFacts/series/reliability/buildMetricSeriesReliabilityForCik";
 import type { SecMetricKey } from "@/shared/sec/metrics";
 import type { DataPipelineRefreshJobKey } from "@/shared/data-pipeline/jobs";
 
@@ -40,8 +38,6 @@ export async function runSecCompanyFactsMetricSeriesWorkflow(
   }
 
   let processed = 0;
-  let reliabilityCount = 0;
-  let reliabilityMetricCount = 0;
 
   for (const [ticker, cik] of entries) {
     if (!cik) continue;
@@ -56,20 +52,6 @@ export async function runSecCompanyFactsMetricSeriesWorkflow(
         metricKey: input.rebuildMode === "metric" ? input.metricKey : undefined,
       });
       await assignPeriodLabelsToMetricSeriesForCik({ ticker, cik });
-
-      await buildCompanyFactsMetricSeriesEnrichedForCik({
-        ticker,
-        cik,
-        metricKey: input.rebuildMode === "metric" ? input.metricKey : undefined,
-      });
-
-      const reliabilityResult = await buildMetricSeriesReliabilityForCik({
-        ticker,
-        cik,
-        metricKey: input.rebuildMode === "metric" ? input.metricKey : undefined,
-      });
-      reliabilityCount += reliabilityResult.reliabilityCount;
-      reliabilityMetricCount += reliabilityResult.metricCount;
 
       const elapsedMs = Date.now() - startTime;
       input.onProgress?.({
@@ -86,7 +68,7 @@ export async function runSecCompanyFactsMetricSeriesWorkflow(
 
   input.onProgress?.({
     job: "metric_series",
-    message: `Metric series build completed. reliabilityRecords=${reliabilityCount}.`,
+    message: `Metric series build completed. processed=${processed}.`,
     current: entries.length,
     total: entries.length,
   });
