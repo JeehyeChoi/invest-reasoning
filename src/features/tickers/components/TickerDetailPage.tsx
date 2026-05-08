@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { TickerOverview } from "@/shared/tickers/tickerOverview";
 import {
@@ -9,12 +9,13 @@ import {
   Panel,
 } from "@/features/tickers/components/TickerDetailPrimitives";
 import { TickerHeaderPanel } from "@/features/tickers/components/TickerHeaderPanel";
-import { TickerHeadlineMetricPanel } from "@/features/tickers/components/TickerHeadlineMetricPanel";
-import { TickerHeadlineChartPanel } from "@/features/tickers/components/TickerHeadlineChartPanel";
-import { TickerMetricBreakdownPanel } from "@/features/tickers/components/TickerMetricBreakdownPanel";
+import { TickerFactorInsightPanel } from "@/features/tickers/components/TickerFactorInsightPanel";
+import { TickerMetricTrendChartPanel } from "@/features/tickers/components/TickerMetricTrendChartPanel";
+import { TickerDailyPriceHistoryPanel } from "@/features/tickers/components/TickerDailyPriceHistoryPanel";
+import { TickerVectorPreviewPanel } from "@/features/tickers/components/TickerVectorPreviewPanel";
 import { TickerAllFactorMetricsPanel } from "@/features/tickers/components/TickerAllFactorMetricsPanel";
 import { fetchTickerOverview } from "@/features/tickers/services/fetchTickerOverview";
-import { pickHeadlineMetric } from "@/features/tickers/utils/pickHeadlineMetric";
+import { pickFactorInsightMetric } from "@/features/tickers/utils/pickFactorInsightMetric";
 
 type Props = {
   ticker: string;
@@ -24,7 +25,10 @@ export function TickerDetailPage({ ticker }: Props) {
   const [data, setData] = useState<TickerOverview | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedMetricKey, setSelectedMetricKey] = useState<string | null>(null);
+  const [selectedMetricId, setSelectedMetricId] = useState<string | null>(null);
+  const [metricMaxWindowStartDate, setMetricMaxWindowStartDate] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -59,30 +63,44 @@ export function TickerDetailPage({ ticker }: Props) {
   }, [ticker]);
 
   const title = useMemo(() => ticker.toUpperCase(), [ticker]);
+  const isFundLike = Boolean(data?.company?.isEtf || data?.company?.isFund);
 
-  const headlineMetric = useMemo(() => {
+  const insightMetric = useMemo(() => {
     if (!data) return null;
-    return pickHeadlineMetric(data.factorMetrics);
+    return pickFactorInsightMetric(data.factorMetrics);
   }, [data]);
 
   useEffect(() => {
-    if (!headlineMetric?.metricKey) {
-      setSelectedMetricKey(null);
+    if (!insightMetric?.metricKey) {
+      setSelectedMetricId(null);
       return;
     }
 
-    setSelectedMetricKey((current) => current ?? headlineMetric.metricKey);
-  }, [headlineMetric]);
+    setSelectedMetricId(
+      (current) => current ?? buildFactorMetricDefaultSelectionId(insightMetric),
+    );
+  }, [insightMetric]);
 
   const selectedMetric = useMemo(() => {
     if (!data) return null;
-    if (!selectedMetricKey) return headlineMetric;
+    if (!selectedMetricId) return insightMetric;
 
     return (
-      data.factorMetrics.find((metric) => metric.metricKey === selectedMetricKey) ??
-      headlineMetric
+      data.factorMetrics.find(
+        (metric) =>
+          buildFactorMetricId(metric) ===
+          getMetricIdFromSelectionId(selectedMetricId),
+      ) ??
+      insightMetric
     );
-  }, [data, selectedMetricKey, headlineMetric]);
+  }, [data, selectedMetricId, insightMetric]);
+
+  const handleMetricMaxWindowChange = useCallback(
+    (window: { startDate: string | null; endDate: string | null }) => {
+      setMetricMaxWindowStartDate(window.startDate);
+    },
+    [],
+  );
 
   if (isLoading) {
     return (
@@ -116,32 +134,50 @@ export function TickerDetailPage({ ticker }: Props) {
     <main className="min-h-screen bg-[#008080] p-4 text-black">
       <WindowFrame title={`${data.ticker} — Overview`}>
         <div className="grid gap-4">
-          <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+          <section className={isFundLike ? "grid gap-4" : "grid gap-4 lg:grid-cols-[1.2fr_0.8fr]"}>
             <TickerHeaderPanel ticker={data.ticker} company={data.company} />
-            <TickerHeadlineMetricPanel metric={headlineMetric} />
+            {!isFundLike ? <TickerFactorInsightPanel metric={insightMetric} /> : null}
           </section>
 
-          <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-            <TickerHeadlineChartPanel
+          <section className={isFundLike ? "grid items-start gap-4" : "grid items-start gap-4 lg:grid-cols-2"}>
+            {!isFundLike ? (
+              <TickerMetricTrendChartPanel
+                ticker={data.ticker}
+                metric={selectedMetric}
+                selectedFeatureKey={getFeatureKeyFromSelectionId(selectedMetricId)}
+                onMaxWindowChange={handleMetricMaxWindowChange}
+              />
+            ) : null}
+            <TickerDailyPriceHistoryPanel
               ticker={data.ticker}
-              metric={selectedMetric}
+              defaultStartDate={isFundLike ? null : metricMaxWindowStartDate}
             />
-            <TickerMetricBreakdownPanel metric={selectedMetric} />
           </section>
 
-          <section>
-            <TickerAllFactorMetricsPanel
-              factorMetrics={data.factorMetrics}
-              selectedMetricKey={selectedMetricKey}
-              onSelectMetric={setSelectedMetricKey}
-            />
-          </section>
+          {!isFundLike ? (
+            <section className="grid items-start gap-4 xl:grid-cols-[minmax(420px,0.9fr)_minmax(0,1.1fr)]">
+              <TickerVectorPreviewPanel
+                ticker={data.ticker}
+                factorSignals={data.factorSignals}
+                factorMetrics={data.factorMetrics}
+              />
+              <TickerAllFactorMetricsPanel
+                factorMetrics={data.factorMetrics}
+                selectedFeatureId={selectedMetricId}
+                onSelectMetric={setSelectedMetricId}
+              />
+            </section>
+          ) : null}
 
           <div className="border border-black bg-[#c0c0c0] px-2 py-1 text-xs">
             <span className="font-mono">
               STATUS: READY | TICKER={data.ticker} | METRICS={data.factorMetrics.length}
+              {isFundLike ? " | INSTRUMENT=FUND" : ""}
               {selectedMetric?.metricKey
                 ? ` | SELECTED=${selectedMetric.metricKey}`
+                : ""}
+              {getFeatureKeyFromSelectionId(selectedMetricId)
+                ? ` | FEATURE=${getFeatureKeyFromSelectionId(selectedMetricId)}`
                 : ""}
             </span>
           </div>
@@ -149,4 +185,36 @@ export function TickerDetailPage({ ticker }: Props) {
       </WindowFrame>
     </main>
   );
+}
+
+function buildFactorMetricId(
+  metric: TickerOverview["factorMetrics"][number],
+): string {
+  return `${metric.factor}:${metric.axis}:${metric.metricKey}`;
+}
+
+function buildFactorMetricDefaultSelectionId(
+  metric: TickerOverview["factorMetrics"][number],
+): string {
+  const metricId = buildFactorMetricId(metric);
+  const primaryFeatureKey = metric.factorInsight?.primaryFeatureKey;
+  const features = metric.features ?? [];
+  const selectedFeature =
+    features.find((feature) => feature.featureKey === primaryFeatureKey) ??
+    features[0];
+
+  return selectedFeature ? `${metricId}:${selectedFeature.featureKey}` : metricId;
+}
+
+function getMetricIdFromSelectionId(selectionId: string | null): string | null {
+  if (!selectionId) return null;
+
+  return selectionId.split(":").slice(0, 3).join(":");
+}
+
+function getFeatureKeyFromSelectionId(selectionId: string | null): string | null {
+  if (!selectionId) return null;
+
+  const parts = selectionId.split(":");
+  return parts.length > 3 ? parts.slice(3).join(":") : null;
 }

@@ -1,14 +1,10 @@
 const AXIS_LABELS: Record<string, string> = {
   fundamentals_based: "Fundamentals",
-  etf_implied: "Market-Implied",
+  market_price: "Market Price",
+  valuation: "Valuation",
+  macro_linked: "Macro Linked",
+  etf_exposure: "ETF Exposure",
   narrative_implied: "Narrative",
-};
-
-const METHOD_LABELS: Record<string, string> = {
-  heuristic: "Heuristic",
-  quantitative: "Quantitative",
-  modeling: "Model-Based",
-  signal_headline: "Signal Headline",
 };
 
 export function formatLabel(key: string): string {
@@ -19,11 +15,8 @@ export function formatLabel(key: string): string {
   return key
     .replaceAll("_based", "")
     .replaceAll("_", " ")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-export function formatMethodLabel(key: string): string {
-  return METHOD_LABELS[key] ?? formatLabel(key);
 }
 
 export function formatMarketCap(value: number | null): string {
@@ -46,15 +39,7 @@ export function formatMarketCap(value: number | null): string {
   return value.toLocaleString();
 }
 
-export function formatScore(value: number | null): string {
-  if (value == null || !Number.isFinite(value)) {
-    return "-";
-  }
-
-  return value.toFixed(4);
-}
-
-export function formatSignalValue(value: number | null): string {
+export function formatFeatureValue(value: number | null): string {
   if (value == null || !Number.isFinite(value)) {
     return "-";
   }
@@ -68,13 +53,31 @@ export function formatSignalValue(value: number | null): string {
   return value.toFixed(2);
 }
 
-export function formatSignedSignalValue(value: number | null): string {
+export function formatCompactValue(value: number | null): string {
   if (value == null || !Number.isFinite(value)) {
     return "-";
   }
 
-  const formatted = formatSignalValue(Math.abs(value));
-  return `${value >= 0 ? "+" : "-"}${formatted}`;
+  const sign = value < 0 ? "-" : "";
+  const abs = Math.abs(value);
+
+  if (abs >= 1_000_000_000_000) {
+    return `${sign}${(abs / 1_000_000_000_000).toFixed(2)}T`;
+  }
+
+  if (abs >= 1_000_000_000) {
+    return `${sign}${(abs / 1_000_000_000).toFixed(2)}B`;
+  }
+
+  if (abs >= 1_000_000) {
+    return `${sign}${(abs / 1_000_000).toFixed(2)}M`;
+  }
+
+  if (abs >= 1_000) {
+    return `${sign}${(abs / 1_000).toFixed(2)}K`;
+  }
+
+  return value.toFixed(2);
 }
 
 export function formatPercentile(value: number | null): string {
@@ -84,24 +87,6 @@ export function formatPercentile(value: number | null): string {
 
   return `${Math.round(value * 100)}th`;
 }
-
-export function formatUnknownMetricValue(value: unknown): string {
-  if (value == null) {
-    return "-";
-  }
-
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value.toFixed(4) : "-";
-  }
-
-  if (typeof value === "string") {
-    return value;
-  }
-
-  return JSON.stringify(value);
-}
-
-
 
 export function formatDate(value?: string | null): string {
   if (!value) return "—";

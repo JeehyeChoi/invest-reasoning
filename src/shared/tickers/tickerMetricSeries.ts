@@ -1,8 +1,6 @@
-import type { SecMetricKey } from "@/shared/sec/metrics";
-
 export type TickerMetricSeries = {
   ticker: string;
-  metricKey: SecMetricKey;
+  metricKey: string;
   points: TickerMetricSeriesPoint[];
 };
 
@@ -11,8 +9,10 @@ export type TickerMetricSeriesPoint = {
   end: string;
   filed: string | null;
   val: number;
+	periodType?: string | null;
 	durationDays?: number | null;
 	fiscalYear?: number | null;
 	fiscalQuarter?: number | null;
 	buildSourceKind?: string | null;
+	rolling4Avg?: number | null;
 };

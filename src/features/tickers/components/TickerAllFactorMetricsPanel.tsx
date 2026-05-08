@@ -1,88 +1,147 @@
 import type { TickerOverviewFactorMetric } from "@/shared/tickers/tickerOverview";
 import { Panel, Td, Th } from "@/features/tickers/components/TickerDetailPrimitives";
 import {
+  formatFeatureValue,
   formatLabel,
-  formatPercentile,
-  formatSignalValue,
 } from "@/features/tickers/utils/formatters";
 
 export function TickerAllFactorMetricsPanel({
   factorMetrics,
-  selectedMetricKey,
+  selectedFeatureId,
   onSelectMetric,
 }: {
   factorMetrics: TickerOverviewFactorMetric[];
-  selectedMetricKey?: string | null;
-  onSelectMetric?: (metricKey: string) => void;
+  selectedFeatureId?: string | null;
+  onSelectMetric?: (metricId: string) => void;
 }) {
   return (
-    <Panel title="Metric Signal Headlines">
+    <Panel title="All Factor Metrics">
       <div className="overflow-x-auto">
         <table className="min-w-full border-collapse text-sm">
           <thead>
             <tr className="bg-[#c0c0c0]">
+              <Th>Factor</Th>
+              <Th>Axis</Th>
               <Th>Metric</Th>
-              <Th>Read</Th>
-              <Th>Primary</Th>
-              <Th>Latest</Th>
-              <Th>Durable</Th>
-              <Th>Consistency</Th>
-              <Th>US Equities %ile</Th>
-              <Th>Sector %ile</Th>
-              <Th>Quality</Th>
+              <Th>Role</Th>
+              <Th>Feature Values</Th>
             </tr>
           </thead>
           <tbody>
             {factorMetrics.length > 0 ? (
               factorMetrics.map((item, index) => {
-                const isSelected = item.metricKey === selectedMetricKey;
-                const headline = item.headline;
-                const usPublicEquitiesPosition = item.positions?.find(
-                  (position) =>
-                    position.comparisonSetType === "us_public_equities",
-                );
-                const sectorPosition = item.positions?.find(
-                  (position) => position.comparisonSetType === "sector",
-                );
+                const metricId = buildFactorMetricId(item);
+                const isSelected =
+                  metricId === getMetricIdFromSelectionId(selectedFeatureId);
+                const features = item.features ?? [];
 
                 return (
                   <tr
                     key={`${item.factor}-${item.axis}-${item.metricKey}-${index}`}
                     className={isSelected ? "bg-[#ffffcc] cursor-pointer" : "bg-white cursor-pointer"}
-                    onClick={() => onSelectMetric?.(item.metricKey)}
+                    onClick={() => onSelectMetric?.(metricId)}
                   >
+                    <Td>{formatLabel(item.factor)}</Td>
+                    <Td>{formatLabel(item.axis)}</Td>
                     <Td>
                       <span className={isSelected ? "font-bold underline" : undefined}>
                         {formatLabel(item.metricKey)}
                       </span>
                     </Td>
-                    <Td>{headline?.interpretationLabel ?? "-"}</Td>
-                    <Td>{formatLabel(headline?.primarySignalKey ?? "-")}</Td>
-                    <Td>{formatSignalValue(headline?.latestGrowthValue ?? null)}</Td>
+                    <Td>{formatLabel(item.metricRole)}</Td>
                     <Td>
-                      <span className={isSelected ? "font-bold" : undefined}>
-                        {formatSignalValue(headline?.durableGrowthValue ?? null)}
-                      </span>
+                      <FeatureValueList
+                        features={features}
+                        missingFeatureMessage={item.missingFeatureMessage}
+                        metricId={metricId}
+                        selectedFeatureId={selectedFeatureId}
+                        onSelectMetric={onSelectMetric}
+                      />
                     </Td>
-                    <Td>{formatSignalValue(headline?.consistencyValue ?? null)}</Td>
-                    <Td>
-                      {formatPercentile(
-                        usPublicEquitiesPosition?.percentile ?? null,
-                      )}
-                    </Td>
-                    <Td>{formatPercentile(sectorPosition?.percentile ?? null)}</Td>
-                    <Td>{formatLabel(headline?.dataQualityLevel ?? "-")}</Td>
                   </tr>
                 );
               })
             ) : (
               <tr className="bg-white">
-                <Td colSpan={9}>No signal headlines found.</Td>
+                <Td colSpan={5}>No factor metrics found.</Td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
     </Panel>
+  );
+}
+
+function buildFactorMetricId(metric: TickerOverviewFactorMetric): string {
+  return `${metric.factor}:${metric.axis}:${metric.metricKey}`;
+}
+
+function getMetricIdFromSelectionId(selectionId?: string | null): string | null {
+  if (!selectionId) return null;
+
+  return selectionId.split(":").slice(0, 3).join(":");
+}
+
+function buildFactorMetricFeatureId(input: {
+  metricId: string;
+  featureKey: string;
+}): string {
+  return `${input.metricId}:${input.featureKey}`;
+}
+
+function FeatureValueList({
+  features,
+  missingFeatureMessage,
+  metricId,
+  selectedFeatureId,
+  onSelectMetric,
+}: {
+  features: NonNullable<TickerOverviewFactorMetric["features"]>;
+  missingFeatureMessage?: string | null;
+  metricId: string;
+  selectedFeatureId?: string | null;
+  onSelectMetric?: (metricId: string) => void;
+}) {
+  if (features.length === 0) {
+    return missingFeatureMessage ? (
+      <span className="text-xs font-bold text-[#800000]">
+        {missingFeatureMessage}
+      </span>
+    ) : (
+      <>-</>
+    );
+  }
+
+  return (
+    <div className="grid gap-1">
+      {features.map((feature) => {
+        const featureId = buildFactorMetricFeatureId({
+          metricId,
+          featureKey: feature.featureKey,
+        });
+        const isSelected = featureId === selectedFeatureId;
+
+        return (
+          <button
+            key={feature.featureKey}
+            type="button"
+            className={[
+              "grid grid-cols-[minmax(160px,1fr)_auto] gap-3 border border-transparent px-1 py-0.5 text-left",
+              isSelected ? "border-black bg-[#ffffcc] font-bold" : "bg-white",
+            ].join(" ")}
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelectMetric?.(featureId);
+            }}
+          >
+            <span>{feature.featureLabel}</span>
+            <span className="font-mono">
+              {formatFeatureValue(feature.featureValue)}
+            </span>
+          </button>
+        );
+      })}
+    </div>
   );
 }

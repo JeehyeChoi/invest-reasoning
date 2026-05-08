@@ -1,9 +1,10 @@
-import type { FactorKey, FactorScoreAxisKey } from "@/shared/factors/factors";
+import type { FactorKey, FactorMetricRole } from "@/shared/factors/factors";
+import type { FactorAxisKey } from "@/shared/factors/axes";
 import type { SecMetricKey } from "@/shared/sec/metrics";
-import type { FactorScoringMethod } from "@/shared/factors/methods";
 
 export type TickerOverviewCompany = {
   ticker: string;
+  cik: string | null;
   companyName: string | null;
   description: string | null;
   website: string | null;
@@ -15,7 +16,20 @@ export type TickerOverviewCompany = {
   zip: string | null;
   sector: string | null;
   industry: string | null;
+  exchange: string | null;
+  exchangeFullName: string | null;
+  currency: string | null;
+  isEtf: boolean | null;
+  isFund: boolean | null;
+  isAdr: boolean | null;
+  isActivelyTrading: boolean | null;
+  price: number | null;
   marketCap: number | null;
+  volume: number | null;
+  averageVolume: number | null;
+  fiftyTwoWeekRange: string | null;
+  priceChange: number | null;
+  priceChangePercentage: number | null;
 	fiscalProfile?: {
 		latestFiscalYear: number | null;
 		latestAnnualStart: string | null;
@@ -41,59 +55,84 @@ export type TickerOverviewMetricDisplay = {
   } | null;
 };
 
-export type TickerOverviewSignalPosition = {
-  comparisonSetType: string;
-  comparisonSetKey: string;
+export type TickerOverviewFactorMetricFeature = {
+  featureKey: string;
+  featureLabel: string;
+  featureValue: number | null;
+  periodEnd: string | null;
   effectiveDate: string | null;
-  signalKey: string;
-  signalValue: number | null;
-  percentile: number | null;
-  zScore: number | null;
-  distanceToMedian: number | null;
-  quartile: number | null;
-  decile: number | null;
-  universeCount: number | null;
 };
 
-export type TickerOverviewSignalHeadline = {
-  headlinePeriodEnd: string | null;
-  headlineEffectiveDate: string | null;
-  interpretationLabel: string | null;
-  interpretationSummary: string | null;
-  latestGrowthValue: number | null;
-  latestGrowthMethod: string | null;
-  durableGrowthValue: number | null;
-  durableGrowthMethod: string | null;
-  consistencyValue: number | null;
-  consistencyMethod: string | null;
-  coverageValue: number | null;
-  coverageMethod: string | null;
-  accelerationValue: number | null;
-  accelerationMethod: string | null;
-  trendDeviationValue: number | null;
-  trendDeviationMethod: string | null;
-  primarySignalKey: string | null;
-  primarySignalValue: number | null;
-  primarySignalMethod: string | null;
-  dataQualityLevel: string | null;
+export type TickerOverviewSignalEvidence = {
+  metricKey: string;
+  featureKey: string;
+  featureValue: number;
+  periodEnd: string;
+  effectiveDate: string;
+};
+
+export type TickerOverviewFactorInsight = {
+  modelKey: string | null;
+  modelVersion: string | null;
+  signalMethod: string | null;
+  signalPeriodEnd: string | null;
+  signalEffectiveDate: string | null;
+  signalKey: string | null;
+  signalLabel: string | null;
+  signalValue: number | null;
+  signalConfidence: number | null;
+  primaryMetricKey: string | null;
+  primaryFeatureKey: string | null;
+  primaryFeatureValue: number | null;
+  observedMetricCount: number | null;
+  totalMetricCount: number | null;
+  featureValues: Record<
+    string,
+    { value: number; observedMetricCount: number }
+  >;
+  candidateCount: number;
+  selectedPriority: number | null;
+  candidates: TickerOverviewFactorSignalCandidate[];
+  supportingEvidence: TickerOverviewSignalEvidence[];
+  contradictingEvidence: TickerOverviewSignalEvidence[];
+};
+
+export type TickerOverviewFactorSignalCandidate = {
+  signalKey: string;
+  signalLabel: string;
+  signalDescription: string | null;
+  priority: number | null;
+  selectionRulesSummary: string;
+  selectionRules: unknown;
+};
+
+export type TickerOverviewFactorSignal = TickerOverviewFactorInsight & {
+  factor: FactorKey;
+  axis: FactorAxisKey;
 };
 
 export type TickerOverviewFactorMetric = {
   factor: FactorKey;
-  axis: FactorScoreAxisKey;
+  axis: FactorAxisKey;
   metricKey: SecMetricKey;
-  method: FactorScoringMethod | "signal_headline";
+  metricRole: FactorMetricRole;
   effectiveDate: string | null;
-  score: number | null;
-  metrics: Record<string, unknown> | null;
-  interpretation: string | null;
   display: TickerOverviewMetricDisplay | null;
-  headline?: TickerOverviewSignalHeadline | null;
-  positions?: TickerOverviewSignalPosition[];
+  features?: TickerOverviewFactorMetricFeature[];
+  missingFeatureMessage?: string | null;
+  factorInsight?: TickerOverviewFactorInsight | null;
 };
 
 export type TickerOverview = {
   ticker: string;
   company: TickerOverviewCompany | null;
+  factorSignals: TickerOverviewFactorSignal[];
   factorMetrics: TickerOverviewFactorMetric[];
+};
+
+export type TickerSignalDetail = {
+  ticker: string;
+  factor: FactorKey;
+  axis: FactorAxisKey;
+  signal: TickerOverviewFactorSignal | null;
 };
