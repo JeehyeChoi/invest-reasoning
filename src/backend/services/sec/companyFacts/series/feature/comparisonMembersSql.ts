@@ -1,11 +1,11 @@
 import type { FactorKey } from "@/shared/factors/factors";
 import type { FactorAxisKey } from "@/shared/factors/axes";
-import type { SecMetricKey } from "@/shared/sec/metrics";
+import type { MetricFeatureMetricKey } from "@/backend/services/sec/companyFacts/series/feature/types";
 
 export type BuildComparisonInput = {
   factor?: FactorKey;
   axis?: FactorAxisKey;
-  metricKey?: SecMetricKey;
+  metricKey?: MetricFeatureMetricKey;
   asOfDate?: string;
 };
 

@@ -1,7 +1,6 @@
 import { db } from "@/backend/config/db";
 import type { FactorKey } from "@/shared/factors/factors";
 import type { FactorAxisKey } from "@/shared/factors/axes";
-import type { SecMetricKey } from "@/shared/sec/metrics";
 import { resolveMetricFeatureInterpretation } from "@/backend/services/sec/companyFacts/series/feature/resolveMetricFeatureInterpretation";
 import { loadCompanyMetricSignProfiles } from "@/backend/services/sec/companyFacts/series/fiscal/loadCompanyMetricSignProfiles";
 import { requireDateKey } from "@/backend/services/sec/companyFacts/series/utils/dateKey";
@@ -14,6 +13,7 @@ import type {
   EnrichedMetricSeriesSignalRow,
   MetricFeatureDefinition,
   MetricFeatureInterpretationConfig,
+  MetricFeatureMetricKey,
   MetricFeatureSeriesSource,
   MetricFeatureSourceKey,
   TickerFactorMetricFeatureRow,
@@ -24,7 +24,7 @@ type BuildInput = {
   cik: string;
   factor?: FactorKey;
   axis?: FactorAxisKey;
-  metricKey: SecMetricKey;
+  metricKey: MetricFeatureMetricKey;
 };
 
 type ResolvedSignalSeriesSource = Required<
@@ -36,6 +36,8 @@ type LoadedSignalSeries = {
   rows: EnrichedMetricSeriesSignalRow[];
   denominatorSource?: ResolvedSignalSeriesSource;
   denominatorRows?: EnrichedMetricSeriesSignalRow[];
+  counterpartSource?: ResolvedSignalSeriesSource;
+  counterpartRows?: EnrichedMetricSeriesSignalRow[];
 };
 
 type SignProfileIndex = Map<string, CompanyMetricSignProfile>;
@@ -203,11 +205,83 @@ function calcRatioToDenominator(input: {
   return numerator / Math.abs(denominator);
 }
 
+function calcSpreadToDenominator(input: {
+  row: EnrichedMetricSeriesSignalRow;
+  definition: MetricFeatureDefinition;
+  counterpartRows?: EnrichedMetricSeriesSignalRow[];
+  denominatorRows?: EnrichedMetricSeriesSignalRow[];
+}): number | null {
+  const source = toSignalNumber(
+    getSourceValue(input.row, input.definition.source),
+  );
+  const counterpartRow = findLatestDenominatorRow({
+    rows: input.counterpartRows,
+    currentEnd: input.row.end,
+  });
+  const counterpart = toSignalNumber(
+    getSourceValue(counterpartRow, input.definition.counterpart?.source),
+  );
+  const denominatorRow = findLatestDenominatorRow({
+    rows: input.denominatorRows,
+    currentEnd: input.row.end,
+  });
+  const denominator = toSignalNumber(
+    getSourceValue(denominatorRow, input.definition.denominator?.source),
+  );
+
+  if (
+    source === null ||
+    counterpart === null ||
+    denominator === null ||
+    denominator === 0
+  ) {
+    return null;
+  }
+
+  return (source - counterpart) / Math.abs(denominator);
+}
+
+function calcRatioDeviation(
+  value: number | boolean | null,
+  reference: number | boolean | null,
+): number | null {
+  const numericValue = toSignalNumber(value);
+  const numericReference = toSignalNumber(reference);
+
+  if (
+    numericValue === null ||
+    numericReference === null ||
+    numericReference === 0
+  ) {
+    return null;
+  }
+
+  return numericValue / numericReference - 1;
+}
+
+function calcLagRatioDeviation(input: {
+  rows: EnrichedMetricSeriesSignalRow[];
+  currentIndex: number;
+  definition: MetricFeatureDefinition;
+}): number | null {
+  const lookback = input.definition.lookback ?? 4;
+  const current = input.rows[input.currentIndex];
+  const reference = input.rows[input.currentIndex - lookback];
+
+  if (!current || !reference) return null;
+
+  return calcRatioDeviation(
+    getSourceValue(current, input.definition.source),
+    getSourceValue(reference, input.definition.source),
+  );
+}
+
 function calcSignalValue(input: {
   rows: EnrichedMetricSeriesSignalRow[];
   currentIndex: number;
   definition: MetricFeatureDefinition;
   denominatorRows?: EnrichedMetricSeriesSignalRow[];
+  counterpartRows?: EnrichedMetricSeriesSignalRow[];
 }): number | null {
   const current = input.rows[input.currentIndex];
   const method = input.definition.method ?? "direct";
@@ -253,6 +327,26 @@ function calcSignalValue(input: {
       definition: input.definition,
       denominatorRows: input.denominatorRows,
     });
+  }
+
+  if (method === "spread_to_denominator") {
+    return calcSpreadToDenominator({
+      row: current,
+      definition: input.definition,
+      counterpartRows: input.counterpartRows,
+      denominatorRows: input.denominatorRows,
+    });
+  }
+
+  if (method === "ratio_deviation") {
+    return calcRatioDeviation(
+      getSourceValue(current, input.definition.source),
+      getSourceValue(current, input.definition.reference),
+    );
+  }
+
+  if (method === "lag_ratio_deviation") {
+    return calcLagRatioDeviation(input);
   }
 
   if (method === "relative_deviation") {
@@ -398,6 +492,7 @@ function buildSignalRows(input: {
         currentIndex: index,
         definition,
         denominatorRows: loadedSeries.denominatorRows,
+        counterpartRows: loadedSeries.counterpartRows,
       });
       const featureValue = normalizeBySignProfile({
         value: rawFeatureValue,
@@ -417,7 +512,7 @@ function buildSignalRows(input: {
         feature_key: featureKey,
         feature_value: featureValue,
         period_end: requireDateKey(row.end),
-        effective_date: requireDateKey(row.end),
+        effective_date: requireDateKey(row.effective_date ?? row.end),
         source_table: loadedSeries.source.table,
         source_version: loadedSeries.source.version,
       });
@@ -462,6 +557,21 @@ function resolveDenominatorSeriesSource(input: {
   };
 }
 
+function resolveCounterpartSeriesSource(input: {
+  config: MetricFeatureInterpretationConfig;
+  definition: MetricFeatureDefinition;
+}): ResolvedSignalSeriesSource | null {
+  const counterpart = input.definition.counterpart;
+  if (!counterpart) return null;
+
+  return {
+    table: counterpart.table,
+    version: counterpart.version,
+    metricKey: counterpart.metricKey ?? input.config.metricKey,
+    periodType: counterpart.periodType,
+  };
+}
+
 async function loadSignalSeriesBySignalKey(input: {
   cik: string;
   config: MetricFeatureInterpretationConfig;
@@ -485,8 +595,7 @@ async function loadSignalSeriesBySignalKey(input: {
     if (!rows) {
       rows = await loadEnrichedRows({
         cik: input.cik,
-        metricKey: source.metricKey,
-        periodType: source.periodType,
+        source,
       });
       rowsBySource.set(sourceKey, rows);
     }
@@ -495,7 +604,12 @@ async function loadSignalSeriesBySignalKey(input: {
       config: input.config,
       definition,
     });
+    const counterpartSource = resolveCounterpartSeriesSource({
+      config: input.config,
+      definition,
+    });
     let denominatorRows: EnrichedMetricSeriesSignalRow[] | undefined;
+    let counterpartRows: EnrichedMetricSeriesSignalRow[] | undefined;
 
     if (denominatorSource) {
       const denominatorSourceKey = [
@@ -509,10 +623,27 @@ async function loadSignalSeriesBySignalKey(input: {
       if (!denominatorRows) {
         denominatorRows = await loadEnrichedRows({
           cik: input.cik,
-          metricKey: denominatorSource.metricKey,
-          periodType: denominatorSource.periodType,
+          source: denominatorSource,
         });
         rowsBySource.set(denominatorSourceKey, denominatorRows);
+      }
+    }
+
+    if (counterpartSource) {
+      const counterpartSourceKey = [
+        counterpartSource.table,
+        counterpartSource.version,
+        counterpartSource.metricKey,
+        counterpartSource.periodType,
+      ].join(":");
+      counterpartRows = rowsBySource.get(counterpartSourceKey);
+
+      if (!counterpartRows) {
+        counterpartRows = await loadEnrichedRows({
+          cik: input.cik,
+          source: counterpartSource,
+        });
+        rowsBySource.set(counterpartSourceKey, counterpartRows);
       }
     }
 
@@ -521,6 +652,8 @@ async function loadSignalSeriesBySignalKey(input: {
       rows,
       denominatorSource: denominatorSource ?? undefined,
       denominatorRows,
+      counterpartSource: counterpartSource ?? undefined,
+      counterpartRows,
     });
   }
 
@@ -529,8 +662,18 @@ async function loadSignalSeriesBySignalKey(input: {
 
 async function loadEnrichedRows(input: {
   cik: string;
-  metricKey: SecMetricKey;
-  periodType: string;
+  source: ResolvedSignalSeriesSource;
+}): Promise<EnrichedMetricSeriesSignalRow[]> {
+  if (input.source.table === "ticker_valuation_metric_series_enriched") {
+    return loadValuationEnrichedRows(input);
+  }
+
+  return loadSecCompanyfactEnrichedRows(input);
+}
+
+async function loadSecCompanyfactEnrichedRows(input: {
+  cik: string;
+  source: ResolvedSignalSeriesSource;
 }): Promise<EnrichedMetricSeriesSignalRow[]> {
   const result = await db.query<EnrichedMetricSeriesSignalRow>(
     `
@@ -567,10 +710,78 @@ async function loadEnrichedRows(input: {
       AND period_type = $3
     ORDER BY "end" ASC
     `,
-    [input.cik, input.metricKey, input.periodType],
+    [input.cik, input.source.metricKey, input.source.periodType],
   );
 
   return result.rows;
+}
+
+async function loadValuationEnrichedRows(input: {
+  cik: string;
+  source: ResolvedSignalSeriesSource;
+}): Promise<EnrichedMetricSeriesSignalRow[]> {
+  const result = await db.query<{
+    ticker: string;
+    cik: string;
+    metric_key: string;
+    metric_value: number | string | null;
+    period_end: Date | string;
+    effective_date: Date | string;
+  }>(
+    `
+    SELECT
+      ticker,
+      cik,
+      metric_key,
+      metric_value,
+      period_end,
+      effective_date
+    FROM public.ticker_valuation_metric_series_enriched
+    WHERE cik = $1
+      AND metric_key = $2
+      AND source_version = $3
+    ORDER BY effective_date ASC, period_end ASC
+    `,
+    [input.cik, input.source.metricKey, input.source.version],
+  );
+
+  return result.rows.flatMap((row) => {
+    const metricValue = Number(row.metric_value);
+    if (!Number.isFinite(metricValue)) return [];
+
+    return [
+      {
+        ticker: row.ticker,
+        cik: row.cik,
+        metric_key: row.metric_key,
+        source_tag: null,
+        unit: "ratio",
+        metric_value: metricValue,
+        val: metricValue,
+        end: row.period_end,
+        effective_date: row.effective_date,
+        period_type: input.source.periodType,
+        yoy: null,
+        qoq: null,
+        yoy_delta: null,
+        ttm_val: null,
+        ttm_yoy: null,
+        ttm_delta: null,
+        rolling4_avg: null,
+        duration_adjusted_val: null,
+        duration_adjusted_yoy: null,
+        duration_adjusted_qoq: null,
+        duration_adjusted_yoy_delta: null,
+        duration_adjusted_ttm_val: null,
+        duration_adjusted_ttm_yoy: null,
+        duration_adjusted_ttm_delta: null,
+        duration_adjusted_rolling4_avg: null,
+        is_turnaround: null,
+        is_deterioration: null,
+        is_loss_narrowing: null,
+      },
+    ];
+  });
 }
 
 async function upsertSignalRows(
@@ -640,12 +851,31 @@ async function upsertSignalRows(
   );
 }
 
+export async function deleteTickerFactorMetricFeaturesForCikScope(input: {
+  ticker: string;
+  cik: string;
+  factor: FactorKey;
+  axis: FactorAxisKey;
+  client?: Pick<PoolClient, "query">;
+}): Promise<void> {
+  await (input.client ?? db).query(
+    `
+    DELETE FROM public.ticker_factor_metric_features
+    WHERE ticker = $1
+      AND cik = $2
+      AND factor = $3
+      AND axis = $4
+    `,
+    [input.ticker, input.cik, input.factor, input.axis],
+  );
+}
+
 async function replaceSignalRowsForCik(input: {
   ticker: string;
   cik: string;
   factor: FactorKey;
   axis: FactorAxisKey;
-  metricKey: SecMetricKey;
+  metricKey: MetricFeatureMetricKey;
   rows: TickerFactorMetricFeatureRow[];
 }): Promise<void> {
   const client = await db.connect();

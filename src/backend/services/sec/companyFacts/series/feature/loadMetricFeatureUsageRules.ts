@@ -3,10 +3,10 @@ import { promises as fs } from "node:fs";
 
 import type { FactorAxisKey } from "@/shared/factors/axes";
 import type { FactorKey } from "@/shared/factors/factors";
-import type { SecMetricKey } from "@/shared/sec/metrics";
 import type {
   MetricFeatureDefinition,
   MetricFeatureInterpretationConfig,
+  MetricFeatureMetricKey,
 } from "@/backend/services/sec/companyFacts/series/feature/types";
 
 export type MetricFeatureUsageKind =
@@ -17,14 +17,14 @@ export type MetricFeatureUsageKind =
 export type MetricFeatureUsageRule = {
   factor: FactorKey;
   axis: FactorAxisKey;
-  metric_key: SecMetricKey;
+  metric_key: MetricFeatureMetricKey;
   feature_key: string;
 };
 
 type LoadInput = {
   factor: FactorKey;
   axis: FactorAxisKey;
-  metricKey?: SecMetricKey;
+  metricKey?: MetricFeatureMetricKey;
   usage: MetricFeatureUsageKind;
 };
 
@@ -78,7 +78,7 @@ export async function loadMetricFeatureUsageRules(
     ? [input.metricKey]
     : (await fs.readdir(axisPath, { withFileTypes: true }))
         .filter((entry) => entry.isDirectory())
-        .map((entry) => entry.name as SecMetricKey);
+        .map((entry) => entry.name as MetricFeatureMetricKey);
 
   const rules: MetricFeatureUsageRule[] = [];
 

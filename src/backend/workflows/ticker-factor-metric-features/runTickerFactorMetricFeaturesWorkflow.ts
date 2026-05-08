@@ -1,6 +1,8 @@
 import { FACTOR_BLUEPRINTS } from "@/backend/config/factors/blueprints";
 import type { FactorKey } from "@/shared/factors/factors";
 import type { FactorAxisKey } from "@/shared/factors/axes";
+import { isSecMetricKey } from "@/shared/sec/metrics";
+import { isMarketPriceMetricKey } from "@/shared/market/priceMetrics";
 import { runTickerFactorMetricFeatures } from "@/backend/services/sec/companyFacts/series/feature/runTickerFactorMetricFeatures";
 import type { FeatureRunTarget } from "@/backend/services/sec/companyFacts/series/feature/runTickerFactorMetricFeatures";
 import type { DataPipelineRefreshJobKey } from "@/shared/data-pipeline/jobs";
@@ -31,6 +33,14 @@ function buildFeatureTargetsFromBlueprints(): FeatureRunTarget[] {
 
     for (const [axis, axisBlueprint] of Object.entries(factorBlueprint)) {
       for (const metricKey of axisBlueprint.metricKeys) {
+        const isSupportedMetricTarget =
+          isSecMetricKey(metricKey) ||
+          (axis === "valuation" && isMarketPriceMetricKey(metricKey));
+
+        if (!isSupportedMetricTarget) {
+          continue;
+        }
+
         targets.push({
           factor: factor as FactorKey,
           axis: axis as FactorAxisKey,
@@ -52,7 +62,6 @@ export async function runTickerFactorMetricFeaturesWorkflow(
       cik: input.tickerCikMap?.[ticker] ?? null,
     })),
     targets: buildFeatureTargetsFromBlueprints(),
-    rebuildComparisons: true,
     onProgress: (progress) =>
       input.onProgress?.({
         job: "factor_metric_features",

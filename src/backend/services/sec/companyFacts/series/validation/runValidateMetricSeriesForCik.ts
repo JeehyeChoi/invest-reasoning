@@ -5,7 +5,7 @@ import { db } from "@/backend/config/db";
 import { FACTOR_BLUEPRINTS } from "@/backend/config/factors/blueprints";
 import type { FactorKey } from "@/shared/factors/factors";
 import type { FactorAxisKey } from "@/shared/factors/axes";
-import type { SecMetricKey } from "@/shared/sec/metrics";
+import { isSecMetricKey, type SecMetricKey } from "@/shared/sec/metrics";
 import { shouldValidateSecMetricKey } from "@/backend/config/sec/metrics";
 import type { SeriesValidationRow } from "@/backend/services/sec/companyFacts/series/validation/types";
 import { validateMetricSeries } from "@/backend/services/sec/companyFacts/series/validation/validateMetricSeries";
@@ -67,7 +67,9 @@ async function loadActiveMetricKeys(): Promise<Set<string>> {
       const axisBlueprint = factorBlueprint[axis];
       if (!axisBlueprint) continue;
 
-      for (const metricKey of axisBlueprint.metricKeys as SecMetricKey[]) {
+      for (const metricKey of axisBlueprint.metricKeys) {
+        if (!isSecMetricKey(metricKey)) continue;
+
         if (shouldValidateSecMetricKey(metricKey)) {
           activeMetricKeys.add(metricKey);
         }

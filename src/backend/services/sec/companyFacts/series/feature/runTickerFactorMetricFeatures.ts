@@ -1,10 +1,10 @@
 import type { FactorKey } from "@/shared/factors/factors";
 import type { FactorAxisKey } from "@/shared/factors/axes";
-import type { SecMetricKey } from "@/shared/sec/metrics";
-import { buildTickerFactorMetricFeaturesForCik } from "@/backend/services/sec/companyFacts/series/feature/buildTickerFactorMetricFeaturesForCik";
-import { buildTickerFactorMetricFeatureBaselines } from "@/backend/services/sec/companyFacts/series/feature/buildTickerFactorMetricFeatureBaselines";
-import { buildTickerFactorMetricFeaturePositions } from "@/backend/services/sec/companyFacts/series/feature/buildTickerFactorMetricFeaturePositions";
-import { buildTickerFactorMetricMacroContrasts } from "@/backend/services/sec/companyFacts/series/feature/buildTickerFactorMetricMacroContrasts";
+import type { MetricFeatureMetricKey } from "@/backend/services/sec/companyFacts/series/feature/types";
+import {
+  buildTickerFactorMetricFeaturesForCik,
+  deleteTickerFactorMetricFeaturesForCikScope,
+} from "@/backend/services/sec/companyFacts/series/feature/buildTickerFactorMetricFeaturesForCik";
 
 type FeatureRunCompany = {
   ticker: string;
@@ -14,13 +14,13 @@ type FeatureRunCompany = {
 export type FeatureRunTarget = {
   factor: FactorKey;
   axis: FactorAxisKey;
-  metricKey: SecMetricKey;
+  metricKey: MetricFeatureMetricKey;
 };
 
 type FeatureRunInput = {
   companies: FeatureRunCompany[];
   targets: FeatureRunTarget[];
-  rebuildComparisons?: boolean;
+  maxCompanyConcurrency?: number;
   onProgress?: (progress: FeatureRunProgress) => void;
 };
 
@@ -47,6 +47,25 @@ function isMissingInterpretationError(error: unknown): boolean {
   );
 }
 
+function uniqueFactorAxisScopes(targets: FeatureRunTarget[]) {
+  return Array.from(
+    new Map(
+      targets.map((target) => [
+        `${target.factor}:${target.axis}`,
+        {
+          factor: target.factor,
+          axis: target.axis,
+        },
+      ]),
+    ).values(),
+  );
+}
+
+function normalizeMaxCompanyConcurrency(value: number | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 1;
+  return Math.max(1, Math.floor(value));
+}
+
 export async function runTickerFactorMetricFeatures(
   input: FeatureRunInput,
 ): Promise<FeatureRunResult> {
@@ -56,10 +75,13 @@ export async function runTickerFactorMetricFeatures(
   let succeeded = 0;
   let featureCount = 0;
   const totalCompanies = input.companies.length;
-  const totalTargets = input.companies.length * input.targets.length;
   let processedCompanies = 0;
+  let nextCompanyIndex = 0;
+  const maxCompanyConcurrency = normalizeMaxCompanyConcurrency(
+    input.maxCompanyConcurrency,
+  );
 
-  for (const company of input.companies) {
+  async function processCompany(company: FeatureRunCompany): Promise<void> {
     const companyStartTime = Date.now();
     let companyFeatureCount = 0;
     let companySucceeded = 0;
@@ -68,12 +90,21 @@ export async function runTickerFactorMetricFeatures(
       warnings.push(`[features] missing cik ticker=${company.ticker}`);
       processedCompanies += 1;
       input.onProgress?.({
-        message: `Factor metric features skipped ${company.ticker}: missing CIK.`,
+        message: `[${processedCompanies}/${totalCompanies}] skipped ${company.ticker}: missing CIK.`,
         current: processedCompanies,
         total: totalCompanies,
         label: company.ticker,
       });
-      continue;
+      return;
+    }
+
+    for (const scope of uniqueFactorAxisScopes(input.targets)) {
+      await deleteTickerFactorMetricFeaturesForCikScope({
+        ticker: company.ticker,
+        cik: company.cik,
+        factor: scope.factor,
+        axis: scope.axis,
+      });
     }
 
     for (const target of input.targets) {
@@ -109,54 +140,30 @@ export async function runTickerFactorMetricFeatures(
 
     processedCompanies += 1;
     input.onProgress?.({
-      message: `Factor metric features completed ${company.ticker} in ${Date.now() - companyStartTime}ms. targets=${companySucceeded}/${input.targets.length}, features=${companyFeatureCount}.`,
+      message: `[${processedCompanies}/${totalCompanies}] completed ${company.ticker} in ${Date.now() - companyStartTime}ms. targets=${companySucceeded}/${input.targets.length}, features=${companyFeatureCount}.`,
       current: processedCompanies,
       total: totalCompanies,
       label: company.ticker,
     });
   }
 
-  for (const key of missingInterpretationKeys) {
-    warnings.push(`[features] missing interpretation ${key}`);
+  async function runWorker(): Promise<void> {
+    while (nextCompanyIndex < input.companies.length) {
+      const company = input.companies[nextCompanyIndex];
+      nextCompanyIndex += 1;
+      await processCompany(company);
+    }
   }
 
-  if (input.rebuildComparisons ?? true) {
-    const comparisonKeys = new Set(
-      input.targets.map((target) => `${target.factor}:${target.axis}`),
-    );
+  await Promise.all(
+    Array.from(
+      { length: Math.min(maxCompanyConcurrency, input.companies.length) },
+      () => runWorker(),
+    ),
+  );
 
-    for (const key of comparisonKeys) {
-      const [factor, axis] = key.split(":") as [FactorKey, FactorAxisKey];
-
-      input.onProgress?.({
-        message: `Feature comparison outputs started for ${factor}/${axis}.`,
-        current: processed,
-        total: totalTargets,
-        label: `${factor}/${axis}`,
-      });
-
-      await buildTickerFactorMetricFeatureBaselines({
-        factor,
-        axis,
-      });
-
-      await buildTickerFactorMetricFeaturePositions({
-        factor,
-        axis,
-      });
-
-      await buildTickerFactorMetricMacroContrasts({
-        factor,
-        axis,
-      });
-
-      input.onProgress?.({
-        message: `Feature comparison outputs completed for ${factor}/${axis}.`,
-        current: processed,
-        total: totalTargets,
-        label: `${factor}/${axis}`,
-      });
-    }
+  for (const key of missingInterpretationKeys) {
+    warnings.push(`[features] missing interpretation ${key}`);
   }
 
   return {

@@ -3,14 +3,25 @@ import { promises as fs } from "node:fs";
 
 import type { FactorKey } from "@/shared/factors/factors";
 import type { FactorAxisKey } from "@/shared/factors/axes";
-import type { SecMetricKey } from "@/shared/sec/metrics";
-import type { MetricFeatureInterpretationConfig } from "@/backend/services/sec/companyFacts/series/feature/types";
+import type {
+  MetricFeatureInterpretationConfig,
+  MetricFeatureMetricKey,
+} from "@/backend/services/sec/companyFacts/series/feature/types";
 
 type ResolveInput = {
   factor: FactorKey;
   axis: FactorAxisKey;
-  metricKey: SecMetricKey;
+  metricKey: MetricFeatureMetricKey;
 };
+
+const interpretationConfigCache = new Map<
+  string,
+  Promise<MetricFeatureInterpretationConfig>
+>();
+
+function buildInterpretationCacheKey(input: ResolveInput): string {
+  return `${input.factor}:${input.axis}:${input.metricKey}`;
+}
 
 function buildInterpretationPath(input: ResolveInput): string {
   return path.join(
@@ -27,6 +38,19 @@ function buildInterpretationPath(input: ResolveInput): string {
 }
 
 export async function resolveMetricFeatureInterpretation(
+  input: ResolveInput,
+): Promise<MetricFeatureInterpretationConfig> {
+  const cacheKey = buildInterpretationCacheKey(input);
+  const cached = interpretationConfigCache.get(cacheKey);
+  if (cached) return cached;
+
+  const configPromise = readMetricFeatureInterpretation(input);
+  interpretationConfigCache.set(cacheKey, configPromise);
+
+  return configPromise;
+}
+
+async function readMetricFeatureInterpretation(
   input: ResolveInput,
 ): Promise<MetricFeatureInterpretationConfig> {
   const filePath = buildInterpretationPath(input);

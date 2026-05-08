@@ -1,6 +1,9 @@
 import type { FactorKey } from "@/shared/factors/factors";
 import type { FactorAxisKey } from "@/shared/factors/axes";
 import type { SecMetricKey } from "@/shared/sec/metrics";
+import type { MarketPriceMetricKey } from "@/shared/market/priceMetrics";
+
+export type MetricFeatureMetricKey = SecMetricKey | MarketPriceMetricKey;
 
 export type MetricFeatureMethod =
   | "direct"
@@ -9,6 +12,9 @@ export type MetricFeatureMethod =
   | "negative_ratio"
   | "valid_ratio"
   | "ratio_to_denominator"
+  | "spread_to_denominator"
+  | "ratio_deviation"
+  | "lag_ratio_deviation"
   | "relative_deviation"
   | "negative_relative_deviation"
   | "turnaround_momentum";
@@ -26,9 +32,10 @@ export type MetricFeatureSignProfilePolicy = {
   minConfidence?: number;
 };
 
-export type MetricFeatureSeriesPeriodType = "quarter" | "instant";
+export type MetricFeatureSeriesPeriodType = "quarter" | "instant" | "snapshot";
 
 export type MetricFeatureSourceKey =
+  | "metric_value"
   | "val"
   | "yoy"
   | "qoq"
@@ -61,6 +68,9 @@ export type MetricFeatureDefinition = {
   denominator?: MetricFeatureSeriesSource & {
     source: MetricFeatureSourceKey;
   };
+  counterpart?: MetricFeatureSeriesSource & {
+    source: MetricFeatureSourceKey;
+  };
   lookback?: number;
   method?: MetricFeatureMethod;
   signProfilePolicy?: MetricFeatureSignProfilePolicy;
@@ -71,9 +81,11 @@ export type MetricFeatureDefinition = {
 };
 
 export type MetricFeatureSeriesSource = {
-  table: "sec_companyfact_metric_series_enriched";
+  table:
+    | "sec_companyfact_metric_series_enriched"
+    | "ticker_valuation_metric_series_enriched";
   version: string;
-  metricKey?: SecMetricKey;
+  metricKey?: MetricFeatureMetricKey | string;
   periodType: MetricFeatureSeriesPeriodType;
 };
 
@@ -81,18 +93,20 @@ export type MetricFeatureInterpretationConfig = {
   version: string;
   factor: FactorKey;
   axis: FactorAxisKey;
-  metricKey: SecMetricKey;
+  metricKey: MetricFeatureMetricKey;
   features: Record<string, MetricFeatureDefinition>;
 };
 
 export type EnrichedMetricSeriesSignalRow = {
   ticker: string | null;
   cik: string;
-  metric_key: SecMetricKey;
+  metric_key: MetricFeatureMetricKey | string;
   source_tag: string | null;
   unit: string;
+  metric_value?: number | null;
   val: number | null;
   end: Date | string;
+  effective_date?: Date | string | null;
   period_type: string;
   yoy: number | null;
   qoq: number | null;
@@ -119,7 +133,7 @@ export type TickerFactorMetricFeatureRow = {
   cik: string | null;
   factor: FactorKey;
   axis: FactorAxisKey;
-  metric_key: SecMetricKey;
+  metric_key: MetricFeatureMetricKey;
   feature_key: string;
   feature_value: number | null;
   period_end: string;
