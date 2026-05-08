@@ -10,7 +10,7 @@ export async function runMacroFredSeriesSyncWorkflow(
   input: RunMacroFredSeriesSyncWorkflowInput = {},
 ) {
   const seriesResults = await syncFredMacroSeriesObservations({
-    observationStart: input.observationStart ?? "2000-01-01",
+    observationStart: input.observationStart,
     observationEnd: input.observationEnd,
     requestDelayMs: input.requestDelayMs ?? 600,
   });

@@ -1,7 +1,6 @@
 import { db } from "@/backend/config/db";
 import {
-  DEFAULT_UNIVERSE_KEYS,
-  isUniverseKey,
+  normalizeUniverseKeys,
   type UniverseKey,
 } from "@/shared/universe/universes";
 
@@ -26,17 +25,4 @@ export async function loadUniverseTickers(
   );
 
   return result.rows.map((row) => row.ticker);
-}
-
-function normalizeUniverseKeys(value: UniverseKey[] | undefined): UniverseKey[] {
-  const source = value?.length ? value : DEFAULT_UNIVERSE_KEYS;
-  const unique = new Set<UniverseKey>();
-
-  for (const key of source) {
-    if (isUniverseKey(key)) {
-      unique.add(key);
-    }
-  }
-
-  return unique.size ? [...unique] : DEFAULT_UNIVERSE_KEYS;
 }

@@ -9,6 +9,7 @@ import type { UniverseKey } from "@/shared/universe/universes";
 
 export type RunTickerCoreSyncWorkflowInput = {
   universeKeys: UniverseKey[];
+  tickers?: string[];
   maxRequests?: number;
   staleAfterDays?: number;
   onProgress?: (progress: {
@@ -63,15 +64,22 @@ export async function runTickerCoreSyncWorkflow(
     input.staleAfterDays,
     DEFAULT_TICKER_CORE_STALE_AFTER_DAYS,
   );
+  const explicitTickers = normalizeTickerList(input.tickers);
 
-  const candidates = await findTickerCoreSyncCandidates({
-    universeKeys: input.universeKeys,
-    staleAfterDays,
-    limit: maxRequests,
-  });
+  const candidates =
+    explicitTickers.length > 0
+      ? explicitTickers.slice(0, maxRequests)
+      : await findTickerCoreSyncCandidates({
+          universeKeys: input.universeKeys,
+          staleAfterDays,
+          limit: maxRequests,
+        });
 
   input.onProgress?.({
-    message: `FMP ticker core sync candidates resolved. staleAfterDays=${staleAfterDays}, candidates=${candidates.length}, requestCap=${maxRequests}.`,
+    message:
+      explicitTickers.length > 0
+        ? `FMP ticker core sync explicit tickers resolved. tickers=${candidates.length}, requestCap=${maxRequests}.`
+        : `FMP ticker core sync candidates resolved. staleAfterDays=${staleAfterDays}, candidates=${candidates.length}, requestCap=${maxRequests}.`,
     current: 0,
     total: candidates.length,
   });
@@ -140,6 +148,22 @@ function normalizePositiveInt(value: number | undefined, fallback: number): numb
     return fallback;
   }
   return value;
+}
+
+function normalizeTickerList(tickers: string[] | undefined): string[] {
+  const seen = new Set<string>();
+  const output: string[] = [];
+
+  for (const value of tickers ?? []) {
+    const ticker = value.trim().toUpperCase();
+
+    if (!ticker || seen.has(ticker)) continue;
+
+    seen.add(ticker);
+    output.push(ticker);
+  }
+
+  return output;
 }
 
 function isRateLimitError(error: unknown): boolean {
