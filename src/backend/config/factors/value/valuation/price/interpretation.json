@@ -1,0 +1,68 @@
+{
+  "version": "interpretation_v1",
+  "factor": "value",
+  "axis": "valuation",
+  "metricKey": "price",
+  "meta": {
+    "description": "Value valuation interpretation using daily price and SEC balance-sheet or earnings metrics.",
+    "createdAt": "2026-05"
+  },
+  "features": {
+    "priceToBook": {
+      "source": "metric_value",
+      "method": "direct",
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "ticker_valuation_metric_series_enriched",
+        "version": "valuation_metric_series_enriched_v0",
+        "metricKey": "priceToBook",
+        "periodType": "snapshot"
+      }
+    },
+    "priceToSales": {
+      "source": "metric_value",
+      "method": "direct",
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "ticker_valuation_metric_series_enriched",
+        "version": "valuation_metric_series_enriched_v0",
+        "metricKey": "priceToSales",
+        "periodType": "snapshot"
+      }
+    },
+    "priceToEarnings": {
+      "source": "metric_value",
+      "method": "direct",
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "ticker_valuation_metric_series_enriched",
+        "version": "valuation_metric_series_enriched_v0",
+        "metricKey": "priceToEarnings",
+        "periodType": "snapshot"
+      }
+    },
+    "priceToOperatingCashFlow": {
+      "source": "metric_value",
+      "method": "direct",
+      "valueType": "ratio",
+      "comparison": true,
+      "macroContrast": false,
+      "clustering": true,
+      "series": {
+        "table": "ticker_valuation_metric_series_enriched",
+        "version": "valuation_metric_series_enriched_v0",
+        "metricKey": "priceToOperatingCashFlow",
+        "periodType": "snapshot"
+      }
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "headlineTitle": "Size Valuation",
+  "chart": {
+    "type": "timeseries"
+  },
+  "featureOrder": [
+    "marketCapitalization",
+    "logMarketCapitalization"
+  ],
+  "featureLabels": {
+    "marketCapitalization": "Market Capitalization",
+    "logMarketCapitalization": "Log Market Capitalization"
+  }
+}

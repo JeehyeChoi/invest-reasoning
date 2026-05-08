@@ -1,0 +1,18 @@
+{
+  "headlineTitle": "Value Valuation",
+  "chart": {
+    "type": "timeseries"
+  },
+  "featureOrder": [
+    "priceToBook",
+    "priceToSales",
+    "priceToEarnings",
+    "priceToOperatingCashFlow"
+  ],
+  "featureLabels": {
+    "priceToBook": "Price to Book",
+    "priceToSales": "Price to Sales",
+    "priceToEarnings": "Price to Earnings",
+    "priceToOperatingCashFlow": "Price to Operating Cash Flow"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "headlineTitle": "Growth Valuation",
+  "chart": {
+    "type": "timeseries"
+  },
+  "featureOrder": [
+    "priceToDilutedTtmEps",
+    "priceToBasicTtmEps",
+    "dilutedTtmEpsGrowth",
+    "basicTtmEpsGrowth"
+  ],
+  "baselineLabels": {
+    "sectorPercentile": "Sector Percentile",
+    "sp500Percentile": "S&P 500 Percentile",
+    "excessVsUsNominalGdp": "Excess vs US Nominal GDP"
+  },
+  "featureLabels": {
+    "priceToDilutedTtmEps": "Price to Diluted TTM EPS",
+    "priceToBasicTtmEps": "Price to Basic TTM EPS",
+    "dilutedTtmEpsGrowth": "Diluted TTM EPS Growth",
+    "basicTtmEpsGrowth": "Basic TTM EPS Growth"
+  }
+}
