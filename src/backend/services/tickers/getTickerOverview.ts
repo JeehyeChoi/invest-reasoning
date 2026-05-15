@@ -5,8 +5,8 @@ import {
 } from "@/backend/config/factors/blueprints";
 
 import type { TickerOverview } from "@/shared/tickers/tickerOverview";
-import { isSecMetricKey } from "@/shared/sec/metrics";
 import { resolveFactorDisplay } from "@/backend/config/factors/active";
+import { isUniverseKey } from "@/shared/universe/universes";
 
 type TickerProfileRow = {
   ticker: string;
@@ -65,10 +65,6 @@ type FactorMetricRow = {
   contradicting_evidence: unknown;
 };
 
-type MetricSeriesAvailabilityRow = {
-  metric_key: string;
-};
-
 type FactorMetricFeatureRow = {
   factor: string;
   axis: string;
@@ -77,6 +73,10 @@ type FactorMetricFeatureRow = {
   feature_value: number | string | null;
   period_end: Date | string | null;
   effective_date: Date | string | null;
+};
+
+type UniverseMembershipRow = {
+  universe_key: string;
 };
 
 type FactorSignalDefinitionRow = {
@@ -259,25 +259,6 @@ export async function getTickerOverview(
     ORDER BY factor, axis, metric_key, feature_key
   `;
 
-  const metricSeriesAvailabilityQuery = `
-    WITH request_identity AS (
-      SELECT cik
-      FROM public.ticker_identities
-      WHERE ticker = $1
-      LIMIT 1
-    )
-    SELECT DISTINCT metric_key
-    FROM public.sec_companyfact_metric_series
-    WHERE (
-        cik = (SELECT cik FROM request_identity)
-        OR (
-          (SELECT cik FROM request_identity) IS NULL
-          AND ticker = $1
-        )
-      )
-      AND period_type IN ('quarter', 'instant')
-  `;
-
   const factorSignalDefinitionsQuery = `
     SELECT
       factor,
@@ -287,6 +268,14 @@ export async function getTickerOverview(
     FROM public.ticker_factor_signal_definitions
     WHERE is_active = true
     ORDER BY factor, axis, priority, signal_key
+  `;
+
+  const universeMembershipsQuery = `
+    SELECT universe_key
+    FROM public.universe_memberships
+    WHERE ticker = $1
+      AND is_active = true
+    ORDER BY universe_key
   `;
 
   const factorSignalsQuery = `
@@ -356,7 +345,7 @@ export async function getTickerOverview(
     profileResult,
     factorMetricsResult,
     featuresResult,
-    metricSeriesAvailabilityResult,
+    universeMembershipsResult,
     factorSignalDefinitionsResult,
     factorSignalsResult,
   ] =
@@ -364,10 +353,7 @@ export async function getTickerOverview(
     db.query<TickerProfileRow>(profileQuery, [normalizedTicker]),
     db.query<FactorMetricRow>(factorMetricsQuery, [normalizedTicker]),
     db.query<FactorMetricFeatureRow>(featuresQuery, [normalizedTicker]),
-    db.query<MetricSeriesAvailabilityRow>(
-      metricSeriesAvailabilityQuery,
-      [normalizedTicker],
-    ),
+    db.query<UniverseMembershipRow>(universeMembershipsQuery, [normalizedTicker]),
     db.query<FactorSignalDefinitionSummaryRow>(factorSignalDefinitionsQuery),
     db.query<FactorSignalRow>(factorSignalsQuery, [normalizedTicker]),
   ]);
@@ -378,14 +364,18 @@ export async function getTickerOverview(
     return null;
   }
 
-  const availableMetricKeys = new Set(
-    metricSeriesAvailabilityResult.rows
-      .map((row) => row.metric_key)
-      .filter(isSecMetricKey),
+  const availableFeatureMetricKeys = new Set(
+    featuresResult.rows.map((row) =>
+      buildMetricMapKey({
+        factor: row.factor,
+        axis: row.axis,
+        metricKey: row.metric_key,
+      }),
+    ),
   );
   const activeFactorMetrics = buildBlueprintBackedFactorMetricRows({
     factorSignalRows: factorMetricsResult.rows,
-    availableMetricKeys,
+    availableFeatureMetricKeys,
   }).filter((row) => {
     const factorBlueprint = FACTOR_BLUEPRINTS[row.factor as keyof typeof FACTOR_BLUEPRINTS];
     const axisBlueprint =
@@ -438,6 +428,9 @@ export async function getTickerOverview(
 			fiftyTwoWeekRange: profile.fifty_two_week_range ?? null,
 			priceChange: toNullableNumber(profile.price_change),
 			priceChangePercentage: toNullableNumber(profile.price_change_percentage),
+			universeMemberships: universeMembershipsResult.rows
+				.map((row) => row.universe_key)
+				.filter(isUniverseKey),
 			fiscalProfile: {
 				latestFiscalYear: toNullableNumber(profile.latest_fiscal_year),
 				latestAnnualStart: profile.latest_annual_start
@@ -544,7 +537,7 @@ function buildMissingFeatureMessage(input: {
 
 function buildBlueprintBackedFactorMetricRows(input: {
   factorSignalRows: FactorMetricRow[];
-  availableMetricKeys: Set<string>;
+  availableFeatureMetricKeys: Set<string>;
 }): FactorMetricRow[] {
   const rowsByKey = new Map<string, FactorMetricRow>();
   const orderedRows: FactorMetricRow[] = [];
@@ -572,7 +565,9 @@ function buildBlueprintBackedFactorMetricRows(input: {
           continue;
         }
 
-        if (!input.availableMetricKeys.has(metricKey)) continue;
+        const hasFeatureRows = input.availableFeatureMetricKeys.has(key);
+
+        if (!hasFeatureRows) continue;
 
         orderedRows.push(buildEmptyFactorMetricRow({ factor, axis, metricKey }));
         orderedKeys.add(key);

@@ -36,10 +36,6 @@ export function TickerMetricTrendChartPanel({
   const [range, setRange] = useState<ChartRange>("MAX");
 
   const chartMetricKey: SecMetricKey | null = useMemo(() => {
-    if (metric?.axis === "valuation" && selectedFeatureKey) {
-      return null;
-    }
-
     const candidate = metric?.display?.chart?.metricKey ?? metric?.metricKey ?? null;
 
     if (!candidate) {
@@ -47,12 +43,13 @@ export function TickerMetricTrendChartPanel({
     }
 
     return isSecMetricKey(candidate) ? candidate : null;
-  }, [metric, selectedFeatureKey]);
+  }, [metric]);
 
   const chartFeatureKey = useMemo(() => {
-    if (metric?.axis !== "valuation") return null;
+    if (!metric || chartMetricKey) return null;
+
     return selectedFeatureKey ?? metric.features?.[0]?.featureKey ?? null;
-  }, [metric, selectedFeatureKey]);
+  }, [metric, selectedFeatureKey, chartMetricKey]);
 
   useEffect(() => {
     let isMounted = true;
@@ -68,7 +65,7 @@ export function TickerMetricTrendChartPanel({
         setError(null);
 
         const result =
-          chartFeatureKey && metric?.axis === "valuation"
+          chartFeatureKey && metric
             ? await fetchTickerFactorFeatureSeries({
                 ticker,
                 factor: metric.factor,
@@ -103,7 +100,7 @@ export function TickerMetricTrendChartPanel({
   }, [ticker, metric, chartMetricKey, chartFeatureKey]);
 
   const title = useMemo(() => {
-    if (metric?.axis === "valuation" && chartFeatureKey) {
+    if (chartFeatureKey) {
       return `Feature Trend (${formatLabel(chartFeatureKey)})`;
     }
 

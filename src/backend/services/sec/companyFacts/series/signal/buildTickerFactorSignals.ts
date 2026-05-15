@@ -2,11 +2,13 @@ import { db } from "@/backend/config/db";
 import { requireDateKey } from "@/backend/services/sec/companyFacts/series/utils/dateKey";
 import type { FactorAxisKey } from "@/shared/factors/axes";
 import type { FactorKey } from "@/shared/factors/factors";
+import { normalizeTickers } from "@/shared/tickers/utils";
 
 type BuildTickerFactorSignalsInput = {
   factor?: FactorKey;
   axis?: FactorAxisKey;
   asOfDate?: string;
+  tickers?: string[];
 };
 
 type ResolvedBuildTickerFactorSignalsInput = Required<
@@ -134,6 +136,8 @@ export async function buildTickerFactorSignals(
   input: BuildTickerFactorSignalsInput = {},
 ): Promise<void> {
   const resolvedInput = resolveBuildTickerFactorSignalsInput(input);
+  if (resolvedInput.tickers?.length === 0) return;
+
   const params = buildTickerFactorSignalQueryParams(resolvedInput);
 
   const [definitions, features] = await Promise.all([
@@ -161,6 +165,7 @@ export async function buildTickerFactorSignals(
       AND model_key = 'factor_signal'
       AND model_version = 'v0'
       AND ($3::date IS NULL OR signal_effective_date = $3::date)
+      AND ($4::text[] IS NULL OR ticker = ANY($4::text[]))
     `,
     params,
   );
@@ -223,6 +228,7 @@ async function loadLatestFeatures(params: unknown[]): Promise<LatestFeatureRow[]
     WHERE factor = $1
       AND axis = $2
       AND ($3::date IS NULL OR effective_date <= $3::date)
+      AND ($4::text[] IS NULL OR ticker = ANY($4::text[]))
       AND feature_value IS NOT NULL
     ORDER BY
       COALESCE(cik, ticker),
@@ -247,13 +253,14 @@ function resolveBuildTickerFactorSignalsInput(
     ...input,
     factor: input.factor ?? "growth",
     axis: input.axis ?? "fundamentals_based",
+    tickers: input.tickers ? normalizeTickers(input.tickers) : undefined,
   };
 }
 
 function buildTickerFactorSignalQueryParams(
   input: ResolvedBuildTickerFactorSignalsInput,
 ): unknown[] {
-  return [input.factor, input.axis, input.asOfDate ?? null];
+  return [input.factor, input.axis, input.asOfDate ?? null, input.tickers ?? null];
 }
 
 function groupDefinitionsByScope(
@@ -461,6 +468,8 @@ function buildSignalRowFromFeatureGroup(input: {
       "priceToSales",
       "priceToEarnings",
       "priceToOperatingCashFlow",
+      "freeCashFlowYield",
+      "enterpriseValueToSales",
       "marketCapitalization",
       "logMarketCapitalization",
     ]),

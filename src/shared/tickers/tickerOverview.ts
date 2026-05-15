@@ -1,6 +1,15 @@
 import type { FactorKey, FactorMetricRole } from "@/shared/factors/factors";
 import type { FactorAxisKey } from "@/shared/factors/axes";
 import type { SecMetricKey } from "@/shared/sec/metrics";
+import type { UniverseKey } from "@/shared/universe/universes";
+import type { MarketPriceMetricKey } from "@/shared/factors/marketPriceMetrics";
+import type { ValuationMetricKey } from "@/shared/factors/valuationMetrics";
+
+export type TickerOverviewMetricKey =
+  | SecMetricKey
+  | MarketPriceMetricKey
+  | ValuationMetricKey
+  | string;
 
 export type TickerOverviewCompany = {
   ticker: string;
@@ -30,6 +39,7 @@ export type TickerOverviewCompany = {
   fiftyTwoWeekRange: string | null;
   priceChange: number | null;
   priceChangePercentage: number | null;
+  universeMemberships: UniverseKey[];
 	fiscalProfile?: {
 		latestFiscalYear: number | null;
 		latestAnnualStart: string | null;
@@ -114,7 +124,7 @@ export type TickerOverviewFactorSignal = TickerOverviewFactorInsight & {
 export type TickerOverviewFactorMetric = {
   factor: FactorKey;
   axis: FactorAxisKey;
-  metricKey: SecMetricKey;
+  metricKey: TickerOverviewMetricKey;
   metricRole: FactorMetricRole;
   effectiveDate: string | null;
   display: TickerOverviewMetricDisplay | null;

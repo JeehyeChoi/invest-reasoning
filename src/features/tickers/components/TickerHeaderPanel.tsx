@@ -5,6 +5,7 @@ import {
   formatInteger,
   formatMarketCap,
 } from "@/features/tickers/utils/formatters";
+import { UNIVERSE_LABELS } from "@/shared/universe/universes";
 
 function formatHeadquarters(company: TickerOverviewCompany | null): string {
   if (!company) return "-";
@@ -48,6 +49,13 @@ function formatChange(value?: number | null, percentage?: number | null): string
   return parts.length > 0 ? parts.join(" / ") : "-";
 }
 
+function formatUniverseMemberships(company: TickerOverviewCompany | null): string {
+  const memberships = company?.universeMemberships ?? [];
+  if (memberships.length === 0) return "-";
+
+  return memberships.map((key) => UNIVERSE_LABELS[key]).join(", ");
+}
+
 export function TickerHeaderPanel({
   ticker,
   company,
@@ -63,6 +71,7 @@ export function TickerHeaderPanel({
         <Field label="Ticker" value={ticker} />
         <Field label={isFundLike ? "Fund" : "Company"} value={company?.companyName ?? "-"} />
         <Field label="Instrument" value={getInstrumentType(company)} />
+        <Field label="Universes" value={formatUniverseMemberships(company)} />
         <Field label="Exchange" value={company?.exchangeFullName ?? company?.exchange ?? "-"} />
         <Field label="Currency" value={company?.currency ?? "-"} />
         <Field label={isFundLike ? "Category" : "Sector"} value={company?.sector ?? "-"} />

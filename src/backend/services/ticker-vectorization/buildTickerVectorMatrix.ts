@@ -69,7 +69,6 @@ async function loadLatestSignalActivationRows(
         'signal'::text AS metric_key,
         s.signal_key AS feature_key,
         1::double precision AS feature_value,
-        NULL::integer AS universe_count,
         s.signal_period_end AS period_end,
         s.signal_effective_date AS effective_date
       FROM public.ticker_factor_signals s
@@ -130,7 +129,6 @@ async function loadLatestFeatureValueRows(
         p.metric_key,
         p.feature_key,
         p.feature_value,
-        NULL::integer AS universe_count,
         p.period_end,
         p.effective_date
       FROM public.ticker_factor_metric_features p
@@ -192,7 +190,7 @@ function buildMatrixFromRows(
   let vectorEffectiveDate = input.asOfDate ?? rows[0]?.effective_date;
 
   for (const row of rows) {
-    const sourceValue = getVectorSourceValue(row);
+    const sourceValue = row.feature_value;
     if (sourceValue === null) continue;
 
     vectorEffectiveDate =
@@ -264,10 +262,6 @@ function buildMatrixFromRows(
     vectors,
     vectorEffectiveDate,
   };
-}
-
-function getVectorSourceValue(row: TickerVectorSourceRow): number | null {
-  return row.feature_value;
 }
 
 function buildFeatureNormalizationStats(

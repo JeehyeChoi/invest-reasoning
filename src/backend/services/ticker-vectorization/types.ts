@@ -19,15 +19,12 @@ export type TickerVectorTarget = {
 
 export type TickerVectorizationInput = {
   targets: TickerVectorTarget[];
-  comparisonSetType: string;
-  comparisonSetKey: string;
   asOfDate?: string;
   normalizationMethod: TickerVectorNormalizationMethod;
   vectorMode: TickerVectorMode;
   vectorSourcePolicy: TickerVectorSourcePolicy;
   minTickerCoverageRatio: number;
   minFeatureCoverageRatio: number;
-  minUniverseCount: number;
   zScoreClip: number;
 };
 
@@ -39,7 +36,6 @@ export type TickerVectorSourceRow = {
   metric_key: string;
   feature_key: string;
   feature_value: number | null;
-  universe_count: number | null;
   period_end: string | null;
   effective_date: string;
 };
