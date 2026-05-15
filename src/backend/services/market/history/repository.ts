@@ -37,9 +37,10 @@ export async function findTickerDailyPriceSyncCandidates({
     WHERE u.universe_key = ANY($1::text[])
       AND u.is_active = true
       AND u.ticker ~ '^[A-Z][A-Z0-9.-]{0,9}$'
-      AND NOT (
-        ps.status = 'disabled'
-        AND ps.source <> 'auto_skip_share_class'
+      AND (
+        ps.ticker IS NULL
+        OR ps.status <> 'disabled'
+        OR ps.source = 'auto_skip_share_class'
       )
       AND (
         s.ticker IS NULL
