@@ -106,6 +106,24 @@ export const FRED_MACRO_SERIES_DEFINITIONS = [
       "Market yield on U.S. Treasury securities at 2-year constant maturity. Used as the front-end policy-rate expectation backdrop.",
   },
   {
+    key: "treasury_5y_yield",
+    seriesId: "DGS5",
+    units: "lin",
+    frequency: "daily",
+    label: "5-Year Treasury Yield",
+    description:
+      "Market yield on U.S. Treasury securities at 5-year constant maturity. Used as the intermediate-rate backdrop for duration-sensitive factor analysis.",
+  },
+  {
+    key: "treasury_30y_yield",
+    seriesId: "DGS30",
+    units: "lin",
+    frequency: "daily",
+    label: "30-Year Treasury Yield",
+    description:
+      "Market yield on U.S. Treasury securities at 30-year constant maturity. Used as the ultra-long-rate backdrop for duration-sensitive factor analysis.",
+  },
+  {
     key: "treasury_10y_2y_spread",
     seriesId: "T10Y2Y",
     units: "lin",

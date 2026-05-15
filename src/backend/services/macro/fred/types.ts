@@ -11,6 +11,8 @@ export type FredMacroSeriesKey =
   | "investment_grade_oas"
   | "treasury_10y_yield"
   | "treasury_2y_yield"
+  | "treasury_5y_yield"
+  | "treasury_30y_yield"
   | "treasury_10y_2y_spread"
   | "effective_fed_funds_rate"
   | "broad_dollar_index";
