@@ -23,6 +23,13 @@ Use this area for:
 - internal APIs and workflows
 - implementation notes
 
+Key documents:
+
+- `docs/developer/quick-start.md`: local setup and common workflows
+- `docs/developer/frontend-backend-flow.md`: frontend/API/backend boundary
+- `docs/developer/factor-definition-registry.md`: current SQL/TypeScript hybrid factor registry
+- `docs/developer/ticker-vectorization.md`: ticker feature vectorization notes
+
 ## Operations
 
 Project operating policy belongs in `docs/operations`.

@@ -166,6 +166,11 @@ Expected config files:
 The scaffold also writes a checklist to
 `tmp/<factor>-<axis>-<metric_key>-checklist.md`.
 
+Factor registration is currently hybrid: SQL definition tables own feature,
+display, and signal metadata, while `src/backend/config/factors/blueprints.ts`
+still owns workflow scope for factor/axis/metric combinations. See
+`docs/developer/factor-definition-registry.md` before adding or moving metrics.
+
 ## 9. Register A Metric
 
 After scaffolding, review and update the relevant registration points:
