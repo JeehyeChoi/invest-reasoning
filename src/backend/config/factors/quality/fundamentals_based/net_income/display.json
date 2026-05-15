@@ -1,7 +1,0 @@
-{
-  "metricKey": "net_income",
-  "chart": {
-    "title": "Net Income Quality"
-  },
-  "description": "Quality feature source for accruals pressure and net income return on assets."
-}

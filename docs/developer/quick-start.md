@@ -174,7 +174,7 @@ After scaffolding, review and update the relevant registration points:
 - `src/backend/services/sec/companyFacts/series/tagMeta.ts`: map SEC tags to the metric
 - `src/backend/config/factors/blueprints.ts`: register the metric under the factor axis
 - `src/backend/config/factors/<factor>/fundamentals_based/<metric_key>/display.json`: define display metadata
-- `src/backend/config/factors/<factor>/fundamentals_based/<metric_key>/interpretation.json`: define factor-owned metric feature metadata
+- `src/backend/config/factors/<factor>/<axis>/<metric_key>/interpretation.json`: define factor-axis-owned numeric feature evidence for a reusable canonical metric
 
 When a metric is shared by multiple factors, `blueprints.ts` should still make
 the role explicit through `metricProfiles`:

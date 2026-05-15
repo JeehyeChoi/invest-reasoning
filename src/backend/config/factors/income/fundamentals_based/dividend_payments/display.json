@@ -1,7 +1,0 @@
-{
-  "metricKey": "dividend_payments",
-  "chart": {
-    "title": "Dividend Payments"
-  },
-  "description": "Income feature source for dividend consistency, dividend position, dividend momentum, and dividend payout ratio."
-}

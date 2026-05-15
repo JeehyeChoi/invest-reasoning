@@ -1,6 +1,4 @@
-import path from "node:path";
-import { promises as fs } from "node:fs";
-import { FACTOR_BLUEPRINTS } from "@/backend/config/factors/blueprints";
+import { db } from "@/backend/config/db";
 
 type InterpretationFeatureEntry = {
 	source?: string;
@@ -37,19 +35,30 @@ type InterpretationFeatureEntry = {
 	clustering?: boolean;
 };
 
-type InterpretationFile = {
-	factor: string;
-	axis: string;
-	metricKey: string;
-	features: Record<string, InterpretationFeatureEntry>;
-	meta?: {
-		description?: string;
-	};
-};
-
 type AxisDisplayFile = {
 	headlineTitle?: string;
 	featureLabels?: Record<string, string>;
+};
+
+type FeatureDefinitionRegistryRow = {
+	factor: string;
+	axis: string;
+	metric_key: string;
+	metric_label: string | null;
+	metric_description: string | null;
+	feature_key: string;
+	feature_label: string;
+	definition_payload: InterpretationFeatureEntry | null;
+	axis_display_payload: AxisDisplayFile | null;
+	source_table: string | null;
+	source_version: string | null;
+	source_metric_key: string | null;
+	period_type: string | null;
+	comparison: boolean;
+	macro_contrast: boolean;
+	is_vector_eligible: boolean;
+	show_in_vector: boolean;
+	display_order: number;
 };
 
 export type SignalRegistryMetric = {
@@ -76,7 +85,9 @@ export type SignalRegistryMetric = {
 		valueType: string | null;
 		comparison: boolean;
 		macroContrast: boolean;
-		clustering: boolean;
+		vectorEligible: boolean;
+		showInVector: boolean;
+		definitionClusteringHint: boolean | null;
 	}>;
 };
 
@@ -106,137 +117,138 @@ function formatMetricLabel(metricKey: string): string {
 		.join(" ");
 }
 
-async function readJson<T>(filePath: string): Promise<T> {
-	const raw = await fs.readFile(filePath, "utf-8");
-	return JSON.parse(raw) as T;
+export async function getSignalSystemRegistry(): Promise<SignalRegistryFactor[]> {
+	return getSignalSystemRegistryFromDb();
 }
 
-export async function getSignalSystemRegistry(): Promise<SignalRegistryFactor[]> {
-	const rootDir = path.join(
-		process.cwd(),
-		"src",
-		"backend",
-		"config",
-		"factors",
+async function getSignalSystemRegistryFromDb(): Promise<SignalRegistryFactor[]> {
+	const result = await db.query<FeatureDefinitionRegistryRow>(
+		`
+			SELECT
+				f.factor,
+				f.axis,
+				f.metric_key,
+				md.metric_label,
+				md.metric_description,
+				f.feature_key,
+				f.feature_label,
+				f.definition_payload,
+				ad.display_payload AS axis_display_payload,
+				f.source_table,
+				f.source_version,
+				f.source_metric_key,
+				f.period_type,
+				f.comparison,
+				f.macro_contrast,
+				f.is_vector_eligible,
+				f.show_in_vector,
+				f.display_order
+			FROM public.ticker_factor_feature_definitions f
+			LEFT JOIN public.ticker_factor_metric_display_definitions md
+				ON md.model_key = f.model_key
+			 AND md.model_version = f.model_version
+			 AND md.factor = f.factor
+			 AND md.axis = f.axis
+			 AND md.metric_key = f.metric_key
+			 AND md.is_active = true
+			LEFT JOIN public.ticker_factor_axis_display_definitions ad
+				ON ad.model_key = f.model_key
+			 AND ad.model_version = f.model_version
+			 AND ad.factor = f.factor
+			 AND ad.axis = f.axis
+			 AND ad.is_active = true
+			WHERE f.model_key = 'factor_feature'
+				AND f.model_version = 'v0'
+				AND f.is_active = true
+			ORDER BY
+				f.factor ASC,
+				f.axis ASC,
+				f.metric_key ASC,
+				f.display_order ASC,
+				f.feature_key ASC
+			`,
 	);
 
-	const factorEntries = await fs.readdir(rootDir, { withFileTypes: true });
-	const results: SignalRegistryFactor[] = [];
+	if (result.rows.length === 0) return [];
 
-	for (const factorEntry of factorEntries) {
-		if (!factorEntry.isDirectory()) continue;
+	const factorMap = new Map<string, SignalRegistryFactor>();
+	const metricMap = new Map<string, SignalRegistryMetric>();
 
-		const factorDir = path.join(rootDir, factorEntry.name);
-		const axisEntries = await fs.readdir(factorDir, { withFileTypes: true });
+	for (const row of result.rows) {
+		const factorAxisKey = `${row.factor}:${row.axis}`;
+		let group = factorMap.get(factorAxisKey);
 
-		for (const axisEntry of axisEntries) {
-			if (!axisEntry.isDirectory()) continue;
-
-			const axisDir = path.join(factorDir, axisEntry.name);
-			const displayCommonPath = path.join(axisDir, "display.common.json");
-			let axisDisplay: AxisDisplayFile | null = null;
-
-			try {
-				axisDisplay = await readJson<AxisDisplayFile>(displayCommonPath);
-			} catch {
-				axisDisplay = null;
-			}
-
-			const metricEntries = await fs.readdir(axisDir, { withFileTypes: true });
-			const metrics: SignalRegistryMetric[] = [];
-
-			for (const metricEntry of metricEntries) {
-				if (!metricEntry.isDirectory()) continue;
-
-				const interpretationPath = path.join(
-					axisDir,
-					metricEntry.name,
-					"interpretation.json",
-				);
-
-				try {
-					const interpretation =
-						await readJson<InterpretationFile>(interpretationPath);
-
-					const features = Object.entries(interpretation.features)
-						.map(([featureKey, config]) => ({
-							key: featureKey,
-							label: axisDisplay?.featureLabels?.[featureKey] ?? featureKey,
-							source: config.source ?? null,
-							seriesTable: config.series?.table ?? null,
-							seriesVersion: config.series?.version ?? null,
-							seriesMetricKey: config.series?.metricKey ?? interpretation.metricKey,
-							seriesPeriodType: config.series?.periodType ?? null,
-							denominator: config.denominator ?? null,
-							counterpart: config.counterpart ?? null,
-							reference: config.reference ?? null,
-							benchmark: config.benchmark ?? null,
-							method: config.method ?? null,
-							lookback: config.lookback ?? null,
-							skip: config.skip ?? null,
-							window: config.window ?? null,
-							sources: config.sources ?? null,
-							valueType: config.valueType ?? null,
-							comparison: config.comparison ?? false,
-							macroContrast: config.macroContrast ?? false,
-							clustering: config.clustering ?? false,
-						}));
-
-					metrics.push({
-						metricKey: interpretation.metricKey,
-						metricLabel: formatMetricLabel(interpretation.metricKey),
-						description: interpretation.meta?.description ?? null,
-						features,
-					});
-				} catch {
-					continue;
-				}
-			}
-
-			if (metrics.length === 0) continue;
-
-			const featureMap = new Map<string, string>();
-			for (const metric of metrics) {
-				for (const feature of metric.features) {
-					featureMap.set(feature.key, feature.label);
-				}
-			}
-
-			results.push({
-				factorKey: factorEntry.name,
-				axisKey: axisEntry.name,
-				headlineTitle: axisDisplay?.headlineTitle ?? null,
-				featureCatalog: [...featureMap.entries()].map(([key, label]) => ({
-					key,
-					label,
-				})),
-				metrics: metrics.sort((a, b) => a.metricLabel.localeCompare(b.metricLabel)),
-			});
-		}
-	}
-
-	const existingScopes = new Set(
-		results.map((group) => `${group.factorKey}:${group.axisKey}`),
-	);
-
-	for (const [factorKey, factorBlueprint] of Object.entries(FACTOR_BLUEPRINTS)) {
-		if (!factorBlueprint) continue;
-
-		for (const axisKey of Object.keys(factorBlueprint)) {
-			const scopeKey = `${factorKey}:${axisKey}`;
-			if (existingScopes.has(scopeKey)) continue;
-
-			results.push({
-				factorKey,
-				axisKey,
-				headlineTitle: null,
+		if (!group) {
+			group = {
+				factorKey: row.factor,
+				axisKey: row.axis,
+				headlineTitle: row.axis_display_payload?.headlineTitle ?? null,
 				featureCatalog: [],
 				metrics: [],
+			};
+			factorMap.set(factorAxisKey, group);
+		}
+
+		const metricRegistryKey = `${factorAxisKey}:${row.metric_key}`;
+		let metric = metricMap.get(metricRegistryKey);
+
+		if (!metric) {
+			metric = {
+				metricKey: row.metric_key,
+				metricLabel: row.metric_label ?? formatMetricLabel(row.metric_key),
+				description: row.metric_description,
+				features: [],
+			};
+			metricMap.set(metricRegistryKey, metric);
+			group.metrics.push(metric);
+		}
+
+		const definition = row.definition_payload ?? {};
+		metric.features.push({
+			key: row.feature_key,
+			label: row.feature_label,
+			source: definition.source ?? null,
+			seriesTable: definition.series?.table ?? row.source_table,
+			seriesVersion: definition.series?.version ?? row.source_version,
+			seriesMetricKey:
+				definition.series?.metricKey ?? row.source_metric_key ?? row.metric_key,
+			seriesPeriodType: definition.series?.periodType ?? row.period_type,
+			denominator: definition.denominator ?? null,
+			counterpart: definition.counterpart ?? null,
+			reference: definition.reference ?? null,
+			benchmark: definition.benchmark ?? null,
+			method: definition.method ?? null,
+			lookback: definition.lookback ?? null,
+			skip: definition.skip ?? null,
+			window: definition.window ?? null,
+			sources: definition.sources ?? null,
+			valueType: definition.valueType ?? null,
+			comparison: row.comparison,
+			macroContrast: row.macro_contrast,
+			vectorEligible: row.is_vector_eligible,
+			showInVector: row.show_in_vector,
+			definitionClusteringHint: definition.clustering ?? null,
+		});
+
+		if (!group.featureCatalog.some((feature) => feature.key === row.feature_key)) {
+			group.featureCatalog.push({
+				key: row.feature_key,
+				label: row.feature_label,
 			});
 		}
 	}
 
-	return results.sort((a, b) =>
-		`${a.factorKey}:${a.axisKey}`.localeCompare(`${b.factorKey}:${b.axisKey}`),
-	);
+	return [...factorMap.values()]
+		.map((group) => ({
+			...group,
+			featureCatalog: group.featureCatalog.sort((a, b) =>
+				a.label.localeCompare(b.label),
+			),
+			metrics: group.metrics.sort((a, b) =>
+				a.metricLabel.localeCompare(b.metricLabel),
+			),
+		}))
+		.sort((a, b) =>
+			`${a.factorKey}:${a.axisKey}`.localeCompare(`${b.factorKey}:${b.axisKey}`),
+		);
 }

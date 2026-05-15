@@ -1,9 +1,15 @@
 import type { FactorKey } from "@/shared/factors/factors";
 import type { FactorAxisKey } from "@/shared/factors/axes";
 import type { SecMetricKey } from "@/shared/sec/metrics";
-import type { MarketPriceMetricKey } from "@/shared/market/priceMetrics";
+import type { MarketPriceMetricKey } from "@/shared/factors/marketPriceMetrics";
+import type { ValuationMetricKey } from "@/shared/factors/valuationMetrics";
+import type { MacroLinkedMetricKey } from "@/shared/factors/macroLinkedMetrics";
 
-export type MetricFeatureMetricKey = SecMetricKey | MarketPriceMetricKey;
+export type MetricFeatureMetricKey =
+  | SecMetricKey
+  | MarketPriceMetricKey
+  | ValuationMetricKey
+  | MacroLinkedMetricKey;
 
 export type MetricFeatureMethod =
   | "direct"
@@ -17,7 +23,8 @@ export type MetricFeatureMethod =
   | "lag_ratio_deviation"
   | "relative_deviation"
   | "negative_relative_deviation"
-  | "turnaround_momentum";
+  | "turnaround_momentum"
+  | "macro_sensitivity_beta";
 
 export type MetricFeatureValueType = "ratio" | "value";
 
@@ -72,7 +79,15 @@ export type MetricFeatureDefinition = {
     source: MetricFeatureSourceKey;
   };
   lookback?: number;
+  minObservations?: number;
   method?: MetricFeatureMethod;
+  macroSource?: {
+    provider: "fred";
+    seriesKey?: string;
+    seriesId: string;
+    units: string;
+    valueScale?: number;
+  };
   signProfilePolicy?: MetricFeatureSignProfilePolicy;
   valueType?: MetricFeatureValueType;
   comparison?: boolean;
@@ -83,8 +98,9 @@ export type MetricFeatureDefinition = {
 export type MetricFeatureSeriesSource = {
   table:
     | "sec_companyfact_metric_series_enriched"
-    | "ticker_valuation_metric_series_enriched";
+    | "ticker_derived_metric_series";
   version: string;
+  processKey: string;
   metricKey?: MetricFeatureMetricKey | string;
   periodType: MetricFeatureSeriesPeriodType;
 };

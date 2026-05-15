@@ -1,7 +1,0 @@
-{
-  "metricKey": "energy_revenue",
-  "chart": {
-    "title": "Energy Revenue"
-  },
-  "description": "Energy-linked activity feature source based on regulated gas and energy revenue growth, acceleration, and stretch."
-}

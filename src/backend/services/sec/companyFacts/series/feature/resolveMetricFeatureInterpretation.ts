@@ -1,9 +1,8 @@
-import path from "node:path";
-import { promises as fs } from "node:fs";
-
+import { db } from "@/backend/config/db";
 import type { FactorKey } from "@/shared/factors/factors";
 import type { FactorAxisKey } from "@/shared/factors/axes";
 import type {
+  MetricFeatureDefinition,
   MetricFeatureInterpretationConfig,
   MetricFeatureMetricKey,
 } from "@/backend/services/sec/companyFacts/series/feature/types";
@@ -19,22 +18,16 @@ const interpretationConfigCache = new Map<
   Promise<MetricFeatureInterpretationConfig>
 >();
 
+type FeatureDefinitionRow = {
+  factor: FactorKey;
+  axis: FactorAxisKey;
+  metric_key: MetricFeatureMetricKey;
+  feature_key: string;
+  definition_payload: MetricFeatureDefinition;
+};
+
 function buildInterpretationCacheKey(input: ResolveInput): string {
   return `${input.factor}:${input.axis}:${input.metricKey}`;
-}
-
-function buildInterpretationPath(input: ResolveInput): string {
-  return path.join(
-    process.cwd(),
-    "src",
-    "backend",
-    "config",
-    "factors",
-    input.factor,
-    input.axis,
-    input.metricKey,
-    "interpretation.json",
-  );
 }
 
 export async function resolveMetricFeatureInterpretation(
@@ -53,19 +46,50 @@ export async function resolveMetricFeatureInterpretation(
 async function readMetricFeatureInterpretation(
   input: ResolveInput,
 ): Promise<MetricFeatureInterpretationConfig> {
-  const filePath = buildInterpretationPath(input);
-  const raw = await fs.readFile(filePath, "utf-8");
-  const config = JSON.parse(raw) as MetricFeatureInterpretationConfig;
-
-  if (
-    config.factor !== input.factor ||
-    config.axis !== input.axis ||
-    config.metricKey !== input.metricKey
-  ) {
+  const dbConfig = await readMetricFeatureInterpretationFromDb(input);
+  if (!dbConfig) {
     throw new Error(
-      `Interpretation config identity mismatch: ${filePath}`,
+      `Factor feature definition not found in DB: ${input.factor}/${input.axis}/${input.metricKey}`,
     );
   }
 
-  return config;
+  return dbConfig;
+}
+
+async function readMetricFeatureInterpretationFromDb(
+  input: ResolveInput,
+): Promise<MetricFeatureInterpretationConfig | null> {
+  let result;
+
+  result = await db.query<FeatureDefinitionRow>(
+    `
+      SELECT
+        factor,
+        axis,
+        metric_key,
+        feature_key,
+        definition_payload
+      FROM public.ticker_factor_feature_definitions
+      WHERE model_key = 'factor_feature'
+        AND model_version = 'v0'
+        AND factor = $1
+        AND axis = $2
+        AND metric_key = $3
+        AND is_active = true
+      ORDER BY display_order ASC, feature_key ASC
+      `,
+    [input.factor, input.axis, input.metricKey],
+  );
+
+  if (result.rows.length === 0) return null;
+
+  return {
+    version: "interpretation_v1",
+    factor: input.factor,
+    axis: input.axis,
+    metricKey: input.metricKey,
+    features: Object.fromEntries(
+      result.rows.map((row) => [row.feature_key, row.definition_payload]),
+    ),
+  };
 }

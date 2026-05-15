@@ -1,7 +1,0 @@
-{
-  "metricKey": "energy_inventory",
-  "chart": {
-    "title": "Energy Inventory"
-  },
-  "description": "Energy-linked inventory feature source based on crude oil, natural gas, and related energy commodity inventory."
-}

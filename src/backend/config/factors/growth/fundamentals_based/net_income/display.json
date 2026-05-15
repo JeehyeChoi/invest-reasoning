@@ -1,7 +1,0 @@
-{
-  "metricKey": "net_income",
-  "chart": {
-    "title": "Net Income Trend"
-  },
-  "description": "Net income growth signal based on latest YoY growth, TTM growth, YoY growth acceleration, and turnaround momentum."
-}

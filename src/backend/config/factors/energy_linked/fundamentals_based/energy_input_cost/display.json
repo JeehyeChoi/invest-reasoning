@@ -1,7 +1,0 @@
-{
-  "metricKey": "energy_input_cost",
-  "chart": {
-    "title": "Energy Input Cost"
-  },
-  "description": "Energy-linked cost pressure feature source based on purchased oil, gas, natural gas, fuel, and petroleum operating expense."
-}

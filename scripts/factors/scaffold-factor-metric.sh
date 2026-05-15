@@ -26,28 +26,6 @@ if [ -z "$FACTOR" ] || [ -z "$METRIC_KEY" ]; then
   exit 1
 fi
 
-CONFIG_ROOT="src/backend/config/factors/${FACTOR}"
-
-METRIC_CONFIG_DIR="${CONFIG_ROOT}/${AXIS}/${METRIC_KEY}"
-
-create_dir() {
-  local path="$1"
-  mkdir -p "$path"
-  echo "dir:    $path"
-}
-
-create_file_if_missing() {
-  local path="$1"
-  local content="$2"
-
-  if [ -f "$path" ]; then
-    echo "exists: $path"
-  else
-    printf '%s\n' "$content" > "$path"
-    echo "file:   $path"
-  fi
-}
-
 echo
 echo "Scaffolding factor/metric..."
 echo "  factor     = $FACTOR"
@@ -56,30 +34,8 @@ echo "  metric_key = $METRIC_KEY"
 echo
 
 echo
-echo "Creating ${AXIS} metric scaffold..."
+echo "Preparing SQL definition checklist..."
 echo
-
-create_dir "$METRIC_CONFIG_DIR"
-
-create_file_if_missing "${METRIC_CONFIG_DIR}/display.json" "{
-  \"metricKey\": \"${METRIC_KEY}\",
-  \"chart\": {
-    \"title\": \"TODO\"
-  },
-  \"description\": \"TODO\"
-}"
-
-create_file_if_missing "${METRIC_CONFIG_DIR}/interpretation.json" "{
-  \"version\": \"interpretation_v1\",
-  \"factor\": \"${FACTOR}\",
-  \"axis\": \"${AXIS}\",
-  \"metricKey\": \"${METRIC_KEY}\",
-  \"meta\": {
-    \"description\": \"TODO\",
-    \"createdAt\": \"TODO\"
-  },
-  \"features\": {}
-}"
 
 echo
 echo "Creating checklist..."
@@ -89,12 +45,17 @@ echo
 echo "========================================"
 echo "DONE"
 echo "========================================"
-echo "Created ${AXIS} metric scaffold:"
-echo "  - ${METRIC_CONFIG_DIR}"
+echo "Prepared ${AXIS} metric definition checklist for:"
+echo "  factor     = ${FACTOR}"
+echo "  axis       = ${AXIS}"
+echo "  metric_key = ${METRIC_KEY}"
 
 echo
 echo "Next:"
-echo "  1) Fill display.json and feature mapping config (interpretation.json)"
-echo "  2) Give every feature method/valueType/comparison/macroContrast/clustering metadata"
-echo "  3) Register schema/config points and blueprint membership"
-echo "  4) Run the axis-specific source and feature jobs after source series exist, then regenerate the checklist"
+echo "  1) Add feature rows to db/ticker_factor_feature_definitions.sql"
+echo "  2) Add metric display rows to db/ticker_factor_metric_display_definitions.sql"
+echo "  3) Add/update axis display rows in db/ticker_factor_axis_display_definitions.sql"
+echo "  4) Add/update signal rows in db/ticker_factor_signal_definitions.sql"
+echo "  5) Register shared metric keys, schema/config points, and blueprint membership"
+echo "  6) Confirm the feature executor supports the definition method/source process"
+echo "  7) Apply definition SQL, run the axis-specific source and feature jobs, then regenerate the checklist"

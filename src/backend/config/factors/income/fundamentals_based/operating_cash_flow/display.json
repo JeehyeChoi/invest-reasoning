@@ -1,7 +1,0 @@
-{
-  "metricKey": "operating_cash_flow",
-  "chart": {
-    "title": "Operating Cash Flow Dividend Coverage"
-  },
-  "description": "Income feature source for dividend coverage against operating cash flow."
-}

@@ -40,6 +40,17 @@ ON public.ticker_factor_metric_features (
   feature_key
 );
 
+CREATE INDEX IF NOT EXISTS idx_tfmf_lookup_period_effective
+ON public.ticker_factor_metric_features (
+  ticker,
+  factor,
+  axis,
+  metric_key,
+  feature_key,
+  period_end,
+  effective_date DESC
+);
+
 CREATE INDEX IF NOT EXISTS idx_tfmf_effective
 ON public.ticker_factor_metric_features (effective_date DESC);
 

@@ -15,8 +15,9 @@ export function SignalSystem({ signalSystem }: SignalSystemProps) {
 		<MethodologySection eyebrow="06" title="Signal System">
 			<p className="text-sm leading-7 text-stone-700">
 				The live system is organized as metric series, factor-owned metric
-				features, and factor signal selection. Narrative commentary is deferred
-				until the signal definitions are stable.
+				features, factor signal selection, and separate clustering policies.
+				The methodology view reads the database definition tables, which are
+				currently seeded from SQL files under `db/`.
 			</p>
 
 			<div className="mt-5 grid gap-4 lg:grid-cols-2">
@@ -25,9 +26,11 @@ export function SignalSystem({ signalSystem }: SignalSystemProps) {
 						Interpretation layer
 					</div>
 					<p className="mt-2 text-sm leading-6 text-zinc-600">
-						`interpretation.json` defines which factor-owned features are active
-						for a metric, and each feature names the exact series it reads:
-						table, metric key, period type, source column, and optional reference.
+						`ticker_factor_feature_definitions` defines which factor-owned
+						features are active for a metric, and each feature names the exact
+						series it reads: table, metric key, period type, source column,
+						process key, optional reference, and usage flags such as comparison,
+						macro contrast, and vector eligibility.
 					</p>
 					{sampleSignals ? (
 						<div className="mt-3 border border-zinc-200 bg-white p-3">
@@ -51,6 +54,7 @@ export function SignalSystem({ signalSystem }: SignalSystemProps) {
 										{feature.sources
 											? ` from ${Object.values(feature.sources).join(", ")}`
 											: ""}
+										{feature.vectorEligible ? " [vector eligible]" : ""}
 									</li>
 								))}
 							</ul>
@@ -64,8 +68,10 @@ export function SignalSystem({ signalSystem }: SignalSystemProps) {
 					</div>
 					<ul className="mt-2 list-disc pl-5 text-sm leading-6 text-zinc-700">
 						<li>Signal definitions select one factor signal from factor-owned metric features.</li>
-						<li>`interpretation.json` remains the source of truth for which metric features exist.</li>
-						<li>Signal definitions look at feature keys, not hard-coded metric lists.</li>
+						<li>`ticker_factor_feature_definitions` is the source of truth for available features and feature-level usage flags.</li>
+						<li>`ticker_factor_signal_definitions` is the source of truth for signal thresholds, priority, evidence, and confidence rules.</li>
+						<li>Metric and axis display metadata live in `ticker_factor_metric_display_definitions` and `ticker_factor_axis_display_definitions`.</li>
+						<li>Signal definitions look at feature keys; they are not limited by `is_vector_eligible`.</li>
 						<li>Evidence stored on signal rows is a copied record of the feature rows that supported the selected signal.</li>
 						<li>Benchmark comparisons and macro contrasts are contextual layers, not part of the internal signal selection model.</li>
 					</ul>
@@ -87,17 +93,19 @@ export function SignalSystem({ signalSystem }: SignalSystemProps) {
 
 				<div className="border border-zinc-200 bg-white p-4">
 					<div className="font-mono text-xs uppercase tracking-[0.16em] text-zinc-500">
-						Why commentary is deferred
+						Clustering boundaries
 					</div>
 					<p className="mt-2 text-sm leading-6 text-zinc-600">
-						The current frontend receives selected signal values, confidence,
-						observed metric counts, and supporting evidence. It does not receive
-						authored commentary text.
+						Metric-feature vectors use `is_vector_eligible` from
+						`ticker_factor_feature_definitions`. Signal-based market clustering
+						uses selected rows from `ticker_factor_signals`; factor-axis
+						questions can be held out with
+						`ticker_signal_clustering_question_policies`.
 					</p>
 					<p className="mt-3 text-sm leading-6 text-zinc-600">
-						Benchmark comparisons and macro contrasts can be added later as
-						contextual inputs to separate signal definitions, but they are not
-						part of the internal feature-only signal selection path.
+						A feature can be useful for signal rules or evidence even when it is
+						not eligible for the raw metric-feature vector. Those policies answer
+						different questions and are intentionally stored separately.
 					</p>
 				</div>
 			</div>

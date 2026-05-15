@@ -1,7 +1,0 @@
-{
-  "metricKey": "shares_outstanding",
-  "chart": {
-    "title": "Shares Outstanding"
-  },
-  "description": "Income feature source for net share count reduction after issuance and repurchases."
-}

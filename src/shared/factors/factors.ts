@@ -3,6 +3,9 @@
  * - factor keys: scripts/bootstrap/factors/factor-definitions.json
  * - factor axes: src/shared/factors/axes.ts
  * - metric feature storage: db/ticker_factor_metric_features.sql
+ * - factor feature definition storage: db/ticker_factor_feature_definitions.sql
+ * - factor metric display definition storage: db/ticker_factor_metric_display_definitions.sql
+ * - factor axis display definition storage: db/ticker_factor_axis_display_definitions.sql
  * - factor signal definition storage: db/ticker_factor_signal_definitions.sql
  * - factor signal result storage: db/ticker_factor_signals.sql
  */

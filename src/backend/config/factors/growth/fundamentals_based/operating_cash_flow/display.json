@@ -1,7 +1,0 @@
-{
-  "metricKey": "operating_cash_flow",
-  "chart": {
-    "title": "Operating Cash Flow Trend"
-  },
-  "description": "Operating cash flow growth signal based on latest YoY growth, TTM growth, YoY growth acceleration, and turnaround momentum."
-}

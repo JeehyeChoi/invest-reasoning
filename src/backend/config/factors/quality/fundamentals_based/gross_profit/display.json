@@ -1,7 +1,0 @@
-{
-  "metricKey": "gross_profit",
-  "chart": {
-    "title": "Gross Profit Quality"
-  },
-  "description": "Quality feature source for gross profit durability, current position, turnaround state, and asset efficiency."
-}

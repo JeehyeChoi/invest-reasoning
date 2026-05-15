@@ -1,13 +1,7 @@
-import path from "node:path";
-import { promises as fs } from "node:fs";
-
+import { db } from "@/backend/config/db";
 import type { FactorAxisKey } from "@/shared/factors/axes";
 import type { FactorKey } from "@/shared/factors/factors";
-import type {
-  MetricFeatureDefinition,
-  MetricFeatureInterpretationConfig,
-  MetricFeatureMetricKey,
-} from "@/backend/services/sec/companyFacts/series/feature/types";
+import type { MetricFeatureMetricKey } from "@/backend/services/sec/companyFacts/series/feature/types";
 
 export type MetricFeatureUsageKind =
   | "comparison"
@@ -28,78 +22,52 @@ type LoadInput = {
   usage: MetricFeatureUsageKind;
 };
 
-function buildAxisConfigPath(input: {
+type FeatureUsageDefinitionRow = {
   factor: FactorKey;
   axis: FactorAxisKey;
-}): string {
-  return path.join(
-    process.cwd(),
-    "src",
-    "backend",
-    "config",
-    "factors",
-    input.factor,
-    input.axis,
-  );
-}
-
-function isFeatureEnabledForUsage(
-  definition: MetricFeatureDefinition,
-  usage: MetricFeatureUsageKind,
-): boolean {
-  return definition[usage] === true;
-}
-
-async function readInterpretationConfig(
-  filePath: string,
-): Promise<MetricFeatureInterpretationConfig | null> {
-  try {
-    const raw = await fs.readFile(filePath, "utf-8");
-    return JSON.parse(raw) as MetricFeatureInterpretationConfig;
-  } catch (error) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      (error as NodeJS.ErrnoException).code === "ENOENT"
-    ) {
-      return null;
-    }
-
-    throw error;
-  }
-}
+  metric_key: MetricFeatureMetricKey;
+  feature_key: string;
+};
 
 export async function loadMetricFeatureUsageRules(
   input: LoadInput,
 ): Promise<MetricFeatureUsageRule[]> {
-  const axisPath = buildAxisConfigPath(input);
-  const metricNames = input.metricKey
-    ? [input.metricKey]
-    : (await fs.readdir(axisPath, { withFileTypes: true }))
-        .filter((entry) => entry.isDirectory())
-        .map((entry) => entry.name as MetricFeatureMetricKey);
+  return loadMetricFeatureUsageRulesFromDb(input);
+}
 
-  const rules: MetricFeatureUsageRule[] = [];
+async function loadMetricFeatureUsageRulesFromDb(
+  input: LoadInput,
+): Promise<MetricFeatureUsageRule[]> {
+  const usageColumn =
+    input.usage === "comparison"
+      ? "comparison"
+      : input.usage === "macroContrast"
+        ? "macro_contrast"
+        : "is_vector_eligible";
+  const result = await db.query<FeatureUsageDefinitionRow>(
+    `
+      SELECT
+        factor,
+        axis,
+        metric_key,
+        feature_key
+      FROM public.ticker_factor_feature_definitions
+      WHERE model_key = 'factor_feature'
+        AND model_version = 'v0'
+        AND factor = $1
+        AND axis = $2
+        AND ($3::text IS NULL OR metric_key = $3)
+        AND is_active = true
+        AND ${usageColumn} = true
+      ORDER BY display_order ASC, metric_key ASC, feature_key ASC
+      `,
+    [input.factor, input.axis, input.metricKey ?? null],
+  );
 
-  for (const metricKey of metricNames) {
-    const config = await readInterpretationConfig(
-      path.join(axisPath, metricKey, "interpretation.json"),
-    );
-
-    if (!config) continue;
-
-    for (const [featureKey, definition] of Object.entries(config.features)) {
-      if (!isFeatureEnabledForUsage(definition, input.usage)) continue;
-
-      rules.push({
-        factor: config.factor,
-        axis: config.axis,
-        metric_key: config.metricKey,
-        feature_key: featureKey,
-      });
-    }
-  }
-
-  return rules;
+  return result.rows.map((row) => ({
+    factor: row.factor,
+    axis: row.axis,
+    metric_key: row.metric_key,
+    feature_key: row.feature_key,
+  }));
 }

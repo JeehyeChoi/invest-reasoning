@@ -1,10 +1,7 @@
 import type { FactorKey } from "@/shared/factors/factors";
 import type { FactorAxisKey } from "@/shared/factors/axes";
 import type { MetricFeatureMetricKey } from "@/backend/services/sec/companyFacts/series/feature/types";
-import {
-  buildTickerFactorMetricFeaturesForCik,
-  deleteTickerFactorMetricFeaturesForCikScope,
-} from "@/backend/services/sec/companyFacts/series/feature/buildTickerFactorMetricFeaturesForCik";
+import { buildTickerFactorMetricFeaturesForCik } from "@/backend/services/sec/companyFacts/series/feature/buildTickerFactorMetricFeaturesForCik";
 
 type FeatureRunCompany = {
   ticker: string;
@@ -20,6 +17,7 @@ export type FeatureRunTarget = {
 type FeatureRunInput = {
   companies: FeatureRunCompany[];
   targets: FeatureRunTarget[];
+  asOfDate?: string;
   maxCompanyConcurrency?: number;
   onProgress?: (progress: FeatureRunProgress) => void;
 };
@@ -44,20 +42,6 @@ function isMissingInterpretationError(error: unknown): boolean {
     error !== null &&
     "code" in error &&
     (error as NodeJS.ErrnoException).code === "ENOENT"
-  );
-}
-
-function uniqueFactorAxisScopes(targets: FeatureRunTarget[]) {
-  return Array.from(
-    new Map(
-      targets.map((target) => [
-        `${target.factor}:${target.axis}`,
-        {
-          factor: target.factor,
-          axis: target.axis,
-        },
-      ]),
-    ).values(),
   );
 }
 
@@ -98,15 +82,6 @@ export async function runTickerFactorMetricFeatures(
       return;
     }
 
-    for (const scope of uniqueFactorAxisScopes(input.targets)) {
-      await deleteTickerFactorMetricFeaturesForCikScope({
-        ticker: company.ticker,
-        cik: company.cik,
-        factor: scope.factor,
-        axis: scope.axis,
-      });
-    }
-
     for (const target of input.targets) {
       processed += 1;
 
@@ -117,6 +92,7 @@ export async function runTickerFactorMetricFeatures(
           factor: target.factor,
           axis: target.axis,
           metricKey: target.metricKey,
+          asOfDate: input.asOfDate,
         });
 
         featureCount += result.featureCount;

@@ -1,7 +1,0 @@
-{
-  "metricKey": "oil_gas_capitalized_costs",
-  "chart": {
-    "title": "Oil & Gas Capitalized Costs"
-  },
-  "description": "Energy-linked asset feature source based on oil and gas capitalized costs and their deviation from recent history."
-}

@@ -1,4 +1,0 @@
-{
-  "label": "Price",
-  "description": "Price-derived rate sensitivity features using daily close history, SPY benchmark returns, and FRED Treasury rate observations."
-}

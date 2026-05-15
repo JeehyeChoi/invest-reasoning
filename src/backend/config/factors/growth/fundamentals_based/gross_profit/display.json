@@ -1,7 +1,0 @@
-{
-  "metricKey": "gross_profit",
-  "chart": {
-    "title": "Gross Profit Trend"
-  },
-  "description": "Gross profit growth signal based on latest YoY growth, TTM growth, and YoY growth acceleration."
-}

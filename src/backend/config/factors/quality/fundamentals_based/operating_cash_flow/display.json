@@ -1,7 +1,0 @@
-{
-  "metricKey": "operating_cash_flow",
-  "chart": {
-    "title": "Operating Cash Flow Quality"
-  },
-  "description": "Quality feature source for cash profitability durability, current position, turnaround state, and cash-backed earnings."
-}

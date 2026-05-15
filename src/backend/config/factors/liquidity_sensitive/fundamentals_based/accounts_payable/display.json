@@ -1,7 +1,0 @@
-{
-  "metricKey": "accounts_payable",
-  "chart": {
-    "title": "Accounts Payable"
-  },
-  "description": "Liquidity-sensitive feature source for payables growth, payables build, and payables relative to revenue."
-}

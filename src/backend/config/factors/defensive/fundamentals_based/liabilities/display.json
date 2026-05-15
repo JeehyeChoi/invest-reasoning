@@ -1,7 +1,0 @@
-{
-  "metricKey": "liabilities",
-  "chart": {
-    "title": "Liability Burden Relief"
-  },
-  "description": "Defensive signal based on liability burden relief, below-trend burden, and contraction consistency."
-}

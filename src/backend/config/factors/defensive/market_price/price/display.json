@@ -1,4 +1,0 @@
-{
-  "label": "Price",
-  "description": "Price-derived defensive behavior features from daily close history, SPY market returns, and VIX stress regimes."
-}

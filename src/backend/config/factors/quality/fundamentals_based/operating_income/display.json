@@ -1,7 +1,0 @@
-{
-  "metricKey": "operating_income",
-  "chart": {
-    "title": "Operating Income Quality"
-  },
-  "description": "Quality feature source for operating profitability durability, current position, turnaround state, and return on assets."
-}

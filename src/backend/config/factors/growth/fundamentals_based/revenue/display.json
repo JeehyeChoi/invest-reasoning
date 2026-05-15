@@ -1,7 +1,0 @@
-{
-  "metricKey": "revenue",
-  "chart": {
-    "title": "Revenue Trend"
-  },
-  "description": "Revenue growth signal based on latest YoY growth, TTM growth, and YoY growth acceleration."
-}

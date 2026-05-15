@@ -2,7 +2,9 @@ import { FACTOR_BLUEPRINTS } from "@/backend/config/factors/blueprints";
 import type { FactorKey } from "@/shared/factors/factors";
 import type { FactorAxisKey } from "@/shared/factors/axes";
 import { isSecMetricKey } from "@/shared/sec/metrics";
-import { isMarketPriceMetricKey } from "@/shared/market/priceMetrics";
+import { isMarketPriceMetricKey } from "@/shared/factors/marketPriceMetrics";
+import { isValuationMetricKey } from "@/shared/factors/valuationMetrics";
+import { isMacroLinkedMetricKey } from "@/shared/factors/macroLinkedMetrics";
 import { runTickerFactorMetricFeatures } from "@/backend/services/sec/companyFacts/series/feature/runTickerFactorMetricFeatures";
 import type { FeatureRunTarget } from "@/backend/services/sec/companyFacts/series/feature/runTickerFactorMetricFeatures";
 import type { DataPipelineRefreshJobKey } from "@/shared/data-pipeline/jobs";
@@ -18,6 +20,9 @@ type WorkflowProgress = {
 export type RunTickerFactorMetricFeaturesWorkflowInput = {
   tickers: string[];
   tickerCikMap?: Record<string, string | null>;
+  axes?: FactorAxisKey[];
+  asOfDate?: string;
+  progressJob?: DataPipelineRefreshJobKey;
   onProgress?: (progress: WorkflowProgress) => void;
 };
 
@@ -25,17 +30,24 @@ export type TickerFactorMetricFeaturesWorkflowResult = {
   warnings: string[];
 };
 
-function buildFeatureTargetsFromBlueprints(): FeatureRunTarget[] {
+function buildFeatureTargetsFromBlueprints(input: {
+  axes?: FactorAxisKey[];
+} = {}): FeatureRunTarget[] {
   const targets: FeatureRunTarget[] = [];
+  const axisFilter = input.axes ? new Set(input.axes) : null;
 
   for (const [factor, factorBlueprint] of Object.entries(FACTOR_BLUEPRINTS)) {
     if (!factorBlueprint) continue;
 
     for (const [axis, axisBlueprint] of Object.entries(factorBlueprint)) {
+      if (axisFilter && !axisFilter.has(axis as FactorAxisKey)) continue;
+
       for (const metricKey of axisBlueprint.metricKeys) {
         const isSupportedMetricTarget =
           isSecMetricKey(metricKey) ||
-          (axis === "valuation" && isMarketPriceMetricKey(metricKey));
+          (axis === "valuation" && isValuationMetricKey(metricKey)) ||
+          (axis === "market_price" && isMarketPriceMetricKey(metricKey)) ||
+          (axis === "macro_linked" && isMacroLinkedMetricKey(metricKey));
 
         if (!isSupportedMetricTarget) {
           continue;
@@ -61,10 +73,11 @@ export async function runTickerFactorMetricFeaturesWorkflow(
       ticker,
       cik: input.tickerCikMap?.[ticker] ?? null,
     })),
-    targets: buildFeatureTargetsFromBlueprints(),
+    targets: buildFeatureTargetsFromBlueprints({ axes: input.axes }),
+    asOfDate: input.asOfDate,
     onProgress: (progress) =>
       input.onProgress?.({
-        job: "factor_metric_features",
+        job: input.progressJob ?? "fundamentals_based_factor_features",
         ...progress,
       }),
   });

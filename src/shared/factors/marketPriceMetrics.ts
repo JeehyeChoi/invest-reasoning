@@ -1,0 +1,61 @@
+export const MARKET_PRICE_METRIC_KEYS = [
+  "price",
+  "down_market_defense_1y",
+  "down_market_defense_3y",
+  "volatility_stress_defense_1y",
+  "volatility_stress_defense_3y",
+  "drawdown_defense_1y",
+  "downside_capture_defense_1y",
+  "price_return_3m",
+  "price_return_6m",
+  "price_return_12m",
+  "price_momentum_12m_ex_1m",
+  "relative_return_3m",
+  "relative_return_6m",
+  "relative_return_12m",
+  "relative_momentum_12m_ex_1m",
+  "momentum_consistency_12m",
+  "distance_from_52_week_high",
+  "realized_volatility_1y",
+  "realized_volatility_3y",
+  "downside_volatility_1y",
+  "max_drawdown_1y",
+  "market_beta_1y",
+  "market_beta_3y",
+  "correlation_to_market_3y",
+  "upside_capture_1y",
+  "downside_capture_1y",
+  "qqq_beta_1y",
+  "qqq_beta_3y",
+  "qqq_correlation_3y",
+  "dia_beta_1y",
+  "dia_beta_3y",
+  "dia_correlation_3y",
+  "rate_up_relative_return_1y",
+  "rate_up_relative_return_3y",
+  "rate_shock_relative_return_1y",
+  "rate_beta_3y",
+  "curve_flattening_relative_return_3y",
+  "credit_spread_widening_relative_return_1y",
+  "credit_spread_widening_relative_return_3y",
+  "credit_shock_relative_return_1y",
+  "high_yield_spread_beta_3y",
+  "investment_grade_spread_beta_3y",
+  "short_rate_beta_3y",
+  "intermediate_rate_beta_3y",
+  "ultra_long_rate_beta_3y",
+  "yield_curve_beta_3y",
+  "short_treasury_beta_3y",
+  "intermediate_treasury_beta_3y",
+  "long_bond_beta_3y",
+] as const;
+
+export type MarketPriceMetricKey = (typeof MARKET_PRICE_METRIC_KEYS)[number];
+
+const MARKET_PRICE_METRIC_KEY_SET = new Set<string>(MARKET_PRICE_METRIC_KEYS);
+
+export function isMarketPriceMetricKey(
+  value: string,
+): value is MarketPriceMetricKey {
+  return MARKET_PRICE_METRIC_KEY_SET.has(value);
+}

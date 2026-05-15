@@ -1,7 +1,0 @@
-{
-  "metricKey": "revenue",
-  "chart": {
-    "title": "Revenue Resilience"
-  },
-  "description": "Defensive signal based on revenue stability, buffer position, and shock absorption."
-}

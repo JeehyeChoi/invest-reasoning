@@ -1,7 +1,0 @@
-{
-  "metricKey": "energy_exploration_expense",
-  "chart": {
-    "title": "Energy Exploration Expense"
-  },
-  "description": "Energy-linked activity feature source based on exploration expense growth, acceleration, and stretch versus recent history."
-}
