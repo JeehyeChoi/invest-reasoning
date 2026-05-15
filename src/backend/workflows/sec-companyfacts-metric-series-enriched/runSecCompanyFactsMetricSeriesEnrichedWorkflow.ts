@@ -27,7 +27,7 @@ export async function runSecCompanyFactsMetricSeriesEnrichedWorkflow(
 
   input.onProgress?.({
     job: "sec_metric_series_enriched",
-    message: "SEC metric enriched series build started.",
+    message: "started.",
     current: 0,
     total: entries.length,
   });
@@ -64,7 +64,7 @@ export async function runSecCompanyFactsMetricSeriesEnrichedWorkflow(
       const elapsedMs = Date.now() - startTime;
       input.onProgress?.({
         job: "sec_metric_series_enriched",
-        message: `SEC metric enriched series completed (${processed}/${entries.length}) ${ticker} in ${elapsedMs}ms. reliabilityRecords=${reliabilityResult.reliabilityCount}.`,
+        message: `${processed}/${entries.length} completed ${ticker} in ${elapsedMs}ms. reliabilityRecords=${reliabilityResult.reliabilityCount}.`,
         current: processed,
         total: entries.length,
         label: ticker,
@@ -79,7 +79,7 @@ export async function runSecCompanyFactsMetricSeriesEnrichedWorkflow(
 
   input.onProgress?.({
     job: "sec_metric_series_enriched",
-    message: `SEC metric enriched series build completed. processed=${processed}, reliabilityMetrics=${reliabilityMetricCount}, reliabilityRecords=${reliabilityCount}.`,
+    message: `completed. processed=${processed}, reliabilityMetrics=${reliabilityMetricCount}, reliabilityRecords=${reliabilityCount}.`,
     current: entries.length,
     total: entries.length,
   });

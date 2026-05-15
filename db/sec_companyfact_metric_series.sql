@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS public.sec_companyfact_metric_series (
   start           DATE,
   "end"           DATE NOT NULL,
   filed           DATE,
+  effective_date  DATE NOT NULL,
   accn            TEXT,
 
   fy              INTEGER,
@@ -60,6 +61,9 @@ CREATE TABLE IF NOT EXISTS public.sec_companyfact_metric_series (
 
 CREATE INDEX IF NOT EXISTS idx_metric_series_cik_metric_period_end
   ON public.sec_companyfact_metric_series (cik, metric_key, period_type, "end");
+
+CREATE INDEX IF NOT EXISTS idx_metric_series_effective
+  ON public.sec_companyfact_metric_series (effective_date DESC);
 
 CREATE INDEX IF NOT EXISTS idx_metric_series_cik_metric_source_tag
   ON public.sec_companyfact_metric_series (cik, metric_key, source_tag, unit);

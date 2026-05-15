@@ -16,6 +16,8 @@ export type MetricSeriesEnrichmentRow = {
   val: number;
   start: Date | null;
   end: Date;
+  filed: Date | null;
+  effective_date: Date;
   fiscal_year: number | null;
   fiscal_quarter: number | null;
   period_type: string;

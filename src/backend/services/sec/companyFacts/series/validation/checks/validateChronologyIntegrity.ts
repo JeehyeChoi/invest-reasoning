@@ -53,13 +53,13 @@ export function validateChronologyIntegrity(
         if (
           prevEnd != null &&
           currStart != null &&
-          currStart <= prevEnd
+          currStart < prevEnd
         ) {
           issues.push(
             buildIssue(
               current,
               "overlapping_period",
-              "error",
+              "warning",
               "Overlapping periods detected",
             ),
           );
@@ -100,7 +100,7 @@ function groupByMetric(
   const map = new Map<string, SeriesValidationRow[]>();
 
   for (const row of rows) {
-    const key = `${row.metric_key}|${row.unit}`;
+    const key = `${row.metric_key}|${row.unit}|${row.period_type ?? "unknown"}`;
 
     const list = map.get(key) ?? [];
     list.push(row);

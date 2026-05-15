@@ -11,16 +11,7 @@ export function validatePeriodIntegrity(
   const issues: SeriesValidationIssue[] = [];
 
   for (const row of rows) {
-    const {
-      period_type,
-      fiscal_year,
-      fiscal_quarter,
-      metric_key,
-      unit,
-      start,
-      end,
-      accn,
-    } = row;
+    const { period_type, fiscal_year, fiscal_quarter } = row;
 
     // 1. period_type 존재 여부
     if (!period_type) {

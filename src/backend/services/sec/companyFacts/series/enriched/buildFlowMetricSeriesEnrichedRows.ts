@@ -120,6 +120,22 @@ function sumRows(rows: MetricSeriesEnrichmentRow[] | null): number | null {
   return sum;
 }
 
+function effectiveDateFromRows(
+  rows: Array<MetricSeriesEnrichmentRow | null | undefined>,
+): Date {
+  const timestamps = rows.flatMap((row) => {
+    if (!row) return [];
+    const value = row.effective_date;
+    const time = new Date(value).getTime();
+    return Number.isFinite(time) ? [time] : [];
+  });
+  const latest = timestamps.length > 0
+    ? Math.max(...timestamps)
+    : Date.now();
+
+  return new Date(latest);
+}
+
 function durationAdjustedVal(row: MetricSeriesEnrichmentRow | null): number | null {
   if (!row) return null;
 
@@ -432,6 +448,13 @@ export function buildFlowMetricSeriesEnrichedRows(
 
     results.push({
       ...current,
+      effective_date: effectiveDateFromRows([
+        current,
+        prev,
+        prevYear,
+        ...(ttmWindow?.rows ?? []),
+        ...(prevTtmWindow?.rows ?? []),
+      ]),
       yoy,
       qoq,
       yoy_delta,

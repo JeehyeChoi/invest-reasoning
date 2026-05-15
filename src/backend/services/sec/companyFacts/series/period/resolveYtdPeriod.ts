@@ -12,6 +12,7 @@ import {
   scoreExpectedPeriodWindow,
 } from "./scorePeriodWindow";
 import { parseCalendarFrame } from "./classifyFrame";
+import { normalizeFiscalYear } from "./normalizeFiscalYear";
 
 export function resolveYtdPeriod(
   input: ResolvePeriodInput,
@@ -20,6 +21,7 @@ export function resolveYtdPeriod(
 
   const duration = classifyDurationDays(row.duration_days);
   const calendarFrame = parseCalendarFrame(row.frame);
+  const fiscalYear = normalizeFiscalYear(row.fy);
 
   // YTD 후보가 아니면 종료
   if (duration.kind !== "ytd") {
@@ -29,7 +31,7 @@ export function resolveYtdPeriod(
   if (!fiscalProfile) {
     return {
       kind: "ytd",
-      fiscalYear: row.fy ?? calendarFrame?.calendarYear ?? null,
+      fiscalYear: fiscalYear ?? calendarFrame?.calendarYear ?? null,
       fiscalQuarter: null,
       calendarYear: calendarFrame?.calendarYear ?? null,
       calendarQuarter: calendarFrame?.calendarQuarter ?? null,
@@ -49,8 +51,8 @@ export function resolveYtdPeriod(
 		buildFiscalQuarterWindows(fiscalProfile);
 
 	const candidateWindows =
-		row.fy != null
-			? quarterWindows.filter((w) => Math.abs(w.fiscalYear - row.fy!) <= 1)
+		fiscalYear != null
+			? quarterWindows.filter((w) => Math.abs(w.fiscalYear - fiscalYear) <= 1)
 			: quarterWindows;
 
   const fiscalYearWindows =
@@ -112,11 +114,11 @@ export function resolveYtdPeriod(
     fitScore: best.score,
     windowMatchKind: best.matchKind,
     secLabelAlignment:
-      row.fy != null && explicitFpQuarter !== null
-        ? row.fy === best.window.fiscalYear && explicitFpQuarter === best.window.fiscalQuarter
+      fiscalYear != null && explicitFpQuarter !== null
+        ? fiscalYear === best.window.fiscalYear && explicitFpQuarter === best.window.fiscalQuarter
           ? "aligned"
           : "misaligned"
-        : row.fy != null || explicitFpQuarter != null
+        : fiscalYear != null || explicitFpQuarter != null
           ? "misaligned"
           : "unknown",
     basis: "quarter_window",

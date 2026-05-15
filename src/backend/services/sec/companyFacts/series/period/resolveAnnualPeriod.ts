@@ -4,6 +4,7 @@ import type { ResolvePeriodInput, ResolvedPeriod } from "./types";
 import { classifyDurationDays } from "./classifyDuration";
 import { classifyFormPeriodHint } from "./classifyForm";
 import { classifyFpPeriodHint, normalizeFpValue } from "./classifyFp";
+import { normalizeFiscalYear } from "./normalizeFiscalYear";
 import { buildFiscalYearWindows } from "./buildPeriodWindows";
 import {
   scoreFiscalYearWindow,
@@ -18,6 +19,7 @@ export function resolveAnnualPeriod(
   const duration = classifyDurationDays(row.duration_days);
   const form = classifyFormPeriodHint(row.form);
   const fp = classifyFpPeriodHint(row.fp);
+  const fiscalYear = normalizeFiscalYear(row.fy);
 
   const isAnnualCandidate =
     duration.kind === "annual" ||
@@ -31,7 +33,7 @@ export function resolveAnnualPeriod(
   if (!fiscalProfile) {
     return {
       kind: "annual",
-      fiscalYear: row.fy ?? null,
+      fiscalYear,
       fiscalQuarter: null,
       calendarYear: null,
       calendarQuarter: null,
@@ -52,9 +54,9 @@ export function resolveAnnualPeriod(
 
 	const frameYear = parseAnnualCalendarFrameYear(row.frame);
 	const candidateWindows =
-		row.fy != null || frameYear != null
+		fiscalYear != null || frameYear != null
 			? windows.filter((w) =>
-				(row.fy != null && Math.abs(w.fiscalYear - row.fy) <= 1) ||
+				(fiscalYear != null && Math.abs(w.fiscalYear - fiscalYear) <= 1) ||
 				(frameYear != null && Math.abs(w.fiscalYear - frameYear) <= 1),
 			)
 			: windows;
@@ -93,9 +95,9 @@ export function resolveAnnualPeriod(
     fitScore: best.score,
     windowMatchKind: best.matchKind,
     secLabelAlignment:
-      row.fy != null && normalizedFp === "FY" && row.fy === best.window.fiscalYear
+      fiscalYear != null && normalizedFp === "FY" && fiscalYear === best.window.fiscalYear
         ? "aligned"
-        : row.fy != null || normalizedFp != null
+        : fiscalYear != null || normalizedFp != null
           ? "misaligned"
           : "unknown",
     basis: "annual_window",

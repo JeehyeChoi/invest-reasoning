@@ -15,7 +15,10 @@ export function buildInstantMetricSeries(
   const candidates = input.rows.map((row) =>
     toMetricBuildCandidate({
       row,
-      resolvedPeriod: resolveInstantPeriod(row),
+      resolvedPeriod: resolveInstantPeriod({
+        row,
+        periodContext: input.context.periodContext,
+      }),
       buildSourceKind: "raw_direct",
     }),
   );

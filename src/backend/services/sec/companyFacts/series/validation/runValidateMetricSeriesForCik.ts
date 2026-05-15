@@ -5,7 +5,7 @@ import { db } from "@/backend/config/db";
 import { FACTOR_BLUEPRINTS } from "@/backend/config/factors/blueprints";
 import type { FactorKey } from "@/shared/factors/factors";
 import type { FactorAxisKey } from "@/shared/factors/axes";
-import { isSecMetricKey, type SecMetricKey } from "@/shared/sec/metrics";
+import { isSecMetricKey } from "@/shared/sec/metrics";
 import { shouldValidateSecMetricKey } from "@/backend/config/sec/metrics";
 import type { SeriesValidationRow } from "@/backend/services/sec/companyFacts/series/validation/types";
 import { validateMetricSeries } from "@/backend/services/sec/companyFacts/series/validation/validateMetricSeries";
@@ -19,15 +19,14 @@ const OUTPUT_DIR = path.join(
 export async function runValidateMetricSeriesForCik(input: {
   ticker: string;
   cik: string;
+  activeMetricKeys?: Set<string>;
+  writeReport?: boolean;
 }) {
   const { ticker, cik } = input;
+  const activeMetricKeys =
+    input.activeMetricKeys ?? buildActiveMetricKeysForValidation();
 
-  const [rows, activeMetricKeys] = await Promise.all([
-    loadMetricSeriesRows(cik),
-    loadActiveMetricKeys(),
-  ]);
-
-  const filteredRows = rows.filter((row) => activeMetricKeys.has(row.metric_key));
+  const filteredRows = await loadMetricSeriesRows(cik, activeMetricKeys);
 
   const result = validateMetricSeries({
     cik,
@@ -36,19 +35,22 @@ export async function runValidateMetricSeriesForCik(input: {
   });
 
   const report = buildSeriesValidationReport(result);
+  let filePath: string | null = null;
 
-  await fs.mkdir(OUTPUT_DIR, { recursive: true });
+  if (input.writeReport ?? true) {
+    await fs.mkdir(OUTPUT_DIR, { recursive: true });
 
-  const filePath = path.join(
-    OUTPUT_DIR,
-    `${ticker}-${cik}.json`,
-  );
+    filePath = path.join(
+      OUTPUT_DIR,
+      `${ticker}-${cik}.json`,
+    );
 
-  await fs.writeFile(
-    filePath,
-    JSON.stringify(report, null, 2),
-    "utf8",
-  );
+    await fs.writeFile(
+      filePath,
+      JSON.stringify(report, null, 2),
+      "utf8",
+    );
+  }
 
   return {
     filePath,
@@ -56,7 +58,7 @@ export async function runValidateMetricSeriesForCik(input: {
   };
 }
 
-async function loadActiveMetricKeys(): Promise<Set<string>> {
+export function buildActiveMetricKeysForValidation(): Set<string> {
   const activeMetricKeys = new Set<string>();
 
   for (const factor of Object.keys(FACTOR_BLUEPRINTS) as FactorKey[]) {
@@ -82,7 +84,12 @@ async function loadActiveMetricKeys(): Promise<Set<string>> {
 
 async function loadMetricSeriesRows(
   cik: string,
+  activeMetricKeys: Set<string>,
 ): Promise<SeriesValidationRow[]> {
+  if (activeMetricKeys.size === 0) {
+    return [];
+  }
+
   const result = await db.query<SeriesValidationRow>(
     `
     SELECT
@@ -113,6 +120,7 @@ async function loadMetricSeriesRows(
       AND sp.tag = m.source_tag
       AND sp.unit = m.unit
     WHERE m.cik = $1
+      AND m.metric_key = ANY($2::text[])
     ORDER BY
       m.metric_key ASC,
       m.unit ASC,
@@ -120,7 +128,7 @@ async function loadMetricSeriesRows(
       m.fiscal_quarter ASC NULLS LAST,
       m."end" ASC NULLS LAST
     `,
-    [cik],
+    [cik, [...activeMetricKeys]],
   );
 
   return result.rows.map((row) => ({

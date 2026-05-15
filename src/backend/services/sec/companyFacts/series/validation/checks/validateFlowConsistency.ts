@@ -15,6 +15,10 @@ export function validateFlowConsistency(
   const groups = groupByMetric(rows);
 
   for (const group of groups) {
+    if (!group.some((row) => row.fact_type === "flow")) {
+      continue;
+    }
+
     const byFiscalYear = groupByFiscalYear(group);
 
     for (const [fyStr, fyRows] of Object.entries(byFiscalYear)) {

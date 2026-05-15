@@ -46,7 +46,7 @@ type MetricSeriesReliabilityRow = {
 };
 
 const SOURCE_TABLE = "sec_companyfact_metric_series_enriched";
-const SOURCE_VERSION = "metric_series_reliability_v1";
+const SOURCE_VERSION = "metric_series_reliability_v0";
 const OBSERVATION_DEPTH_LOOKBACK = 8;
 const CONTINUITY_LOOKBACK = 8;
 const RELIABILITY_KEY = {

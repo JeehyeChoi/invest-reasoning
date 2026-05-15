@@ -62,6 +62,7 @@ function toBuiltMetricSeriesRow(
     duration_days: candidate.duration_days,
 
     filed: candidate.filed,
+    effective_date: candidate.filed ?? candidate.end,
     accn: candidate.accn,
     fy: candidate.fy,
     fp: candidate.fp,

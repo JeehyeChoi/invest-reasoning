@@ -11,6 +11,7 @@ export async function runCompanyFactsSeriesProcessingForCik(input: {
   ticker: string;
   cik: string;
   validate?: boolean;
+  validationWriteReport?: boolean;
 }): Promise<RunCompanyFactsSeriesProcessingForCikResult> {
   await buildCompanyFactsMetricSeriesForCik({
     ticker: input.ticker,
@@ -32,6 +33,7 @@ export async function runCompanyFactsSeriesProcessingForCik(input: {
   const { report } = await runValidateMetricSeriesForCik({
     ticker: input.ticker,
     cik: input.cik,
+    writeReport: input.validationWriteReport ?? true,
   });
 
   return {

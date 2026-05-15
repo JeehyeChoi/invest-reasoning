@@ -3,6 +3,19 @@ import type { PoolClient } from "pg";
 import type { CanonicalMetricSeriesRow } from "@/backend/services/sec/companyFacts/series/metric/types";
 import { toDateKey } from "@/backend/services/sec/companyFacts/series/utils/dateKey";
 
+export type CompanyFactMetricSeriesTargetTable =
+  | "sec_companyfact_metric_series"
+  | "sec_companyfact_metric_series_experiment";
+
+function resolveTargetTableName(table: CompanyFactMetricSeriesTargetTable) {
+  switch (table) {
+    case "sec_companyfact_metric_series":
+      return "public.sec_companyfact_metric_series";
+    case "sec_companyfact_metric_series_experiment":
+      return "public.sec_companyfact_metric_series_experiment";
+  }
+}
+
 function normalizeStringKeyPart(value: string | null | undefined): string {
   return value?.trim() || "NULL";
 }
@@ -38,6 +51,8 @@ function dedupeRowsForUpsert(
 export async function upsertCompanyFactMetricSeriesRows(
   rows: CanonicalMetricSeriesRow[],
   executor: Pick<PoolClient, "query"> = db,
+  targetTable: CompanyFactMetricSeriesTargetTable =
+    "sec_companyfact_metric_series",
 ): Promise<void> {
   if (rows.length === 0) return;
 
@@ -47,7 +62,7 @@ export async function upsertCompanyFactMetricSeriesRows(
   const values: unknown[] = [];
 
   const placeholders = dedupedRows.map((row, index) => {
-    const offset = index * 22;
+    const offset = index * 23;
 
     values.push(
       row.cik,
@@ -61,6 +76,7 @@ export async function upsertCompanyFactMetricSeriesRows(
       row.end,
       row.duration_days,
       row.filed,
+      row.effective_date,
       row.accn,
       row.fy,
       row.fp,
@@ -80,12 +96,12 @@ export async function upsertCompanyFactMetricSeriesRows(
       $${offset + 9}, $${offset + 10}, $${offset + 11}, $${offset + 12},
       $${offset + 13}, $${offset + 14}, $${offset + 15}, $${offset + 16},
       $${offset + 17}, $${offset + 18}, $${offset + 19}, $${offset + 20},
-      $${offset + 21}, $${offset + 22}
+      $${offset + 21}, $${offset + 22}, $${offset + 23}
     )`;
   });
 
   const query = `
-    INSERT INTO public.sec_companyfact_metric_series (
+    INSERT INTO ${resolveTargetTableName(targetTable)} (
       cik,
       ticker,
       metric_key,
@@ -97,6 +113,7 @@ export async function upsertCompanyFactMetricSeriesRows(
       "end",
       duration_days,
       filed,
+      effective_date,
       accn,
       fy,
       fp,
@@ -117,6 +134,7 @@ export async function upsertCompanyFactMetricSeriesRows(
       fact_type = EXCLUDED.fact_type,
       val = EXCLUDED.val,
       filed = EXCLUDED.filed,
+      effective_date = EXCLUDED.effective_date,
       accn = EXCLUDED.accn,
       fy = EXCLUDED.fy,
       fp = EXCLUDED.fp,

@@ -139,6 +139,33 @@ function rollingSnapshotAverage(
   return total / ROLLING_SNAPSHOT_SIZE;
 }
 
+function rollingSnapshotRows(
+  sorted: MetricSeriesEnrichmentRow[],
+  currentIndex: number,
+): MetricSeriesEnrichmentRow[] {
+  const startIndex = currentIndex - ROLLING_SNAPSHOT_SIZE + 1;
+  if (startIndex < 0) return [];
+
+  const window = sorted.slice(startIndex, currentIndex + 1);
+  return window.length === ROLLING_SNAPSHOT_SIZE ? window : [];
+}
+
+function effectiveDateFromRows(
+  rows: Array<MetricSeriesEnrichmentRow | null | undefined>,
+): Date {
+  const timestamps = rows.flatMap((row) => {
+    if (!row) return [];
+    const value = row.effective_date;
+    const time = new Date(value).getTime();
+    return Number.isFinite(time) ? [time] : [];
+  });
+  const latest = timestamps.length > 0
+    ? Math.max(...timestamps)
+    : Date.now();
+
+  return new Date(latest);
+}
+
 function groupRowsByComparableSeries(
   rows: MetricSeriesEnrichmentRow[],
 ): MetricSeriesEnrichmentRow[][] {
@@ -187,11 +214,18 @@ function buildInstantGroupEnrichedRows(
     const yoy_delta =
       yoy !== null && previousYoy !== null ? yoy - previousYoy : null;
     const rolling4_avg = rollingSnapshotAverage(sorted, i);
+    const rollingRows = rolling4_avg !== null ? rollingSnapshotRows(sorted, i) : [];
 
     yoyByEnd.set(new Date(current.end).toISOString(), yoy);
 
     results.push({
       ...current,
+      effective_date: effectiveDateFromRows([
+        current,
+        prev,
+        prevYear,
+        ...rollingRows,
+      ]),
       yoy,
       qoq,
       yoy_delta,

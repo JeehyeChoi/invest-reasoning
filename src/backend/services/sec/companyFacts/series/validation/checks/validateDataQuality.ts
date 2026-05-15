@@ -17,6 +17,7 @@ export function validateDataQuality(
     const {
       val,
       duration_days,
+      fiscal_year,
       period_type,
     } = row;
 
@@ -50,6 +51,7 @@ export function validateDataQuality(
 
     // 3. period_type sanity
     if (
+      period_type != null &&
       period_type !== "annual" &&
       period_type !== "quarter" &&
       period_type !== "ytd" &&
@@ -62,6 +64,22 @@ export function validateDataQuality(
           "unsupported_period_type",
           "error",
           `Unsupported period_type: ${String(period_type)}`,
+        ),
+      );
+    }
+
+    if (
+      fiscal_year != null &&
+      (!Number.isInteger(fiscal_year) ||
+        fiscal_year < 1900 ||
+        fiscal_year > 2100)
+    ) {
+      issues.push(
+        buildIssue(
+          row,
+          "invalid_fiscal_year",
+          "warning",
+          `Invalid fiscal_year: ${fiscal_year}`,
         ),
       );
     }

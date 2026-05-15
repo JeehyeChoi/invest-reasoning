@@ -10,7 +10,7 @@ import type { SecMetricKey } from "@/shared/sec/metrics";
 import type { PoolClient } from "pg";
 
 type EnrichedPeriodType = "quarter" | "instant";
-const ENRICHED_INSERT_COLUMN_COUNT = 41;
+const ENRICHED_INSERT_COLUMN_COUNT = 42;
 const ENRICHED_INSERT_CHUNK_SIZE = 1_000;
 
 async function loadMetricKeysForCik(cik: string): Promise<SecMetricKey[]> {
@@ -44,6 +44,8 @@ async function loadMetricSeries(input: {
       val,
       start,
       "end",
+      filed,
+      effective_date,
       fiscal_year,
       fiscal_quarter,
       period_type,
@@ -93,6 +95,7 @@ async function upsertEnrichedRowsChunk(
       row.val,
       row.start,
       row.end,
+      row.effective_date,
       row.fiscal_year,
       row.fiscal_quarter,
       row.period_type,
@@ -136,7 +139,7 @@ async function upsertEnrichedRowsChunk(
       $${offset + 26}, $${offset + 27}, $${offset + 28}, $${offset + 29}, $${offset + 30},
       $${offset + 31}, $${offset + 32}, $${offset + 33}, $${offset + 34}, $${offset + 35},
       $${offset + 36}, $${offset + 37}, $${offset + 38}, $${offset + 39}, $${offset + 40},
-      $${offset + 41}
+      $${offset + 41}, $${offset + 42}
     )`;
   });
 
@@ -152,6 +155,7 @@ async function upsertEnrichedRowsChunk(
       val,
       start,
       "end",
+      effective_date,
       fiscal_year,
       fiscal_quarter,
       period_type,
@@ -199,6 +203,7 @@ async function upsertEnrichedRowsChunk(
       ticker = EXCLUDED.ticker,
       source_tag = EXCLUDED.source_tag,
       val = EXCLUDED.val,
+      effective_date = EXCLUDED.effective_date,
       fiscal_year = EXCLUDED.fiscal_year,
       fiscal_quarter = EXCLUDED.fiscal_quarter,
       duration_days = EXCLUDED.duration_days,

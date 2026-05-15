@@ -1,4 +1,5 @@
 import { runValidateMetricSeriesForCik } from "@/backend/services/sec/companyFacts/series/validation/runValidateMetricSeriesForCik";
+import { buildActiveMetricKeysForValidation } from "@/backend/services/sec/companyFacts/series/validation/runValidateMetricSeriesForCik";
 import type { DataPipelineRefreshJobKey } from "@/shared/data-pipeline/jobs";
 
 type WorkflowProgress = {
@@ -11,15 +12,19 @@ type WorkflowProgress = {
 
 export async function runSecCompanyFactsSeriesValidationWorkflow(input: {
   tickerCikMap: Record<string, string | null>;
+  concurrency?: number;
+  writeReports?: boolean;
   onProgress?: (progress: WorkflowProgress) => void;
 }) {
-  const entries = Object.entries(input.tickerCikMap).filter(([, cik]) =>
-    Boolean(cik),
+  const entries = Object.entries(input.tickerCikMap).filter(
+    (entry): entry is [string, string] => Boolean(entry[1]),
   );
 
   let total = 0;
   let warn = 0;
   let fail = 0;
+  const activeMetricKeys = buildActiveMetricKeysForValidation();
+  const concurrency = normalizeConcurrency(input.concurrency, 4);
 
   input.onProgress?.({
     job: "series_validation",
@@ -28,14 +33,14 @@ export async function runSecCompanyFactsSeriesValidationWorkflow(input: {
     total: entries.length,
   });
 
-  for (const [ticker, cik] of entries) {
-    if (!cik) continue;
-
+  await runWithConcurrency(entries, concurrency, async ([ticker, cik]) => {
     const startTime = Date.now();
 
     const { report } = await runValidateMetricSeriesForCik({
       ticker,
       cik,
+      activeMetricKeys,
+      writeReport: input.writeReports ?? false,
     });
 
     total += 1;
@@ -50,7 +55,7 @@ export async function runSecCompanyFactsSeriesValidationWorkflow(input: {
       total: entries.length,
       label: ticker,
     });
-  }
+  });
 
   input.onProgress?.({
     job: "series_validation",
@@ -66,4 +71,34 @@ export async function runSecCompanyFactsSeriesValidationWorkflow(input: {
       fail,
     },
   };
+}
+
+async function runWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<void>,
+): Promise<void> {
+  let nextIndex = 0;
+
+  async function runWorker() {
+    while (nextIndex < items.length) {
+      const item = items[nextIndex];
+      nextIndex += 1;
+      await worker(item);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, () =>
+      runWorker(),
+    ),
+  );
+}
+
+function normalizeConcurrency(value: number | undefined, fallback: number) {
+  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
+    return fallback;
+  }
+
+  return Math.min(value, 8);
 }

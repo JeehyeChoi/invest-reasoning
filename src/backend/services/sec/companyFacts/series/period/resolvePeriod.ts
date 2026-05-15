@@ -3,6 +3,7 @@
 import { classifyDurationDays } from "@/backend/services/sec/companyFacts/series/period/classifyDuration";
 import { classifyFormPeriodHint } from "@/backend/services/sec/companyFacts/series/period/classifyForm";
 import { classifyFpPeriodHint } from "@/backend/services/sec/companyFacts/series/period/classifyFp";
+import { normalizeFiscalYear } from "@/backend/services/sec/companyFacts/series/period/normalizeFiscalYear";
 import type { ResolvePeriodInput, ResolvedPeriod } from "@/backend/services/sec/companyFacts/series/period/types";
 import { resolveAnnualPeriod } from "@/backend/services/sec/companyFacts/series/period/resolveAnnualPeriod";
 import { resolveQuarterPeriod } from "@/backend/services/sec/companyFacts/series/period/resolveQuarterPeriod";
@@ -39,7 +40,7 @@ export function resolvePeriod(input: ResolvePeriodInput): ResolvedPeriod {
   if (duration.kind === "instant") {
     return {
       kind: "instant",
-      fiscalYear: input.row.fy ?? null,
+      fiscalYear: normalizeFiscalYear(input.row.fy),
       fiscalQuarter: null,
       calendarYear: null,
       calendarQuarter: null,
@@ -56,7 +57,7 @@ export function resolvePeriod(input: ResolvePeriodInput): ResolvedPeriod {
 
   return {
     kind: "other",
-    fiscalYear: input.row.fy ?? null,
+    fiscalYear: normalizeFiscalYear(input.row.fy),
     fiscalQuarter: null,
     calendarYear: null,
     calendarQuarter: null,

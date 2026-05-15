@@ -16,6 +16,7 @@ export type SeriesValidationCheck =
 export type SeriesValidationIssueCode =
   | "missing_period_type"
   | "missing_fiscal_year"
+  | "invalid_fiscal_year"
   | "missing_fiscal_quarter"
   | "invalid_fiscal_quarter"
   | "quarter_without_fiscal_year"

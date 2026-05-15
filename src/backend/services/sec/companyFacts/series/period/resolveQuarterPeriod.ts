@@ -9,6 +9,7 @@ import { classifyDurationDays } from "./classifyDuration";
 import { parseCalendarFrame } from "./classifyFrame";
 import { classifyFormPeriodHint } from "./classifyForm";
 import { classifyFpPeriodHint, fpToQuarter } from "./classifyFp";
+import { normalizeFiscalYear } from "./normalizeFiscalYear";
 import { toDateKey } from "@/backend/services/sec/companyFacts/series/utils/dateKey";
 import {
   type PeriodWindowScore,
@@ -41,6 +42,7 @@ export function resolveQuarterPeriod(
   const duration = classifyDurationDays(row.duration_days);
   const form = classifyFormPeriodHint(row.form);
   const fp = classifyFpPeriodHint(row.fp);
+  const fiscalYear = normalizeFiscalYear(row.fy);
   const explicitFpQuarter = fpToQuarter(row.fp);
   const calendarFrame = parseCalendarFrame(row.frame);
 
@@ -58,7 +60,7 @@ export function resolveQuarterPeriod(
   if (!fiscalProfile) {
     return {
       kind: "quarter",
-      fiscalYear: row.fy ?? calendarFrame?.calendarYear ?? null,
+      fiscalYear: fiscalYear ?? calendarFrame?.calendarYear ?? null,
       fiscalQuarter: explicitFpQuarter ?? calendarFrame?.calendarQuarter ?? null,
       calendarYear: calendarFrame?.calendarYear ?? null,
       calendarQuarter: calendarFrame?.calendarQuarter ?? null,
@@ -81,8 +83,8 @@ export function resolveQuarterPeriod(
     buildFiscalYearWindows(fiscalProfile);
 
 	const candidateWindows =
-		row.fy != null
-			? windows.filter((w) => Math.abs(w.fiscalYear - row.fy!) <= 1)
+		fiscalYear != null
+			? windows.filter((w) => Math.abs(w.fiscalYear - fiscalYear) <= 1)
 			: windows;
 
   const scored: Array<
@@ -178,11 +180,11 @@ export function resolveQuarterPeriod(
     fitScore: best.score,
     windowMatchKind: best.matchKind,
     secLabelAlignment:
-      row.fy != null && explicitFpQuarter !== null
-        ? row.fy === best.window.fiscalYear && explicitFpQuarter === best.window.fiscalQuarter
+      fiscalYear != null && explicitFpQuarter !== null
+        ? fiscalYear === best.window.fiscalYear && explicitFpQuarter === best.window.fiscalQuarter
           ? "aligned"
           : "misaligned"
-        : row.fy != null || explicitFpQuarter != null
+        : fiscalYear != null || explicitFpQuarter != null
           ? "misaligned"
           : "unknown",
     basis: "quarter_window",
@@ -198,7 +200,7 @@ function resolveQuarterFromSecLabels(input: {
   candidateConfidence: number;
 }): ResolvedPeriod | null {
   if (
-    input.row.fy == null ||
+    normalizeFiscalYear(input.row.fy) == null ||
     input.explicitFpQuarter == null ||
     input.durationKind !== "quarter"
   ) {
@@ -207,7 +209,7 @@ function resolveQuarterFromSecLabels(input: {
 
   return {
     kind: "quarter",
-    fiscalYear: input.row.fy,
+    fiscalYear: normalizeFiscalYear(input.row.fy),
     fiscalQuarter: input.explicitFpQuarter,
     calendarYear: input.calendarFrame?.calendarYear ?? null,
     calendarQuarter: input.calendarFrame?.calendarQuarter ?? null,

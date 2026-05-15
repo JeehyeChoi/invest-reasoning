@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS sec_companyfact_metric_series_enriched (
 
   start DATE,
   "end" DATE NOT NULL,
+  effective_date DATE NOT NULL,
 
   fiscal_year INTEGER,
   fiscal_quarter INTEGER,
@@ -86,6 +87,9 @@ ON sec_companyfact_metric_series_enriched (ticker, metric_key, period_type, "end
 -- Batch processing (metric-level)
 CREATE INDEX IF NOT EXISTS idx_enriched_metric_period_end
 ON sec_companyfact_metric_series_enriched (metric_key, period_type, "end" DESC);
+
+CREATE INDEX IF NOT EXISTS idx_enriched_effective
+ON sec_companyfact_metric_series_enriched (effective_date DESC);
 
 -- 5️⃣ fiscal 기반 검증/정렬
 CREATE INDEX IF NOT EXISTS idx_enriched_fiscal

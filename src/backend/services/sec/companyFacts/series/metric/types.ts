@@ -33,6 +33,7 @@ export type CanonicalMetricSeriesRow = {
   duration_days: number | null;
 
   filed: string | Date | null;
+  effective_date: string | Date;
   accn: string | null;
   fy: number | null;
   fp: string | null;

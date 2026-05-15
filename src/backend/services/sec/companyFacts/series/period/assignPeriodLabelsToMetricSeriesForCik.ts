@@ -2,9 +2,14 @@
 
 import { db } from "@/backend/config/db";
 import { loadCompanyFiscalProfile } from "@/backend/services/sec/companyFacts/series/fiscal/loadCompanyFiscalProfile";
+import type { CompanyFiscalProfile } from "@/backend/services/sec/companyFacts/series/fiscal/types";
 import type { CanonicalMetricSeriesRow } from "@/backend/services/sec/companyFacts/series/metric/types";
-import { buildPeriodResolveContext } from "@/backend/services/sec/companyFacts/series/period/resolveContext";
+import {
+  buildPeriodResolveContext,
+  type PeriodResolveContext,
+} from "@/backend/services/sec/companyFacts/series/period/resolveContext";
 import { resolvePeriod } from "@/backend/services/sec/companyFacts/series/period/resolvePeriod";
+import { resolveInstantPeriod } from "@/backend/services/sec/companyFacts/series/instant/resolveInstantPeriod";
 
 type MetricSeriesDbRow = CanonicalMetricSeriesRow & {
   id: number;
@@ -33,16 +38,8 @@ export async function assignPeriodLabelsToMetricSeriesForCik(input: {
   const updates: PeriodLabelUpdate[] = [];
 
   for (const row of rows) {
-    const resolved = resolvePeriod({
-      row: shouldResolveFromMetricWindowOnly(row)
-        ? {
-          ...row,
-          fy: null,
-          fp: null,
-          form: null,
-          frame: null,
-        }
-        : row,
+    const resolved = resolveMetricSeriesPeriod({
+      row,
       fiscalProfile,
       periodContext,
     });
@@ -61,6 +58,33 @@ export async function assignPeriodLabelsToMetricSeriesForCik(input: {
   }
 
   await updatePeriodLabels(dedupedUpdates);
+}
+
+function resolveMetricSeriesPeriod(input: {
+  row: MetricSeriesDbRow;
+  fiscalProfile: CompanyFiscalProfile | null;
+  periodContext: PeriodResolveContext;
+}) {
+  if (input.row.period_type === "instant") {
+    return resolveInstantPeriod({
+      row: input.row,
+      periodContext: input.periodContext,
+    });
+  }
+
+  return resolvePeriod({
+    row: shouldResolveFromMetricWindowOnly(input.row)
+      ? {
+          ...input.row,
+          fy: null,
+          fp: null,
+          form: null,
+          frame: null,
+        }
+      : input.row,
+    fiscalProfile: input.fiscalProfile,
+    periodContext: input.periodContext,
+  });
 }
 
 async function getMetricSeriesRows(cik: string): Promise<MetricSeriesDbRow[]> {

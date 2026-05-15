@@ -14,6 +14,10 @@ export function validateFiscalCoverage(
   const groups = groupByMetric(rows);
 
   for (const group of groups) {
+    if (!shouldValidateFiscalCoverage(group)) {
+      continue;
+    }
+
     issues.push(...validateMissingFiscalYears(group));
     issues.push(...validateMissingAnnualAndQuarters(group));
   }
@@ -27,7 +31,7 @@ function validateMissingFiscalYears(
   const fiscalYears = [...new Set(
     rows
       .map((row) => row.fiscal_year)
-      .filter((value): value is number => value != null),
+      .filter(isValidFiscalYear),
   )].sort((a, b) => a - b);
 
   if (fiscalYears.length < 2) {
@@ -272,7 +276,7 @@ function groupByFiscalYear(
   const map: Record<number, SeriesValidationRow[]> = {};
 
   for (const row of rows) {
-    if (row.fiscal_year == null) continue;
+    if (!isValidFiscalYear(row.fiscal_year)) continue;
 
     if (!map[row.fiscal_year]) {
       map[row.fiscal_year] = [];
@@ -282,6 +286,24 @@ function groupByFiscalYear(
   }
 
   return map;
+}
+
+function shouldValidateFiscalCoverage(rows: SeriesValidationRow[]): boolean {
+  return rows.some((row) =>
+    row.fact_type === "flow" &&
+    (row.period_type === "annual" ||
+      row.period_type === "quarter" ||
+      row.period_type === "ytd")
+  );
+}
+
+function isValidFiscalYear(value: number | null): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 1900 &&
+    value <= 2100
+  );
 }
 
 function buildIssue(
