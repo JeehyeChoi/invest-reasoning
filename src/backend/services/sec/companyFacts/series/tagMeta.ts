@@ -21,7 +21,8 @@ export type CompanyFactsSeriesTagFamily =
   | "energy_oil_gas_capitalized_costs"
   | "energy_inventory"
   | "energy_input_cost"
-  | "energy_revenue";
+  | "energy_revenue"
+  | "debt_instrument";
 
 function flow(
   metricKey: SecCompanyFactsMetricKey,
@@ -250,6 +251,9 @@ export const COMPANY_FACTS_SERIES_TAG_META: Record<
     "total_debt",
     2,
   ),
+  DebtInstrumentCarryingAmount: instant("total_debt", 99, {
+    tagFamily: "debt_instrument",
+  }),
   CommonStocksIncludingAdditionalPaidInCapital: instant("common_stock_and_apic"),
   RetainedEarningsAccumulatedDeficit: instant("retained_earnings"),
 

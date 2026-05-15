@@ -9,6 +9,7 @@ export function mapRawFactToTagSeriesRow(input: {
   point: FlatCompanyFactRow;
   ticker: string;
   tagMeta: CompanyFactTagMeta;
+  workflowType?: string;
 }): CompanyFactTagSeriesRow | null {
   const { point, ticker, tagMeta } = input;
 
@@ -34,6 +35,6 @@ export function mapRawFactToTagSeriesRow(input: {
     form: point.form,
     frame: point.frame,
     duration_days: calculateDurationDays(point.start, point.end),
-    workflow_type: point.workflow_type,
+    workflow_type: input.workflowType ?? point.workflow_type,
   };
 }

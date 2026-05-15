@@ -1,4 +1,5 @@
 import { ingestCompanyFactsBulk } from "@/backend/services/sec/companyFacts/bulk/ingestCompanyFactsBulk";
+import { buildCompanyFactsMetricSeriesExperimentForCik } from "@/backend/services/sec/companyFacts/series/metric/buildCompanyFactsMetricSeriesExperimentForCik";
 import { buildCompanyFiscalProfileForCik } from "@/backend/services/sec/companyFacts/series/fiscal/buildCompanyFiscalProfileForCik";
 import { runCompanyFactsSeriesProcessingForCik } from "@/backend/services/sec/companyFacts/series/runCompanyFactsSeriesProcessingForCik";
 import { buildCompanyFactsTagSeriesForCik } from "@/backend/services/sec/companyFacts/series/tag/buildCompanyFactsTagSeriesForCik";
@@ -25,6 +26,8 @@ export async function runSecBulkIngestWorkflow(input: {
   tickerByCik?: Map<string, string>;
   buildTagSeriesBeforeRawCleanup?: boolean;
   buildMetricSeriesBeforeTagCleanup?: boolean;
+  buildMetricSeriesExperimentBeforeTagCleanup?: boolean;
+  experimentTagsByCik?: Map<string, string[]>;
   validateMetricSeriesBeforeCleanup?: boolean;
   cleanupTagSeriesAfterMetric?: boolean;
   collectTagCandidateStats?: boolean;
@@ -89,6 +92,7 @@ export async function runSecBulkIngestWorkflow(input: {
               ticker,
               cik: context.cik,
               validate: input.validateMetricSeriesBeforeCleanup,
+              validationWriteReport: false,
             });
             input.onProgress?.({
               job: "sec_bulk_ingest",
@@ -106,6 +110,29 @@ export async function runSecBulkIngestWorkflow(input: {
                 label: ticker,
               });
             }
+          }
+        }
+
+        if (input.buildMetricSeriesExperimentBeforeTagCleanup) {
+          const experimentResult =
+            await buildCompanyFactsMetricSeriesExperimentForCik({
+              ticker,
+              cik: context.cik,
+              tags: input.experimentTagsByCik?.get(context.cik),
+            });
+          input.onProgress?.({
+            job: "sec_bulk_ingest",
+            message: `[SEC BULK -> TAG EXPERIMENT] Metric series experiment completed for ${ticker}. experimentalTags=${experimentResult.experimentalTagCount}.`,
+            label: ticker,
+          });
+
+          if (input.cleanupTagSeriesAfterMetric ?? true) {
+            await deleteCompanyFactTagSeriesRowsForCik(context.cik);
+            input.onProgress?.({
+              job: "sec_bulk_ingest",
+              message: `[SEC BULK] Tag series rows truncated after experiment build for ${ticker}.`,
+              label: ticker,
+            });
           }
         }
       } finally {

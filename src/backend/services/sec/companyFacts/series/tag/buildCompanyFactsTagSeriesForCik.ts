@@ -4,20 +4,24 @@ import { COMPANY_FACTS_SERIES_TAG_META } from "@/backend/services/sec/companyFac
 import { insertCompanyFactTagSeriesRows } from "@/backend/services/sec/companyFacts/series/tag/insertCompanyFactTagSeriesRows";
 import { mapRawFactToTagSeriesRow } from "@/backend/services/sec/companyFacts/series/tag/mapRawFactToTagSeriesRow";
 
+import type { CompanyFactTagMeta } from "@/backend/services/sec/companyFacts/series/tag/types";
 import type { CompanyFactTagSeriesRow } from "@/backend/services/sec/companyFacts/series/tag/types";
 
 export async function buildCompanyFactsTagSeriesForCik(input: {
   ticker: string;
   cik: string;
+  tagMetaByTag?: Record<string, CompanyFactTagMeta>;
+  workflowType?: string;
 }) {
   const { ticker, cik } = input;
+  const tagMetaByTag = input.tagMetaByTag ?? COMPANY_FACTS_SERIES_TAG_META;
 
   const rawFacts = await getTagFactsByCik({ cik });
 
   const rows: CompanyFactTagSeriesRow[] = [];
 
   for (const point of rawFacts) {
-    const tagMeta = COMPANY_FACTS_SERIES_TAG_META[point.tag];
+    const tagMeta = tagMetaByTag[point.tag];
 
     if (!tagMeta) {
       continue;
@@ -27,6 +31,7 @@ export async function buildCompanyFactsTagSeriesForCik(input: {
       point,
       ticker,
       tagMeta,
+      workflowType: input.workflowType,
     });
 
     if (!row) {

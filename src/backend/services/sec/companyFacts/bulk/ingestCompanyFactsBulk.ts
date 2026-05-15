@@ -218,8 +218,6 @@ export async function ingestCompanyFactsBulk(input: {
         if (!doc.facts || Object.keys(doc.facts).length === 0) {
           skippedEmptyFactsCount += 1;
 
-          await truncateCompanyFactRawRows();
-
           await upsertSecCompanyFactCompanyState({
             cik: entry.cik,
             entity_name: doc.entityName ?? null,
@@ -253,7 +251,6 @@ export async function ingestCompanyFactsBulk(input: {
           await upsertSecCompanyFactRows(rows);
           processedCount += 1;
         } else {
-          await truncateCompanyFactRawRows();
           skippedEmptyFactsCount += 1;
         }
 
