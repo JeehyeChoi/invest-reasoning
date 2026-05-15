@@ -3,14 +3,30 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import type { TickerFactorMetricClusterOverview } from "@/shared/market/clusterOverview";
-import type { TickerSignalCombinationOverview } from "@/shared/market/signalCombinationOverview";
-import { fetchMarketClusterOverview } from "@/features/market/services/fetchMarketClusterOverview";
+import type {
+  TickerSignalCombinationFamilySignalSummary,
+  TickerSignalCombinationFamilySummary,
+  TickerSignalCombinationOverview,
+  TickerSignalCombinationPercolationBridgeAnalysis,
+} from "@/shared/market/signalCombinationOverview";
 import { fetchSignalCombinationOverview } from "@/features/market/services/fetchSignalCombinationOverview";
 import {
   WorkstationFrame,
   WorkstationPanel,
 } from "@/features/workstation/components/WorkstationChrome";
+
+function MarketClusterOverviewShell({ children }: { children: ReactNode }) {
+  return (
+    <WorkstationFrame
+      title="market signal overview"
+      backHref="/dashboard"
+      backLabel="Dashboard"
+      maxWidthClassName="max-w-7xl"
+    >
+      {children}
+    </WorkstationFrame>
+  );
+}
 
 function formatPercent(value: number) {
   return `${(value * 100).toFixed(1)}%`;
@@ -18,6 +34,21 @@ function formatPercent(value: number) {
 
 function formatNumber(value: number | null) {
   return value === null ? "-" : value.toFixed(2);
+}
+
+function formatFeatureValue(value: number) {
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value.toFixed(2)}`;
+}
+
+function formatRatio(value: number | null | undefined) {
+  return value === null || value === undefined ? "-" : `${value.toFixed(2)}x`;
+}
+
+function formatSignedPercent(value: number | null | undefined) {
+  if (value === null || value === undefined) return "-";
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${formatPercent(value)}`;
 }
 
 function formatMarketCap(value: number | null) {
@@ -34,713 +65,124 @@ function formatMarketCap(value: number | null) {
   return `$${Math.round(value).toLocaleString()}`;
 }
 
-function formatFeatureValue(value: number) {
-  const sign = value > 0 ? "+" : "";
-  return `${sign}${value.toFixed(2)}`;
+function formatAuditFeatureValue(value: number) {
+  if (!Number.isFinite(value)) return "-";
+  const absoluteValue = Math.abs(value);
+
+  if (absoluteValue >= 1000) {
+    return value.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  }
+  if (absoluteValue >= 10) return value.toFixed(1);
+  if (absoluteValue >= 1) return value.toFixed(2);
+  return value.toFixed(3);
 }
 
-function formatScope(factor: string, axis: string) {
-  return `${factor}.${axis}`;
-}
-
-function splitScope(value: string) {
-  return [...new Set(value.split("+").filter(Boolean))];
-}
-
-function isCombinedScope(factor: string, axis: string) {
-  return factor.includes("+") || axis.includes("+");
-}
-
-function formatScopeSummary(factor: string, axis: string) {
-  if (!isCombinedScope(factor, axis)) return formatScope(factor, axis);
-
-  const factors = splitScope(factor);
-  const axes = splitScope(axis);
-
-  return `${factors.length} factors / ${axes.length} axes`;
-}
-
-function formatScopeDetail(factor: string, axis: string) {
-  if (!isCombinedScope(factor, axis)) return formatScope(factor, axis);
-
-  const factors = splitScope(factor).join(", ");
-  const axes = splitScope(axis).join(", ");
-
-  return `${factors} | ${axes}`;
-}
-
-function formatDimensionLabel(overview: TickerFactorMetricClusterOverview) {
-  return overview.latestRun?.vectorMode === "factor_signal"
-    ? "signals"
-    : "features";
-}
-
-function getSignalProfileFeatures(
-  profile: ClusterProfile,
-  signalCohortView: boolean,
+function formatSignalNarrativeLabel(
+  signalSummary: TickerSignalCombinationFamilySignalSummary,
 ) {
-  const features = signalCohortView
-    ? profile.distinguishingFeatures.filter((feature) => Math.abs(feature.value) > 0)
-    : profile.distinguishingFeatures;
-
-  return sortFeaturesForComparison(features);
-}
-
-const SIGNAL_DISPLAY: Record<
-  string,
-  {
-    label: string;
-    shortLabel: string;
-    high: string;
-    low: string;
-  }
-> = {
-  latestGrowth: {
-    label: "Recent growth",
-    shortLabel: "Recent",
-    high: "recent growth is strong",
-    low: "recent growth is muted",
-  },
-  durableGrowth: {
-    label: "Durable growth",
-    shortLabel: "Durable",
-    high: "durable growth is strong",
-    low: "durable growth is weak",
-  },
-  consistency: {
-    label: "Consistency",
-    shortLabel: "Consistency",
-    high: "growth pattern is steady",
-    low: "growth pattern is uneven",
-  },
-  yoyGrowthAcceleration: {
-    label: "YoY growth acceleration",
-    shortLabel: "YoY accel.",
-    high: "momentum is improving",
-    low: "momentum is cooling",
-  },
-  trendDeviation: {
-    label: "Trend deviation",
-    shortLabel: "Deviation",
-    high: "results are above normal trend",
-    low: "results are below normal trend",
-  },
-  turnaroundMomentum: {
-    label: "Turnaround momentum",
-    shortLabel: "Turnaround",
-    high: "turnaround momentum is positive",
-    low: "turnaround momentum is negative",
-  },
-  profitabilityConsistency: {
-    label: "Profitability consistency",
-    shortLabel: "Profit consistency",
-    high: "profitability pattern is steady",
-    low: "profitability pattern is uneven",
-  },
-  profitabilityPosition: {
-    label: "Profitability position",
-    shortLabel: "Profit position",
-    high: "profitability is above normal run-rate",
-    low: "profitability is below normal run-rate",
-  },
-  profitabilityTurnaround: {
-    label: "Profitability turnaround",
-    shortLabel: "Turnaround",
-    high: "profitability is turning around",
-    low: "profitability is deteriorating",
-  },
-  cashEarningsCoverage: {
-    label: "Cash earnings coverage",
-    shortLabel: "Cash coverage",
-    high: "earnings are backed by operating cash flow",
-    low: "cash support for earnings is thin",
-  },
-  accrualsToAssets: {
-    label: "Accruals to assets",
-    shortLabel: "Accruals",
-    high: "accruals pressure is high",
-    low: "accruals pressure is low",
-  },
-  grossProfitToAssets: {
-    label: "Gross profit to assets",
-    shortLabel: "GP/assets",
-    high: "gross profit asset efficiency is high",
-    low: "gross profit asset efficiency is low",
-  },
-  operatingReturnOnAssets: {
-    label: "Operating return on assets",
-    shortLabel: "Op. ROA",
-    high: "operating asset efficiency is high",
-    low: "operating asset efficiency is low",
-  },
-  netIncomeReturnOnAssets: {
-    label: "Net income return on assets",
-    shortLabel: "NI ROA",
-    high: "net income asset efficiency is high",
-    low: "net income asset efficiency is low",
-  },
-  capexInvestmentIntensityChange: {
-    label: "CapEx intensity change",
-    shortLabel: "CapEx intensity",
-    high: "investment activity is ramping",
-    low: "investment activity is muted",
-  },
-  capexCycleAcceleration: {
-    label: "CapEx acceleration",
-    shortLabel: "CapEx accel.",
-    high: "investment pace is accelerating",
-    low: "investment pace is cooling",
-  },
-  capexCycleQuarterStretch: {
-    label: "CapEx quarter stretch",
-    shortLabel: "CapEx quarter",
-    high: "investment activity is above trend",
-    low: "investment activity is below trend",
-  },
-  capexCycleAnnualStretch: {
-    label: "CapEx annual stretch",
-    shortLabel: "CapEx annual",
-    high: "investment activity is up year over year",
-    low: "investment activity is down year over year",
-  },
-  energyActivityGrowth: {
-    label: "Energy activity growth",
-    shortLabel: "Energy activity",
-    high: "energy-linked activity is growing",
-    low: "energy-linked activity is fading",
-  },
-  energyActivityAcceleration: {
-    label: "Energy activity acceleration",
-    shortLabel: "Energy accel.",
-    high: "energy-linked activity is accelerating",
-    low: "energy-linked activity is decelerating",
-  },
-  energyActivityStretch: {
-    label: "Energy activity stretch",
-    shortLabel: "Energy stretch",
-    high: "energy-linked activity is above recent run-rate",
-    low: "energy-linked activity is below recent run-rate",
-  },
-  energyAssetInventoryGrowth: {
-    label: "Energy asset and inventory growth",
-    shortLabel: "Energy assets",
-    high: "energy assets or inventory are building",
-    low: "energy assets or inventory are shrinking",
-  },
-  energyAssetInventoryAcceleration: {
-    label: "Energy asset and inventory acceleration",
-    shortLabel: "Asset accel.",
-    high: "energy assets or inventory are building faster",
-    low: "energy assets or inventory build is slowing",
-  },
-  energyAssetInventoryStretch: {
-    label: "Energy asset and inventory stretch",
-    shortLabel: "Asset stretch",
-    high: "energy assets or inventory are elevated",
-    low: "energy assets or inventory are below recent run-rate",
-  },
-  energyCostPressure: {
-    label: "Energy cost pressure",
-    shortLabel: "Energy cost",
-    high: "energy input costs are rising",
-    low: "energy input costs are easing",
-  },
-  energyCostAcceleration: {
-    label: "Energy cost acceleration",
-    shortLabel: "Cost accel.",
-    high: "energy input costs are accelerating",
-    low: "energy input costs are decelerating",
-  },
-  energyCostStretch: {
-    label: "Energy cost stretch",
-    shortLabel: "Cost stretch",
-    high: "energy input costs are above recent run-rate",
-    low: "energy input costs are below recent run-rate",
-  },
-  receivablesChange: {
-    label: "Receivables change",
-    shortLabel: "AR change",
-    high: "receivables are increasing",
-    low: "receivables are decreasing",
-  },
-  receivablesBuild: {
-    label: "Receivables build",
-    shortLabel: "AR build",
-    high: "receivables are above recent run-rate",
-    low: "receivables are below recent run-rate",
-  },
-  receivablesToRevenue: {
-    label: "Receivables to revenue",
-    shortLabel: "AR/revenue",
-    high: "receivables are high versus revenue",
-    low: "receivables are low versus revenue",
-  },
-  inventoryChange: {
-    label: "Inventory change",
-    shortLabel: "Inv. change",
-    high: "inventory is increasing",
-    low: "inventory is decreasing",
-  },
-  inventoryBuild: {
-    label: "Inventory build",
-    shortLabel: "Inv. build",
-    high: "inventory is above recent run-rate",
-    low: "inventory is below recent run-rate",
-  },
-  inventoryToRevenue: {
-    label: "Inventory to revenue",
-    shortLabel: "Inv./revenue",
-    high: "inventory is high versus revenue",
-    low: "inventory is low versus revenue",
-  },
-  payablesChange: {
-    label: "Payables change",
-    shortLabel: "AP change",
-    high: "payables are increasing",
-    low: "payables are decreasing",
-  },
-  payablesBuild: {
-    label: "Payables build",
-    shortLabel: "AP build",
-    high: "payables are above recent run-rate",
-    low: "payables are below recent run-rate",
-  },
-  payablesToRevenue: {
-    label: "Payables to revenue",
-    shortLabel: "AP/revenue",
-    high: "payables are high versus revenue",
-    low: "payables are low versus revenue",
-  },
-  dividendConsistency: {
-    label: "Dividend consistency",
-    shortLabel: "Div. consistency",
-    high: "dividend pattern is steady",
-    low: "dividend pattern is uneven",
-  },
-  dividendPosition: {
-    label: "Dividend position",
-    shortLabel: "Div. position",
-    high: "dividend run-rate is above trend",
-    low: "dividend run-rate is below trend",
-  },
-  dividendMomentum: {
-    label: "Dividend momentum",
-    shortLabel: "Div. momentum",
-    high: "dividend growth is improving",
-    low: "dividend growth is weakening",
-  },
-  dividendCoverageRatio: {
-    label: "Dividend coverage",
-    shortLabel: "Div. coverage",
-    high: "dividend coverage is strong",
-    low: "dividend coverage is thin",
-  },
-  dividendPayoutRatio: {
-    label: "Dividend payout ratio",
-    shortLabel: "Payout ratio",
-    high: "payout ratio is high",
-    low: "payout ratio is low",
-  },
-  shareCountReduction: {
-    label: "Share count reduction",
-    shortLabel: "Share count",
-    high: "share count is shrinking",
-    low: "share count is expanding",
-  },
-  defensiveStability: {
-    label: "Defensive stability",
-    shortLabel: "Def. stability",
-    high: "defensive support is stable",
-    low: "defensive support is unstable",
-  },
-  defensiveBufferPosition: {
-    label: "Defensive buffer position",
-    shortLabel: "Buffer pos.",
-    high: "defensive buffer is above trend",
-    low: "defensive buffer is below trend",
-  },
-  defensiveShockAbsorption: {
-    label: "Defensive shock absorption",
-    shortLabel: "Shock absorb.",
-    high: "shock absorption is strong",
-    low: "shock absorption is weak",
-  },
-  defensiveBurdenRelief: {
-    label: "Defensive burden relief",
-    shortLabel: "Burden relief",
-    high: "balance-sheet burden is easing",
-    low: "balance-sheet burden is rising",
-  },
-  defensiveBurdenTrendRelief: {
-    label: "Defensive burden trend relief",
-    shortLabel: "Burden trend",
-    high: "balance-sheet burden is below trend",
-    low: "balance-sheet burden is above trend",
-  },
-  defensiveBurdenContractionConsistency: {
-    label: "Defensive burden contraction consistency",
-    shortLabel: "Burden consistency",
-    high: "burden contraction is consistent",
-    low: "burden contraction is uneven",
-  },
-};
-
-const FEATURE_ORDER = [
-  "latestGrowth",
-  "durableGrowth",
-  "consistency",
-  "yoyGrowthAcceleration",
-  "trendDeviation",
-  "turnaroundMomentum",
-  "profitabilityConsistency",
-  "profitabilityPosition",
-  "profitabilityTurnaround",
-  "cashEarningsCoverage",
-  "accrualsToAssets",
-  "grossProfitToAssets",
-  "operatingReturnOnAssets",
-  "netIncomeReturnOnAssets",
-  "capexInvestmentIntensityChange",
-  "capexCycleAcceleration",
-  "capexCycleQuarterStretch",
-  "capexCycleAnnualStretch",
-  "energyActivityGrowth",
-  "energyActivityAcceleration",
-  "energyActivityStretch",
-  "energyAssetInventoryGrowth",
-  "energyAssetInventoryAcceleration",
-  "energyAssetInventoryStretch",
-  "energyCostPressure",
-  "energyCostAcceleration",
-  "energyCostStretch",
-  "receivablesChange",
-  "receivablesBuild",
-  "receivablesToRevenue",
-  "inventoryChange",
-  "inventoryBuild",
-  "inventoryToRevenue",
-  "payablesChange",
-  "payablesBuild",
-  "payablesToRevenue",
-  "dividendConsistency",
-  "dividendPosition",
-  "dividendMomentum",
-  "dividendCoverageRatio",
-  "dividendPayoutRatio",
-  "shareCountReduction",
-  "defensiveStability",
-  "defensiveBufferPosition",
-  "defensiveShockAbsorption",
-  "defensiveBurdenRelief",
-  "defensiveBurdenTrendRelief",
-  "defensiveBurdenContractionConsistency",
-];
-
-type ClusterProfile = TickerFactorMetricClusterOverview["profiles"][number];
-type ClusterFeature = ClusterProfile["distinguishingFeatures"][number];
-type ClusterCategoryStat = ClusterProfile["sectorStats"][number];
-
-function getSignalDisplay(featureKey: string) {
   return (
-    SIGNAL_DISPLAY[featureKey] ?? {
-      label: featureKey,
-      shortLabel: featureKey,
-      high: `${featureKey} is high`,
-      low: `${featureKey} is low`,
-    }
+    signalSummary.signal.signalLabel ??
+    signalSummary.signal.signalKey
+      .replace(/_/g, " ")
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .toLowerCase()
   );
 }
 
-function getFeatureDisplayLabel(feature: ClusterFeature) {
-  const signalDisplay = getSignalDisplay(feature.featureKey);
-  const metricLabel = feature.metricKey;
-  const scope = [feature.factorKey, metricLabel].filter(Boolean).join(" / ");
-
-  return scope ? `${scope} / ${signalDisplay.label}` : signalDisplay.label;
+function formatSignalTokenShort(token: string) {
+  return token.split(".").slice(-1)[0]?.replace(/_/g, " ") ?? token;
 }
 
-function getClusterFeatureId(feature: ClusterFeature) {
-  return [
-    feature.factorKey ?? "",
-    feature.axisKey ?? "",
-    feature.metricKey,
-    feature.featureKey,
-  ].join(".");
-}
-
-function buildProfileDisplay(profile: ClusterProfile) {
-  const strongest = [...profile.distinguishingFeatures]
-    .filter((feature) => Math.abs(feature.value) > 0)
-    .sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
-  const primary = strongest[0];
-  const secondary = strongest[1];
-
-  if (!primary) {
-    return {
-      title: `Cluster ${profile.clusterId}`,
-      summary: "No dominant metric feature is available for this cluster.",
-    };
-  }
-
-  const primarySignal = getSignalDisplay(primary.featureKey);
-  const secondarySignal = secondary
-    ? getSignalDisplay(secondary.featureKey)
-    : null;
-  const primaryPhrase =
-    primary.direction === "high" ? primarySignal.high : primarySignal.low;
-  const secondaryPhrase =
-    secondary && secondarySignal
-      ? secondary.direction === "high"
-        ? secondarySignal.high
-        : secondarySignal.low
-      : null;
-
-  return {
-    title: chooseClusterTitle(primary, secondary),
-    summary: secondaryPhrase
-      ? `${capitalize(primaryPhrase)} while ${secondaryPhrase}.`
-      : `${capitalize(primaryPhrase)}.`,
-  };
-}
-
-function chooseClusterTitle(primary: ClusterFeature, secondary?: ClusterFeature) {
-  if (
-    (primary.featureKey === "consistency" ||
-      primary.featureKey === "profitabilityConsistency") &&
-    primary.direction === "high"
-  ) {
-    return secondary?.featureKey === "latestGrowth" && secondary.direction === "low"
-      ? "Stable, slower-growth cohort"
-      : "Consistent operators";
-  }
-
-  if (
-    (primary.featureKey === "consistency" ||
-      primary.featureKey === "profitabilityConsistency") &&
-    primary.direction === "low"
-  ) {
-    return primary.featureKey === "profitabilityConsistency"
-      ? "Uneven quality cohort"
-      : "Uneven growth cohort";
-  }
-
-  if (
-    (primary.featureKey === "turnaroundMomentum" ||
-      primary.featureKey === "profitabilityTurnaround") &&
-    primary.direction === "high"
-  ) {
-    return "Turnaround momentum cohort";
-  }
-
-  if (
-    (primary.featureKey === "latestGrowth" ||
-      primary.featureKey === "durableGrowth") &&
-    primary.direction === "high"
-  ) {
-    return "Growth leadership cohort";
-  }
-
-  if (
-    (primary.featureKey === "trendDeviation" ||
-      primary.featureKey === "profitabilityPosition") &&
-    primary.direction === "high"
-  ) {
-    return "Trend-break cohort";
-  }
-
-  return `${getSignalDisplay(primary.featureKey).label} cohort`;
-}
-
-function capitalize(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
-function sortFeaturesForComparison(features: ClusterFeature[]) {
-  return [...features].sort((a, b) => {
-    const aIndex = FEATURE_ORDER.indexOf(a.featureKey);
-    const bIndex = FEATURE_ORDER.indexOf(b.featureKey);
-    const normalizedAIndex = aIndex === -1 ? FEATURE_ORDER.length : aIndex;
-    const normalizedBIndex = bIndex === -1 ? FEATURE_ORDER.length : bIndex;
-
-    return (
-      (a.factorKey ?? "").localeCompare(b.factorKey ?? "") ||
-      a.metricKey.localeCompare(b.metricKey) ||
-      normalizedAIndex - normalizedBIndex ||
-      a.featureKey.localeCompare(b.featureKey)
-    );
-  });
-}
-
-function SignalFeatureBar({ feature }: { feature: ClusterFeature }) {
-  const magnitude = Math.min(1, Math.abs(feature.value) / 2.5);
-  const width = `${Math.max(8, magnitude * 100)}%`;
-  const isHigh = feature.direction === "high";
-
-  return (
-    <div>
-      <div className="mb-1 flex items-center justify-between gap-3">
-        <span className="text-xs font-medium text-zinc-700">
-          {getFeatureDisplayLabel(feature)}
-        </span>
-        <span
-          className={`font-mono text-xs font-semibold ${
-            isHigh ? "text-[#173b35]" : "text-[#8a4b24]"
-          }`}
-        >
-          {formatFeatureValue(feature.value)}
-        </span>
-      </div>
-      <div className="grid grid-cols-[1fr_1fr] overflow-hidden border border-zinc-300 bg-[#f2f3ef]">
-        <div className="flex justify-end border-r border-zinc-300">
-          {!isHigh ? (
-            <div className="h-2 bg-[#b88a2f]" style={{ width }} />
-          ) : null}
-        </div>
-        <div>
-          {isHigh ? <div className="h-2 bg-[#173b35]" style={{ width }} /> : null}
-        </div>
-      </div>
-      <div className="mt-1 flex justify-between font-mono text-[10px] uppercase tracking-[0.12em] text-zinc-400">
-        <span>low</span>
-        <span>high</span>
-      </div>
-    </div>
+function buildBaselineNarrative(
+  analysis: TickerSignalCombinationPercolationBridgeAnalysis,
+) {
+  const topSignals = analysis.preBreakBaselineSignals.slice(0, 3);
+  const topSignalText = topSignals
+    .map(
+      (signal) =>
+        `${formatSignalNarrativeLabel(signal)} (${formatPercent(signal.share)})`,
+    )
+    .join(", ");
+  const hasVolatility = analysis.preBreakBaselineSignals.some((signal) =>
+    signal.signal.token.includes("elevated_volatility"),
   );
+  const hasQualityConcern = analysis.preBreakBaselineSignals.some((signal) =>
+    signal.signal.token.includes("quality_concern"),
+  );
+  const scaleText =
+    analysis.largestAfterPieceCount <= 2
+      ? "This is the first visible crack, not yet a broad structural break."
+      : "This is a broader fragmentation point where the market core starts to split into interpretable pieces.";
+  const cautionText =
+    hasVolatility && hasQualityConcern
+      ? "The mix is defensive, but not calm: elevated volatility and quality concern are still part of the shared backdrop."
+      : hasVolatility
+        ? "The shared backdrop is defensive, but price behavior is still volatile."
+        : hasQualityConcern
+          ? "The shared backdrop includes quality support, but quality concern remains widespread."
+          : "The shared backdrop is comparatively clean, without an obvious stress signal among the top shared traits.";
+
+  return `${scaleText} The common market baseline is led by ${topSignalText}. ${cautionText}`;
 }
 
-function SignalComparisonMatrix({ profiles }: { profiles: ClusterProfile[] }) {
-  const allFeatures = profiles.flatMap((profile) => profile.distinguishingFeatures);
-  const featureIds = [
-    ...new Set(
-      allFeatures.map((feature) => getClusterFeatureId(feature)),
-    ),
-  ].sort((a, b) => {
-    const aFeature = allFeatures.find(
-      (feature) => getClusterFeatureId(feature) === a,
-    );
-    const bFeature = allFeatures.find(
-      (feature) => getClusterFeatureId(feature) === b,
-    );
+function buildBoundaryNarrative(
+  analysis: TickerSignalCombinationPercolationBridgeAnalysis,
+) {
+  const liftedSignals = analysis.topBridgeSignals
+    .filter((signal) => (signal.lift ?? 0) >= 1.2)
+    .slice(0, 3);
 
-    if (!aFeature || !bFeature) return a.localeCompare(b);
-    return sortFeaturesForComparison([aFeature, bFeature])[0] === aFeature
-      ? -1
-      : 1;
-  });
+  if (analysis.bridgeEdgeCount <= 2 || liftedSignals.length === 0) {
+    return "The boundary evidence is thin here, so this split should be read as a network diagnostic rather than a strong market story.";
+  }
 
-  const featureByKey = new Map(
-    allFeatures.map((feature) => [getClusterFeatureId(feature), feature]),
-  );
+  const liftedText = liftedSignals
+    .map(
+      (signal) =>
+        `${formatSignalTokenShort(signal.signal.token)} (${formatRatio(
+          signal.lift,
+        )})`,
+    )
+    .join(", ");
 
-  return (
-    <WorkstationPanel className="mt-6 overflow-x-auto">
-      <div className="border-b border-zinc-200 px-5 py-4">
-        <h2 className="text-base font-semibold text-zinc-950">
-          Signal comparison
-        </h2>
-        <p className="mt-1 text-sm text-zinc-600">
-          Compare cluster centroid values using the same feature order.
-        </p>
-      </div>
-      <table className="w-full min-w-[720px] text-left text-sm">
-        <thead className="border-b border-zinc-200 bg-[#f2f3ef] font-mono text-xs uppercase tracking-[0.14em] text-zinc-500">
-          <tr>
-            <th className="py-2 pr-3 pl-5 font-medium">signal</th>
-            {profiles.map((profile) => (
-              <th
-                key={profile.clusterId}
-                className="px-3 py-2 text-right font-medium"
-              >
-                C{profile.clusterId}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-zinc-100">
-          {featureIds.map((featureId) => {
-            const displayFeature = featureByKey.get(featureId);
-
-            return (
-              <tr key={featureId}>
-                <td className="py-3 pr-3 pl-5 font-medium text-zinc-800">
-                  {displayFeature
-                    ? getFeatureDisplayLabel(displayFeature)
-                    : featureId}
-                </td>
-                {profiles.map((profile) => {
-                  const feature = profile.distinguishingFeatures.find(
-                    (candidate) => getClusterFeatureId(candidate) === featureId,
-                  );
-                  const value = feature?.value ?? null;
-                  const isHigh = value !== null && value >= 0;
-                  const magnitude =
-                    value === null ? 0 : Math.min(1, Math.abs(value) / 2.5);
-
-                  return (
-                    <td key={profile.clusterId} className="px-3 py-3">
-                      <div className="flex items-center justify-end gap-2">
-                        <div className="h-2 w-14 border border-zinc-300 bg-[#f2f3ef]">
-                          <div
-                            className={`h-full ${
-                              isHigh ? "bg-[#173b35]" : "bg-[#b88a2f]"
-                            }`}
-                            style={{ width: `${Math.max(0, magnitude * 100)}%` }}
-                          />
-                        </div>
-                        <span className="w-12 text-right font-mono text-xs text-zinc-700">
-                          {value === null ? "-" : formatFeatureValue(value)}
-                        </span>
-                      </div>
-                    </td>
-                  );
-                })}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </WorkstationPanel>
-  );
+  return `The boundary is most associated with ${liftedText}. These are the signals that were over-represented on the cross-piece edges that disappeared at this threshold.`;
 }
 
-function CategoryMix({
-  title,
-  stats,
-}: {
-  title: string;
-  stats: ClusterCategoryStat[];
-}) {
-  return (
-    <div>
-      <h3 className="text-sm font-semibold text-zinc-950">{title}</h3>
-      <div className="mt-3 grid gap-2">
-        {stats.length > 0 ? (
-          stats.map((stat) => (
-            <div key={stat.name}>
-              <div className="mb-1 flex items-center justify-between gap-3">
-                <span className="truncate text-xs font-medium text-zinc-700">
-                  {stat.name}
-                </span>
-                <span className="shrink-0 font-mono text-[11px] text-zinc-500">
-                  {stat.count} / {formatPercent(stat.share)}
-                </span>
-              </div>
-              <div className="h-2 border border-zinc-300 bg-[#f2f3ef]">
-                <div
-                  className="h-full bg-[#173b35]"
-                  style={{ width: `${Math.max(3, stat.share * 100)}%` }}
-                />
-              </div>
-            </div>
-          ))
-        ) : (
-          <div className="border border-zinc-200 bg-[#f8f8f5] px-3 py-2 text-xs text-zinc-500">
-            No classification data
-          </div>
-        )}
-      </div>
-    </div>
+function buildPieceNarrative(piece: TickerSignalCombinationFamilySummary) {
+  const topSignals = piece.topSignals
+    .slice(0, 2)
+    .map((signal) => formatSignalNarrativeLabel(signal))
+    .join(" + ");
+  const topSector = piece.marketAudit?.sectorStats[0];
+  const topIndustry = piece.marketAudit?.industryStats[0];
+  const sp500Overlap = piece.marketAudit?.universeOverlaps.find(
+    (overlap) => overlap.universeKey === "sp500",
   );
+  const strongestFeature = piece.featureAudit?.topFeatures[0];
+  const hammingText =
+    piece.hammingAudit?.averageSimilarity === null ||
+    piece.hammingAudit?.averageSimilarity === undefined
+      ? "Signal-state cohesion is not available."
+      : piece.hammingAudit.averageSimilarity >= 0.7
+        ? "Signal-state cohesion is high."
+        : piece.hammingAudit.averageSimilarity >= 0.5
+          ? "Signal-state cohesion is moderate."
+          : "Signal-state cohesion is loose.";
+  const marketText = topSector
+    ? `It leans toward ${topSector.name}${
+        topIndustry ? `, especially ${topIndustry.name}` : ""
+      }`
+    : "Its sector footprint is mixed";
+  const universeText = sp500Overlap
+    ? ` with ${formatPercent(sp500Overlap.share)} S&P 500 overlap`
+    : "";
+  const featureText = strongestFeature
+    ? ` The strongest feature contrast is ${strongestFeature.featureKey} (${formatFeatureValue(
+        strongestFeature.robustDelta ?? 0,
+      )} IQR).`
+    : "";
+
+  return `${topSignals || "Mixed signal identity"}. ${marketText}${universeText}. ${hammingText}${featureText}`;
 }
 
 function ThresholdFamilyChart({
@@ -757,11 +199,6 @@ function ThresholdFamilyChart({
     : isIdfWeighted
       ? overview.idfWeightedJaccardThresholdStats
     : overview.thresholdStats;
-  const candidateThresholds = isHamming
-    ? overview.hammingThresholdCandidates
-    : isIdfWeighted
-      ? overview.idfWeightedJaccardThresholdCandidates
-    : overview.thresholdCandidates;
   const title = isHamming
     ? "Hamming threshold sensitivity"
     : isIdfWeighted
@@ -775,42 +212,20 @@ function ThresholdFamilyChart({
   const width = 720;
   const height = 220;
   const padding = 32;
-  const maxFamilyCount = Math.max(...stats.map((stat) => stat.familyCount), 1);
   const maxComponentSize = Math.max(
-    ...stats.map((stat) =>
-      Math.max(stat.largestFamilySize, stat.secondLargestFamilySize),
-    ),
+    ...stats.map((stat) => stat.largestFamilySize),
     1,
   );
   const maxSecondMoment = Math.max(
     ...stats.map((stat) => stat.finiteClusterSecondMoment),
     1,
   );
-  const points = stats.map((stat) => {
-    const x = padding + stat.threshold * (width - padding * 2);
-    const y =
-      height -
-      padding -
-      (stat.familyCount / maxFamilyCount) * (height - padding * 2);
-
-    return { ...stat, x, y };
-  });
   const largestComponentPoints = stats.map((stat) => {
     const x = padding + stat.threshold * (width - padding * 2);
     const y =
       height -
       padding -
       (stat.largestFamilySize / maxComponentSize) * (height - padding * 2);
-
-    return { ...stat, x, y };
-  });
-  const secondLargestComponentPoints = stats.map((stat) => {
-    const x = padding + stat.threshold * (width - padding * 2);
-    const y =
-      height -
-      padding -
-      (stat.secondLargestFamilySize / maxComponentSize) *
-        (height - padding * 2);
 
     return { ...stat, x, y };
   });
@@ -824,13 +239,7 @@ function ThresholdFamilyChart({
 
     return { ...stat, x, y };
   });
-  const path = points
-    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
-    .join(" ");
   const largestComponentPath = largestComponentPoints
-    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
-    .join(" ");
-  const secondLargestComponentPath = secondLargestComponentPoints
     .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
     .join(" ");
   const secondMomentPath = secondMomentPoints
@@ -844,20 +253,6 @@ function ThresholdFamilyChart({
         (point) => point.threshold === secondMomentPeak.threshold,
       )
     : null;
-  const selectedThresholds = candidateThresholds.map((candidate) => {
-    const stat =
-      stats.find(
-        (candidateStat) =>
-          candidateStat.threshold.toFixed(2) ===
-          candidate.threshold.toFixed(2),
-      ) ?? stats[0];
-
-    return {
-      ...stat,
-      label: candidate.label,
-      key: `${candidate.kind}-${candidate.threshold.toFixed(2)}`,
-    };
-  });
 
   return (
     <WorkstationPanel className="mt-6 overflow-hidden">
@@ -875,7 +270,7 @@ function ThresholdFamilyChart({
             viewBox={`0 0 ${width} ${height}`}
             className="h-[220px] min-w-[680px] w-full"
             role="img"
-            aria-label={`${title} family count chart`}
+            aria-label={`${title} largest component and second moment chart`}
           >
             <line
               x1={padding}
@@ -915,51 +310,11 @@ function ThresholdFamilyChart({
                 </g>
               );
             })}
-            {candidateThresholds.map((candidate) => {
-              const x = padding + candidate.threshold * (width - padding * 2);
-
-              return (
-                <g key={candidate.kind}>
-                  <line
-                    x1={x}
-                    y1={padding}
-                    x2={x}
-                    y2={height - padding}
-                    stroke="#b88a2f"
-                    strokeWidth="1.5"
-                  />
-                  <text
-                    x={x + 4}
-                    y={padding + 12}
-                    className="fill-[#8a4b24] font-mono text-[10px]"
-                  >
-                    {candidate.threshold.toFixed(2)}
-                  </text>
-                </g>
-              );
-            })}
-            <path
-              d={path}
-              fill="none"
-              stroke="#173b35"
-              strokeWidth="3"
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
             <path
               d={largestComponentPath}
               fill="none"
-              stroke="#8a4b24"
+              stroke="#173b35"
               strokeWidth="2.5"
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
-            <path
-              d={secondLargestComponentPath}
-              fill="none"
-              stroke="#6d5a2d"
-              strokeWidth="2"
-              strokeDasharray="5 4"
               strokeLinejoin="round"
               strokeLinecap="round"
             />
@@ -993,40 +348,12 @@ function ThresholdFamilyChart({
                 </text>
               </g>
             ) : null}
-            {selectedThresholds.map((stat) => {
-              const point = points.find(
-                (candidate) => candidate.threshold === stat.threshold,
-              );
-
-              if (!point) return null;
-
-              return (
-                <g key={stat.key}>
-                  <circle
-                    cx={point.x}
-                    cy={point.y}
-                    r="4"
-                    fill="#b88a2f"
-                    stroke="#ffffff"
-                    strokeWidth="2"
-                  />
-                  <text
-                    x={point.x}
-                    y={Math.max(14, point.y - 8)}
-                    textAnchor="middle"
-                    className="fill-zinc-700 font-mono text-[10px]"
-                  >
-                    {stat.familyCount}
-                  </text>
-                </g>
-              );
-            })}
             <text
               x={padding}
               y={16}
               className="fill-zinc-500 font-mono text-[10px]"
             >
-              count / component size / second moment
+              largest component / second moment
             </text>
             <text
               x={width - padding}
@@ -1042,15 +369,7 @@ function ThresholdFamilyChart({
           <div className="mb-4 grid gap-2 border-b border-zinc-200 pb-4">
             <div className="flex items-center gap-2 text-xs text-zinc-600">
               <span className="h-1.5 w-8 bg-[#173b35]" />
-              family count
-            </div>
-            <div className="flex items-center gap-2 text-xs text-zinc-600">
-              <span className="h-1.5 w-8 bg-[#8a4b24]" />
               largest component
-            </div>
-            <div className="flex items-center gap-2 text-xs text-zinc-600">
-              <span className="h-0 w-8 border-t-2 border-dashed border-[#6d5a2d]" />
-              second largest component
             </div>
             <div className="flex items-center gap-2 text-xs text-zinc-600">
               <span className="h-0 w-8 border-t-2 border-dotted border-[#2563eb]" />
@@ -1074,34 +393,448 @@ function ThresholdFamilyChart({
               </div>
             </div>
           ) : null}
-          <div className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
-            reference points
+        </div>
+      </div>
+    </WorkstationPanel>
+  );
+}
+
+function PercolationBridgeSignals({
+  overview,
+}: {
+  overview: TickerSignalCombinationOverview;
+}) {
+  const analyses = overview.percolationBridgeAnalyses ?? [];
+
+  if (analyses.length === 0) return null;
+
+  return (
+    <WorkstationPanel className="mt-6 overflow-hidden">
+      <div className="border-b border-zinc-200 px-5 py-4">
+        <div className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+          percolation split analysis
+        </div>
+        <h2 className="mt-2 text-base font-semibold text-zinc-950">
+          Baseline, boundary, and post-break identity signals
+        </h2>
+        <p className="mt-1 text-sm leading-6 text-zinc-600">
+          The first split shows the earliest visible crack in the largest
+          component. The second-moment peak shows where fragmentation becomes
+          structurally large.
+        </p>
+        <div className="mt-3 grid gap-2 border border-zinc-200 bg-[#fbfaf5] p-3 font-mono text-[11px] leading-5 text-zinc-600 md:grid-cols-2">
+          <div>
+            <span className="font-semibold text-zinc-950">lift</span> = local
+            share / pre-break baseline share. Values above 1.00x mean the signal
+            is over-represented versus the pre-break largest component.
           </div>
-          <div className="mt-3 grid gap-2">
-            {selectedThresholds.map((stat) => (
-              <div
-                key={stat.key}
-                className="grid grid-cols-[72px_1fr] gap-3 border border-zinc-200 bg-[#fbfaf5] px-3 py-2 text-sm"
-              >
-                <div className="font-mono font-semibold text-zinc-950">
-                  {stat.threshold.toFixed(2)}
-                </div>
-                <div className="text-zinc-600">
-                  <div className="font-medium text-zinc-950">{stat.label}</div>
-                  <div>
-                    <span className="font-semibold text-zinc-950">
-                      {stat.familyCount}
-                    </span>{" "}
-                    families, largest {stat.largestFamilySize}, second{" "}
-                    {stat.secondLargestFamilySize}, singleton{" "}
-                    {stat.singletonFamilyCount}, second moment{" "}
-                    {stat.finiteClusterSecondMoment.toFixed(0)}
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div>
+            <span className="font-semibold text-zinc-950">contrast</span> =
+            piece share - strongest comparable piece share. Positive values mean
+            the signal separates that post-break piece from other major pieces.
           </div>
         </div>
+      </div>
+
+      <div className="grid gap-4 p-4">
+        {analyses.map((analysis) => (
+          <section
+            key={`${analysis.lens}-${analysis.label}`}
+            className="border border-zinc-200 bg-white p-4"
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-zinc-950">
+                  {analysis.label}
+                </h3>
+                <p className="mt-1 text-xs leading-5 text-zinc-600">
+                  threshold {analysis.previousThreshold.toFixed(2)} →{" "}
+                  {analysis.peakThreshold.toFixed(2)}, peak moment{" "}
+                  {analysis.peakMoment.toFixed(1)}
+                </p>
+              </div>
+              <div className="shrink-0 border border-zinc-200 bg-[#fbfaf5] px-3 py-2 text-right font-mono text-[11px] leading-5 text-zinc-600">
+                {analysis.bridgeEdgeCount} boundary edges
+                <br />
+                {analysis.removedEdgeCount} removed edges
+              </div>
+            </div>
+
+            <div className="mt-4 border border-[#173b35]/25 bg-[#f4f7f2] p-4">
+              <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[#31534c]">
+                Interpretive read
+              </div>
+              <p className="mt-2 text-sm leading-6 text-zinc-700">
+                {buildBaselineNarrative(analysis)}
+              </p>
+              <p className="mt-2 text-xs leading-5 text-zinc-600">
+                {buildBoundaryNarrative(analysis)}
+              </p>
+            </div>
+
+            <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
+              <div className="border border-zinc-200 bg-white px-2 py-2">
+                <div className="font-mono font-semibold text-zinc-950">
+                  {analysis.largestBeforeSize}
+                </div>
+                <div className="text-zinc-500">before largest</div>
+              </div>
+              <div className="border border-zinc-200 bg-white px-2 py-2">
+                <div className="font-mono font-semibold text-zinc-950">
+                  {analysis.largestAfterPieceCount}
+                </div>
+                <div className="text-zinc-500">after pieces</div>
+              </div>
+              <div className="border border-zinc-200 bg-white px-2 py-2">
+                <div className="font-mono font-semibold text-zinc-950">
+                  {analysis.largestAfterSize}
+                </div>
+                <div className="text-zinc-500">largest piece</div>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                1. pre-break baseline signals
+              </div>
+              <p className="mt-1 text-xs leading-5 text-zinc-500">
+                Counted across all groups inside the largest component just
+                before it splits.
+              </p>
+              <div className="mt-3 grid gap-2">
+                {(analysis.preBreakBaselineSignals ?? [])
+                  .slice(0, 5)
+                  .map((signalSummary) => (
+                    <div
+                      key={`${analysis.lens}-baseline-${signalSummary.signal.token}`}
+                    >
+                      <div className="mb-1 flex items-start justify-between gap-2 text-xs">
+                        <span className="min-w-0 break-words font-medium text-zinc-700">
+                          {signalSummary.signal.token}
+                        </span>
+                        <span className="shrink-0 font-mono text-[11px] text-zinc-600">
+                          {formatPercent(signalSummary.share)}
+                        </span>
+                      </div>
+                      <div className="h-1.5 border border-zinc-300 bg-[#f2f3ef]">
+                        <div
+                          className="h-full bg-[#173b35]"
+                          style={{
+                            width: `${Math.max(3, signalSummary.share * 100)}%`,
+                          }}
+                        />
+                      </div>
+                      <div className="mt-1 font-mono text-[10px] text-zinc-500">
+                        ticker share, group share{" "}
+                        {formatPercent(signalSummary.groupShare)}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            <div className="mt-5 border-t border-zinc-200 pt-4">
+              <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                2. boundary connecting signals
+              </div>
+              <p className="mt-1 text-xs leading-5 text-zinc-500">
+                Counted only on removed edges whose two endpoints land in
+                different post-break pieces.
+              </p>
+              <div className="mt-3 grid gap-2">
+                {(analysis.topBridgeSignals ?? []).map((signalSummary) => (
+                  <div key={`${analysis.lens}-${signalSummary.signal.token}`}>
+                    <div className="mb-1 flex items-start justify-between gap-2 text-xs">
+                      <span className="min-w-0 break-words font-medium text-zinc-700">
+                        {signalSummary.signal.token}
+                      </span>
+                      <span className="shrink-0 font-mono text-[11px] text-zinc-600">
+                        {formatPercent(signalSummary.share)}
+                      </span>
+                    </div>
+                    <div className="h-1.5 border border-zinc-300 bg-[#f2f3ef]">
+                      <div
+                        className="h-full bg-[#8a4b24]"
+                        style={{
+                          width: `${Math.max(3, signalSummary.share * 100)}%`,
+                        }}
+                      />
+                    </div>
+                    <div className="mt-1 font-mono text-[10px] text-zinc-500">
+                      {signalSummary.edgeCount} edges, avg sim{" "}
+                      {signalSummary.averageSimilarity.toFixed(2)}
+                      <br />
+                      baseline {formatPercent(signalSummary.baselineShare)}, lift{" "}
+                      {formatRatio(signalSummary.lift)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-5 border-t border-zinc-200 pt-4">
+              <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                3. post-break identity signals
+              </div>
+              <p className="mt-1 text-xs leading-5 text-zinc-500">
+                Counted inside each resulting piece after the threshold gets
+                stricter.
+              </p>
+              <div className="mt-3 grid gap-3 xl:grid-cols-3">
+                {(analysis.postBreakPieces ?? []).slice(0, 3).map((piece) => (
+                  <div
+                    key={`${analysis.lens}-piece-${piece.familyId}`}
+                    className="border border-zinc-200 bg-[#fbfaf5] p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                        Piece {piece.familyId}
+                      </div>
+                      <div className="shrink-0 text-right font-mono text-[11px] text-zinc-600">
+                        {piece.groupCount} groups
+                        <br />
+                        {piece.tickerCount} tickers
+                      </div>
+                    </div>
+                    <div className="mt-3 grid gap-1.5">
+                      <div className="border border-zinc-200 bg-white px-2 py-2 text-xs leading-5 text-zinc-600">
+                        {buildPieceNarrative(piece)}
+                      </div>
+                      {piece.topSignals.slice(0, 3).map((signalSummary) => (
+                        <div
+                          key={`${analysis.lens}-piece-${piece.familyId}-${signalSummary.signal.token}`}
+                          className="grid gap-1"
+                        >
+                          <div className="flex items-start justify-between gap-2 text-xs">
+                            <span className="min-w-0 break-words text-zinc-700">
+                              {signalSummary.signal.token}
+                            </span>
+                            <span className="shrink-0 font-mono text-[11px] text-zinc-600">
+                              {formatPercent(signalSummary.share)}
+                            </span>
+                          </div>
+                          <div className="font-mono text-[10px] text-zinc-500">
+                            baseline{" "}
+                            {formatPercent(signalSummary.baselineShare ?? 0)}, lift{" "}
+                            {formatRatio(signalSummary.lift)}, contrast{" "}
+                            {formatSignedPercent(signalSummary.contrastShare)}
+                            <br />
+                            group share {formatPercent(signalSummary.groupShare)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {piece.marketAudit ? (
+                      <div className="mt-3 border-t border-zinc-200 pt-3">
+                        <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                          Market audit
+                        </div>
+                        <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
+                          <div className="border border-zinc-200 bg-white px-2 py-1.5">
+                            <div className="font-mono font-semibold text-zinc-950">
+                              {formatMarketCap(piece.marketAudit.totalMarketCap)}
+                            </div>
+                            <div className="text-zinc-500">total market cap</div>
+                          </div>
+                          <div className="border border-zinc-200 bg-white px-2 py-1.5">
+                            <div className="font-mono font-semibold text-zinc-950">
+                              {formatMarketCap(piece.marketAudit.medianMarketCap)}
+                            </div>
+                            <div className="text-zinc-500">median market cap</div>
+                          </div>
+                        </div>
+                        {piece.marketAudit.universeOverlaps.length > 0 ? (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {piece.marketAudit.universeOverlaps
+                              .slice(0, 4)
+                              .map((overlap) => (
+                                <span
+                                  key={`${analysis.lens}-piece-${piece.familyId}-universe-${overlap.universeKey}`}
+                                  className="border border-zinc-200 bg-white px-2 py-1 font-mono text-[10px] text-zinc-600"
+                                >
+                                  {overlap.universeLabel} {overlap.count} /{" "}
+                                  {formatPercent(overlap.share)}
+                                </span>
+                              ))}
+                          </div>
+                        ) : null}
+                        <div className="mt-2 grid gap-2 md:grid-cols-2">
+                          <div className="border border-zinc-200 bg-white px-2 py-1.5">
+                            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
+                              sectors
+                            </div>
+                            <div className="mt-1 grid gap-1">
+                              {piece.marketAudit.sectorStats
+                                .slice(0, 3)
+                                .map((stat) => (
+                                  <div
+                                    key={`${analysis.lens}-piece-${piece.familyId}-sector-${stat.name}`}
+                                    className="flex justify-between gap-2 text-[10px] text-zinc-600"
+                                  >
+                                    <span className="min-w-0 truncate">
+                                      {stat.name}
+                                    </span>
+                                    <span className="shrink-0 font-mono">
+                                      {formatPercent(stat.share)}
+                                    </span>
+                                  </div>
+                                ))}
+                            </div>
+                          </div>
+                          <div className="border border-zinc-200 bg-white px-2 py-1.5">
+                            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
+                              industries
+                            </div>
+                            <div className="mt-1 grid gap-1">
+                              {piece.marketAudit.industryStats
+                                .slice(0, 3)
+                                .map((stat) => (
+                                  <div
+                                    key={`${analysis.lens}-piece-${piece.familyId}-industry-${stat.name}`}
+                                    className="flex justify-between gap-2 text-[10px] text-zinc-600"
+                                  >
+                                    <span className="min-w-0 truncate">
+                                      {stat.name}
+                                    </span>
+                                    <span className="shrink-0 font-mono">
+                                      {formatPercent(stat.share)}
+                                    </span>
+                                  </div>
+                                ))}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-2 grid gap-1">
+                          {piece.marketAudit.topMembers.slice(0, 5).map((member) => (
+                            <div
+                              key={`${analysis.lens}-piece-${piece.familyId}-member-${member.ticker}`}
+                              className="grid grid-cols-[52px_1fr_auto] gap-2 border border-zinc-200 bg-white px-2 py-1.5 text-[10px]"
+                            >
+                              <Link
+                                href={`/tickers/${member.ticker}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="font-mono font-semibold text-zinc-950 underline decoration-[#b88a2f] underline-offset-2 hover:text-[#173b35]"
+                              >
+                                {member.ticker}
+                              </Link>
+                              <span className="min-w-0 truncate text-zinc-600">
+                                {member.companyName ?? "-"}
+                              </span>
+                              <span className="font-mono text-zinc-500">
+                                {formatMarketCap(member.marketCap)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                    {piece.featureAudit ? (
+                      <div className="mt-3 border-t border-zinc-200 pt-3">
+                        <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                          Feature audit
+                        </div>
+                        <p className="mt-1 text-[11px] leading-4 text-zinc-500">
+                          Median feature contrast vs the pre-break baseline,
+                          ranked by baseline-IQR adjusted distance.
+                        </p>
+                        <div className="mt-2 grid gap-1.5">
+                          {piece.featureAudit.topFeatures
+                            .slice(0, 3)
+                            .map((feature) => (
+                              <div
+                                key={`${analysis.lens}-piece-${piece.familyId}-feature-${feature.featureToken}`}
+                                className="border border-zinc-200 bg-white px-2 py-1.5"
+                              >
+                                <div className="flex items-start justify-between gap-2 text-[11px]">
+                                  <span className="min-w-0 break-words font-mono text-zinc-700">
+                                    {feature.featureToken}
+                                  </span>
+                                  <span className="shrink-0 font-mono font-semibold text-zinc-950">
+                                    {formatFeatureValue(feature.robustDelta ?? 0)}
+                                  </span>
+                                </div>
+                                <div className="mt-1 font-mono text-[10px] leading-4 text-zinc-500">
+                                  piece{" "}
+                                  {formatAuditFeatureValue(feature.pieceMedian)}{" "}
+                                  vs baseline{" "}
+                                  {formatAuditFeatureValue(
+                                    feature.baselineMedian,
+                                  )}
+                                  , coverage{" "}
+                                  {formatPercent(feature.pieceCoverage)} /{" "}
+                                  {formatPercent(feature.baselineCoverage)}
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    ) : null}
+                    {piece.hammingAudit ? (
+                      <div className="mt-3 border-t border-zinc-200 pt-3">
+                        <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                          Hamming audit
+                        </div>
+                        <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
+                          <div className="border border-zinc-200 bg-white px-2 py-1.5">
+                            <div className="font-mono font-semibold text-zinc-950">
+                              {formatNumber(piece.hammingAudit.averageSimilarity)}
+                            </div>
+                            <div className="text-zinc-500">avg similarity</div>
+                          </div>
+                          <div className="border border-zinc-200 bg-white px-2 py-1.5">
+                            <div className="font-mono font-semibold text-zinc-950">
+                              {piece.hammingAudit.subclusterCount}
+                            </div>
+                            <div className="text-zinc-500">
+                              subclusters @{" "}
+                              {piece.hammingAudit.threshold.toFixed(2)}
+                            </div>
+                          </div>
+                          <div className="border border-zinc-200 bg-white px-2 py-1.5">
+                            <div className="font-mono font-semibold text-zinc-950">
+                              {formatPercent(
+                                piece.hammingAudit.largestSubclusterShare,
+                              )}
+                            </div>
+                            <div className="text-zinc-500">
+                              largest subcluster
+                            </div>
+                          </div>
+                          <div className="border border-zinc-200 bg-white px-2 py-1.5">
+                            <div className="font-mono font-semibold text-zinc-950">
+                              {piece.hammingAudit.singletonSubclusterCount}
+                            </div>
+                            <div className="text-zinc-500">singletons</div>
+                          </div>
+                        </div>
+                        {piece.hammingAudit.stateDiversity.length > 0 ? (
+                          <div className="mt-2 grid gap-1.5">
+                            {piece.hammingAudit.stateDiversity
+                              .slice(0, 3)
+                              .map((item) => (
+                                <div
+                                  key={`${analysis.lens}-piece-${piece.familyId}-audit-${item.factorAxis}`}
+                                  className="font-mono text-[10px] leading-4 text-zinc-500"
+                                >
+                                  <span className="text-zinc-700">
+                                    {item.factorAxis}
+                                  </span>
+                                  : {item.distinctStateCount} states, dominant{" "}
+                                  {item.dominantState}{" "}
+                                  {formatPercent(item.dominantShare)}
+                                </div>
+                              ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        ))}
       </div>
     </WorkstationPanel>
   );
@@ -1116,141 +849,224 @@ function CommunityDetectionSection({
 
   if (analyses.length === 0) return null;
 
+  const louvain = analyses.find((analysis) => analysis.method === "louvain");
+
   return (
     <WorkstationPanel className="mt-6 overflow-hidden">
       <div className="border-b border-zinc-200 px-5 py-4">
         <div className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
-          community detection
+          clustering v2 boundary
         </div>
         <h2 className="mt-2 text-base font-semibold text-zinc-950">
-          Signal similarity communities
+          Signal similarity communities move to Clustering v2
         </h2>
         <p className="mt-1 text-sm leading-6 text-zinc-600">
-          These models use the same sparse IDF-weighted signal similarity graph.
-          The threshold charts above remain diagnostic; these communities are
-          the first pass at market structure discovery.
+          Community detection is better suited to thesis-specific lenses, such
+          as state-capitalism beneficiaries, geopolitics exposure, or stress
+          resilience pockets. This v1 page keeps the focus on broad U.S. market
+          signal structure and uses the community models only as a deferred
+          research boundary.
         </p>
       </div>
-      <div className="grid gap-0 lg:grid-cols-3">
-        {analyses.map((analysis) => (
-          <section
-            key={analysis.method}
-            className="border-b border-zinc-200 p-4 lg:border-r lg:border-b-0 lg:last:border-r-0"
+      <div className="grid gap-0 md:grid-cols-3">
+        <div className="border-b border-zinc-200 p-4 md:border-r md:border-b-0">
+          <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+            deferred methods
+          </div>
+          <div className="mt-2 text-sm font-semibold text-zinc-950">
+            Louvain / Infomap / MCL
+          </div>
+          <p className="mt-1 text-xs leading-5 text-zinc-600">
+            These are still useful, but their strongest role is finding local
+            dense pockets inside a chosen strategic lens rather than explaining
+            the broad market baseline.
+          </p>
+        </div>
+        <div className="border-b border-zinc-200 p-4 md:border-r md:border-b-0">
+          <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+            current graph snapshot
+          </div>
+          <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+            <div className="border border-zinc-200 bg-[#fbfaf5] px-2 py-2">
+              <div className="font-mono font-semibold text-zinc-950">
+                {analyses.length}
+              </div>
+              <div className="text-zinc-500">models</div>
+            </div>
+            <div className="border border-zinc-200 bg-[#fbfaf5] px-2 py-2">
+              <div className="font-mono font-semibold text-zinc-950">
+                {louvain?.communityCount ?? "-"}
+              </div>
+              <div className="text-zinc-500">Louvain groups</div>
+            </div>
+            <div className="border border-zinc-200 bg-[#fbfaf5] px-2 py-2">
+              <div className="font-mono font-semibold text-zinc-950">
+                {louvain?.largestCommunitySize ?? "-"}
+              </div>
+              <div className="text-zinc-500">largest</div>
+            </div>
+          </div>
+        </div>
+        <div className="p-4">
+          <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+            v2 question shape
+          </div>
+          <p className="mt-2 text-xs leading-5 text-zinc-600">
+            Build a filtered signal graph first, then run communities: defense
+            and reshoring, rate and credit stress, AI infrastructure,
+            commodity/energy exposure, or another explicit thesis.
+          </p>
+        </div>
+      </div>
+    </WorkstationPanel>
+  );
+}
+
+function LatestFlowInterpretation({
+  overview,
+}: {
+  overview: TickerSignalCombinationOverview;
+}) {
+  const analysis =
+    overview.percolationBridgeAnalyses.find((item) =>
+      item.label.includes("percolation split"),
+    ) ??
+    overview.percolationBridgeAnalyses[0] ??
+    null;
+
+  if (!analysis) return null;
+
+  return (
+    <WorkstationPanel className="mt-6 overflow-hidden">
+      <div className="border-b border-zinc-200 px-5 py-4">
+        <div className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+          latest flow interpretation
+        </div>
+        <h2 className="mt-2 text-base font-semibold text-zinc-950">
+          Current market core at the peak fragmentation split
+        </h2>
+        <p className="mt-1 text-sm leading-6 text-zinc-600">
+          This page only calculates the latest signal network. Historical
+          quarter-end flow and turnover belong on the timeline page.
+        </p>
+      </div>
+
+      <div className="grid gap-0 lg:grid-cols-[1fr_360px]">
+        <div className="border-b border-zinc-200 p-5 lg:border-r lg:border-b-0">
+          <div className="border border-[#173b35]/25 bg-[#f4f7f2] p-4">
+            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[#31534c]">
+              Interpretive read
+            </div>
+            <p className="mt-2 text-sm leading-6 text-zinc-700">
+              {buildBaselineNarrative(analysis)}
+            </p>
+            <p className="mt-2 text-xs leading-5 text-zinc-600">
+              {buildBoundaryNarrative(analysis)}
+            </p>
+          </div>
+
+          <div className="mt-5 grid gap-5 xl:grid-cols-2">
+            <div>
+              <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                pre-break baseline signals
+              </div>
+              <p className="mt-1 text-xs leading-5 text-zinc-500">
+                Shared signals inside the largest component immediately before
+                the split.
+              </p>
+              <div className="mt-3 grid gap-2">
+                {analysis.preBreakBaselineSignals.slice(0, 5).map((signal) => (
+                  <div key={`latest-baseline-${signal.signal.token}`}>
+                    <div className="mb-1 flex items-start justify-between gap-2 text-xs">
+                      <span className="min-w-0 break-words font-medium text-zinc-700">
+                        {signal.signal.token}
+                      </span>
+                      <span className="shrink-0 font-mono text-[11px] text-zinc-600">
+                        {formatPercent(signal.share)}
+                      </span>
+                    </div>
+                    <div className="h-1.5 border border-zinc-300 bg-[#f2f3ef]">
+                      <div
+                        className="h-full bg-[#173b35]"
+                        style={{ width: `${Math.max(3, signal.share * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                boundary connecting signals
+              </div>
+              <p className="mt-1 text-xs leading-5 text-zinc-500">
+                Shared signals on cross-piece edges that disappear at the split.
+              </p>
+              <div className="mt-3 grid gap-2">
+                {analysis.topBridgeSignals.slice(0, 5).map((signal) => (
+                  <div key={`latest-boundary-${signal.signal.token}`}>
+                    <div className="mb-1 flex items-start justify-between gap-2 text-xs">
+                      <span className="min-w-0 break-words font-medium text-zinc-700">
+                        {signal.signal.token}
+                      </span>
+                      <span className="shrink-0 font-mono text-[11px] text-zinc-600">
+                        {formatPercent(signal.share)}
+                      </span>
+                    </div>
+                    <div className="h-1.5 border border-zinc-300 bg-[#f2f3ef]">
+                      <div
+                        className="h-full bg-[#8a4b24]"
+                        style={{ width: `${Math.max(3, signal.share * 100)}%` }}
+                      />
+                    </div>
+                    <div className="mt-1 font-mono text-[10px] text-zinc-500">
+                      {signal.edgeCount} edges · baseline{" "}
+                      {formatPercent(signal.baselineShare)} · lift{" "}
+                      {formatRatio(signal.lift)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-3 p-5 text-sm">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="border border-zinc-200 bg-[#fbfaf5] px-3 py-3">
+              <div className="font-mono font-semibold text-zinc-950">
+                {analysis.previousThreshold.toFixed(2)} →{" "}
+                {analysis.peakThreshold.toFixed(2)}
+              </div>
+              <div className="text-xs text-zinc-500">threshold</div>
+            </div>
+            <div className="border border-zinc-200 bg-[#fbfaf5] px-3 py-3">
+              <div className="font-mono font-semibold text-zinc-950">
+                {analysis.peakMoment.toFixed(1)}
+              </div>
+              <div className="text-xs text-zinc-500">second moment</div>
+            </div>
+            <div className="border border-zinc-200 bg-[#fbfaf5] px-3 py-3">
+              <div className="font-mono font-semibold text-zinc-950">
+                {analysis.largestBeforeSize} → {analysis.largestAfterSize}
+              </div>
+              <div className="text-xs text-zinc-500">largest component</div>
+            </div>
+            <div className="border border-zinc-200 bg-[#fbfaf5] px-3 py-3">
+              <div className="font-mono font-semibold text-zinc-950">
+                {analysis.bridgeEdgeCount}
+              </div>
+              <div className="text-xs text-zinc-500">boundary edges</div>
+            </div>
+          </div>
+          <Link
+            href="/market/cluster/timeline"
+            className="inline-flex justify-center border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-[#fbfaf5]"
           >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-sm font-semibold text-zinc-950">
-                  {analysis.label}
-                </h3>
-                <p className="mt-1 text-xs leading-5 text-zinc-600">
-                  {analysis.description}
-                </p>
-              </div>
-              <div className="shrink-0 border border-zinc-200 bg-[#fbfaf5] px-2 py-1 text-right font-mono text-[11px] text-zinc-600">
-                Q {formatNumber(analysis.modularity)}
-              </div>
-            </div>
-
-            <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
-              <div className="border border-zinc-200 bg-white px-2 py-2">
-                <div className="font-mono font-semibold text-zinc-950">
-                  {analysis.communityCount}
-                </div>
-                <div className="text-zinc-500">communities</div>
-              </div>
-              <div className="border border-zinc-200 bg-white px-2 py-2">
-                <div className="font-mono font-semibold text-zinc-950">
-                  {analysis.largestCommunitySize}
-                </div>
-                <div className="text-zinc-500">largest</div>
-              </div>
-              <div className="border border-zinc-200 bg-white px-2 py-2">
-                <div className="font-mono font-semibold text-zinc-950">
-                  {analysis.singletonCommunityCount}
-                </div>
-                <div className="text-zinc-500">singletons</div>
-              </div>
-            </div>
-
-            <div className="mt-3 font-mono text-[11px] leading-5 text-zinc-500">
-              {analysis.graphSource}
-              <br />
-              {analysis.nodeCount} nodes / {analysis.edgeCount} edges
-            </div>
-
-            <div className="mt-4 grid gap-3">
-              {(analysis.communities ?? []).slice(0, 4).map((community) => (
-                <div
-                  key={`${analysis.method}-${community.communityId}`}
-                  className="border border-zinc-200 bg-[#fbfaf5] p-3"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
-                        Community {community.communityId}
-                      </div>
-                      <div className="mt-1 text-sm font-semibold text-zinc-950">
-                        {community.groupCount} groups / {community.tickerCount}{" "}
-                        tickers
-                      </div>
-                    </div>
-                    <div className="shrink-0 text-right font-mono text-[11px] text-zinc-600">
-                      density {formatPercent(community.edgeDensity)}
-                      <br />
-                      weight {community.internalEdgeWeight.toFixed(1)}
-                    </div>
-                  </div>
-
-                  <div className="mt-3 grid gap-2">
-                    {(community.topSignals ?? []).slice(0, 4).map((signalSummary) => (
-                      <div
-                        key={`${analysis.method}-${community.communityId}-${signalSummary.signal.token}`}
-                      >
-                        <div className="mb-1 flex items-start justify-between gap-2 text-xs">
-                          <span className="min-w-0 break-words font-medium text-zinc-700">
-                            {signalSummary.signal.token}
-                          </span>
-                          <span className="shrink-0 font-mono text-[11px] text-zinc-600">
-                            {formatPercent(signalSummary.share)}
-                          </span>
-                        </div>
-                        <div className="h-1.5 border border-zinc-300 bg-white">
-                          <div
-                            className="h-full bg-[#173b35]"
-                            style={{
-                              width: `${Math.max(3, signalSummary.share * 100)}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-3 grid gap-1 border-t border-zinc-200 pt-3">
-                    {(community.topMembers ?? []).map((member) => (
-                      <div
-                        key={`${analysis.method}-${community.communityId}-${member.ticker}`}
-                        className="flex items-center justify-between gap-3 text-xs"
-                      >
-                        <div className="min-w-0">
-                          <span className="font-mono font-semibold text-zinc-950">
-                            {member.ticker}
-                          </span>{" "}
-                          <span className="truncate text-zinc-600">
-                            {member.companyName ?? "Unknown company"}
-                          </span>
-                        </div>
-                        <div className="shrink-0 font-mono text-[11px] text-zinc-600">
-                          {formatMarketCap(member.marketCap)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        ))}
+            Open quarter-end flow timeline
+          </Link>
+        </div>
       </div>
     </WorkstationPanel>
   );
@@ -1258,12 +1074,8 @@ function CommunityDetectionSection({
 
 function SignalCombinationOverviewView({
   overview,
-  viewMode,
-  onChangeViewMode,
 }: {
   overview: TickerSignalCombinationOverview;
-  viewMode: "market" | "factor";
-  onChangeViewMode: (nextViewMode: "market" | "factor") => void;
 }) {
   return (
     <>
@@ -1281,6 +1093,12 @@ function SignalCombinationOverviewView({
               is identical. This is segmentation by signal pattern, not
               distance-based clustering.
             </p>
+            <Link
+              href="/market/cluster/timeline"
+              className="mt-4 inline-flex border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-[#fbfaf5]"
+            >
+              Open quarter-end flow timeline
+            </Link>
           </div>
           <div className="grid min-w-full grid-cols-3 border border-zinc-950 bg-white text-right shadow-[4px_4px_0_0_rgba(24,24,27,0.12)] sm:min-w-[420px]">
             <div className="border-r border-zinc-200 px-3 py-3">
@@ -1312,36 +1130,7 @@ function SignalCombinationOverviewView({
       </section>
 
       <WorkstationPanel className="mt-6 overflow-hidden">
-        <div className="grid gap-0 lg:grid-cols-[280px_1fr]">
-          <div className="border-b border-zinc-200 bg-[#f2f3ef] p-4 lg:border-r lg:border-b-0">
-            <div className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
-              market view
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-1">
-              {[
-                ["market", "Signal combinations"],
-                ["factor", "Factor cohorts"],
-              ].map(([mode, label]) => {
-                const isSelected = viewMode === mode;
-
-                return (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => onChangeViewMode(mode as "market" | "factor")}
-                    className={`border px-3 py-2 text-left text-xs font-semibold transition ${
-                      isSelected
-                        ? "border-zinc-950 bg-[#173b35] text-white shadow-[3px_3px_0_0_rgba(24,24,27,0.16)]"
-                        : "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-950 hover:bg-[#fbfaf5]"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <div className="grid gap-0 text-sm md:grid-cols-3">
+        <div className="grid gap-0 text-sm md:grid-cols-3">
             <div className="border-b border-zinc-200 p-4 md:border-r md:border-b-0">
               <div className="font-mono text-xs uppercase tracking-[0.18em] text-zinc-500">
                 grouping method
@@ -1367,8 +1156,11 @@ function SignalCombinationOverviewView({
               </div>
             </div>
           </div>
-        </div>
       </WorkstationPanel>
+
+      {overview.idfWeightedJaccardThresholdStats.length > 0 ? (
+        <ThresholdFamilyChart overview={overview} lens="idfWeightedJaccard" />
+      ) : null}
 
       {overview.unavailableReason ? (
         <section className="mt-6 border border-[#b88a2f] bg-[#fff8df] p-5 font-mono text-xs leading-6 text-[#6d3f13] shadow-[4px_4px_0_0_rgba(184,138,47,0.16)]">
@@ -1376,100 +1168,58 @@ function SignalCombinationOverviewView({
         </section>
       ) : null}
 
-      {overview.groups.length === 0 ? (
+      {overview.percolationBridgeAnalyses.length === 0 ? (
         <WorkstationPanel className="mt-6 p-6">
           <h2 className="text-lg font-semibold text-zinc-950">
-            No signal combination groups yet
+            No latest market core split yet
           </h2>
           <p className="mt-2 text-sm leading-6 text-zinc-600">
             Run the factor signal workflow first, then this page can group
-            tickers by their current selected signal set.
+            tickers by their current selected signal set and calculate the
+            latest percolation split.
           </p>
         </WorkstationPanel>
       ) : (
-        <>
-          <ThresholdFamilyChart
-            overview={overview}
-            lens="idfWeightedJaccard"
-          />
-          <ThresholdFamilyChart overview={overview} lens="hamming" />
-          <CommunityDetectionSection overview={overview} />
-        </>
+        <LatestFlowInterpretation overview={overview} />
       )}
     </>
   );
 }
 
 export function MarketClusterOverview() {
-  const [viewMode, setViewMode] = useState<"market" | "factor">("market");
   const [overview, setOverview] =
-    useState<TickerFactorMetricClusterOverview | null>(null);
-  const [signalCombinationOverview, setSignalCombinationOverview] =
     useState<TickerSignalCombinationOverview | null>(null);
-  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
 
-    if (viewMode === "market") {
-      fetchSignalCombinationOverview()
-        .then((nextOverview) => {
-          if (!isMounted) return;
-          setSignalCombinationOverview(nextOverview);
-          setOverview(null);
-          setErrorMessage(null);
-        })
-        .catch((error) => {
-          if (!isMounted) return;
-          setErrorMessage(
-            error instanceof Error
-              ? error.message
-              : "Failed to fetch signal combination overview.",
-          );
-        });
-
-      return () => {
-        isMounted = false;
-      };
-    }
-
-    fetchMarketClusterOverview({
-      runId: selectedRunId ?? undefined,
-      normalizationMethod: "none",
-      vectorMode: "factor_signal",
-      vectorSourcePolicy: "signal_activation",
-      runScope: "single",
-    })
+    fetchSignalCombinationOverview()
       .then((nextOverview) => {
         if (!isMounted) return;
         setOverview(nextOverview);
-        setSignalCombinationOverview(null);
         setErrorMessage(null);
-        if (!selectedRunId && nextOverview.latestRun) {
-          setSelectedRunId(nextOverview.latestRun.runId);
-        }
       })
       .catch((error) => {
         if (!isMounted) return;
         setErrorMessage(
           error instanceof Error
             ? error.message
-            : "Failed to fetch market cluster overview.",
+            : "Failed to fetch signal combination overview.",
         );
       });
 
     return () => {
       isMounted = false;
     };
-  }, [selectedRunId, viewMode]);
+  }, []);
 
   if (errorMessage) {
     return (
       <MarketClusterOverviewShell>
         <WorkstationPanel className="p-6">
           <h1 className="text-lg font-semibold text-zinc-950">
-            Failed to load the clustering overview
+            Failed to load the market signal overview
           </h1>
           <p className="mt-2 text-sm leading-6 text-zinc-600">
             {errorMessage}
@@ -1479,10 +1229,7 @@ export function MarketClusterOverview() {
     );
   }
 
-  if (
-    (viewMode === "market" && !signalCombinationOverview) ||
-    (viewMode === "factor" && !overview)
-  ) {
+  if (!overview) {
     return (
       <MarketClusterOverviewShell>
         <WorkstationPanel className="p-6">
@@ -1494,458 +1241,9 @@ export function MarketClusterOverview() {
     );
   }
 
-  if (viewMode === "market" && signalCombinationOverview) {
-    const changeViewMode = (nextViewMode: "market" | "factor") => {
-      if (nextViewMode === viewMode) return;
-      setViewMode(nextViewMode);
-      setSelectedRunId(null);
-      setOverview(null);
-      setSignalCombinationOverview(null);
-      setErrorMessage(null);
-    };
-
-    return (
-      <MarketClusterOverviewShell>
-        <SignalCombinationOverviewView
-          overview={signalCombinationOverview}
-          viewMode={viewMode}
-          onChangeViewMode={changeViewMode}
-        />
-      </MarketClusterOverviewShell>
-    );
-  }
-
-  if (!overview) return null;
-
-  const tickersByCluster = new Map(
-    overview.profiles.map((profile) => [
-      profile.clusterId,
-      overview.clusters
-        .filter((cluster) => cluster.clusterId === profile.clusterId)
-        .sort(
-          (a, b) =>
-            (b.marketCap ?? -1) - (a.marketCap ?? -1) ||
-            a.ticker.localeCompare(b.ticker),
-        )
-        .slice(0, 6),
-    ]),
-  );
-  const dimensionLabel = formatDimensionLabel(overview);
-  const latestRun = overview.latestRun;
-  const latestRunIsCombined = latestRun
-    ? isCombinedScope(latestRun.factor, latestRun.axis)
-    : viewMode === "market";
-  const signalCohortView = viewMode === "factor" && !latestRunIsCombined;
-  const groupLabel = signalCohortView ? "cohorts" : "clusters";
-  const viewTitle =
-    viewMode === "market" ? "Market archetype clusters" : "Factor signal cohorts";
-  const viewDescription =
-    viewMode === "market"
-      ? "Cross-factor signal activation vectors grouped into market-wide company archetypes."
-      : "Single factor-axis signal activation vectors grouped into focused cohorts.";
-  const changeViewMode = (nextViewMode: "market" | "factor") => {
-    if (nextViewMode === viewMode) return;
-    setViewMode(nextViewMode);
-    setSelectedRunId(null);
-    setOverview(null);
-    setErrorMessage(null);
-  };
-
   return (
     <MarketClusterOverviewShell>
-      <section className="border-b border-zinc-300 pb-7">
-        <div className="font-mono text-xs font-semibold uppercase tracking-[0.24em] text-[#6d5a2d]">
-          Market Cluster Overview
-        </div>
-        <div className="mt-3 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-zinc-950 md:text-4xl">
-              {viewTitle}
-            </h1>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-600">
-              {viewDescription}
-            </p>
-          </div>
-          {latestRun ? (
-            <div className="grid min-w-full grid-cols-3 border border-zinc-950 bg-white text-right shadow-[4px_4px_0_0_rgba(24,24,27,0.12)] sm:min-w-[360px]">
-              <div className="border-r border-zinc-200 px-3 py-3">
-                <div className="text-2xl font-semibold text-zinc-950">
-                  {latestRun.tickerCount}
-                </div>
-                <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-500">
-                  tickers
-                </div>
-              </div>
-              <div className="border-r border-zinc-200 px-3 py-3">
-                <div className="text-2xl font-semibold text-zinc-950">
-                  {latestRun.featureCount}
-                </div>
-                <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-500">
-                  {dimensionLabel}
-                </div>
-              </div>
-              <div className="px-3 py-3">
-                <div className="text-2xl font-semibold text-zinc-950">
-                  {latestRun.clusterCount}
-                </div>
-                <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-500">
-                  {groupLabel}
-                </div>
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </section>
-
-      <WorkstationPanel className="mt-6 overflow-hidden">
-        <div className="grid gap-0 lg:grid-cols-[280px_1fr]">
-          <div className="border-b border-zinc-200 bg-[#f2f3ef] p-4 lg:border-r lg:border-b-0">
-            <div className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
-              clustering view
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-1">
-              {[
-                ["market", "Market archetypes"],
-                ["factor", "Factor cohorts"],
-              ].map(([mode, label]) => {
-                const isSelected = viewMode === mode;
-
-                return (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => changeViewMode(mode as "market" | "factor")}
-                    className={`border px-3 py-2 text-left text-xs font-semibold transition ${
-                      isSelected
-                        ? "border-zinc-950 bg-[#173b35] text-white shadow-[3px_3px_0_0_rgba(24,24,27,0.16)]"
-                        : "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-950 hover:bg-[#fbfaf5]"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <div className="grid gap-0 text-sm md:grid-cols-3">
-            <div className="border-b border-zinc-200 p-4 md:border-r md:border-b-0">
-              <div className="font-mono text-xs uppercase tracking-[0.18em] text-zinc-500">
-                run shape
-              </div>
-              <div className="mt-1 font-medium text-zinc-950">
-                {latestRun
-                  ? latestRunIsCombined
-                    ? "cross-factor"
-                    : "single factor-axis"
-                  : "-"}
-              </div>
-            </div>
-            <div className="border-b border-zinc-200 p-4 md:border-r md:border-b-0">
-              <div className="font-mono text-xs uppercase tracking-[0.18em] text-zinc-500">
-                vector source
-              </div>
-              <div className="mt-1 font-medium text-zinc-950">
-                {latestRun?.vectorMode ?? "factor_signal"} /{" "}
-                {latestRun?.vectorSourcePolicy ?? "signal_activation"}
-              </div>
-            </div>
-            <div className="p-4">
-              <div className="font-mono text-xs uppercase tracking-[0.18em] text-zinc-500">
-                current scope
-              </div>
-              <div className="mt-1 break-words font-medium text-zinc-950">
-                {latestRun
-                  ? formatScopeSummary(latestRun.factor, latestRun.axis)
-                  : viewMode === "market"
-                    ? "No market run"
-                    : "No factor run"}
-              </div>
-            </div>
-          </div>
-        </div>
-      </WorkstationPanel>
-
-        {overview.availableRuns.length > 0 ? (
-          <WorkstationPanel className="mt-6 overflow-hidden">
-            <div className="border-b border-zinc-200 px-5 py-4">
-              <h2 className="text-base font-semibold text-zinc-950">
-                {viewMode === "market" ? "Market runs" : "Factor scopes"}
-              </h2>
-              <p className="mt-1 text-sm text-zinc-600">
-                {viewMode === "market"
-                  ? "Combined runs cluster companies across all available factor signal dimensions."
-                  : "Each scope is clustered separately from factor signal activation vectors."}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2 p-4">
-              {overview.availableRuns.map((run) => {
-                const isSelected =
-                  run.runId === (overview.latestRun?.runId ?? selectedRunId);
-
-                return (
-                  <button
-                    key={run.runId}
-                    type="button"
-                    onClick={() => setSelectedRunId(run.runId)}
-                    className={`border px-3 py-2 text-left text-xs transition ${
-                      isSelected
-                        ? "border-zinc-950 bg-[#173b35] text-white shadow-[3px_3px_0_0_rgba(24,24,27,0.16)]"
-                        : "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-950 hover:bg-[#fbfaf5]"
-                    }`}
-                  >
-                    <div className="font-mono font-semibold uppercase tracking-[0.12em]">
-                      {formatScopeSummary(run.factor, run.axis)}
-                    </div>
-                    <div
-                      className={`mt-1 ${
-                        isSelected ? "text-white/70" : "text-zinc-500"
-                      }`}
-                    >
-                      {run.featureCount}{" "}
-                      {run.vectorMode === "factor_signal" ? "signals" : "features"} /{" "}
-                      {run.clusterCount}{" "}
-                      {viewMode === "factor" ? "cohorts" : "clusters"}
-                    </div>
-                    {isCombinedScope(run.factor, run.axis) ? (
-                      <div
-                        className={`mt-1 max-w-[280px] truncate ${
-                          isSelected ? "text-white/60" : "text-zinc-400"
-                        }`}
-                      >
-                        {formatScopeDetail(run.factor, run.axis)}
-                      </div>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-          </WorkstationPanel>
-        ) : null}
-
-        {overview.unavailableReason ? (
-          <section className="mt-6 border border-[#b88a2f] bg-[#fff8df] p-5 font-mono text-xs leading-6 text-[#6d3f13] shadow-[4px_4px_0_0_rgba(184,138,47,0.16)]">
-            {overview.unavailableReason}
-          </section>
-        ) : null}
-
-        {!overview.latestRun ? (
-          <WorkstationPanel className="mt-6 p-6">
-            <h2 className="text-lg font-semibold text-zinc-950">
-              {viewMode === "market"
-                ? "No market archetype run yet"
-                : "No factor cohort runs yet"}
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-zinc-600">
-              {viewMode === "market"
-                ? "Run clustering with multiple factor-axis targets to show a cross-factor market view here."
-                : "Run the `factor_metric_clustering` job or the internal clustering API to show the latest factor scope here."}
-            </p>
-          </WorkstationPanel>
-        ) : (
-          <>
-            <WorkstationPanel className="mt-6 grid gap-0 text-sm md:grid-cols-2 xl:grid-cols-4">
-              <div className="border-b border-zinc-200 p-4 md:border-r xl:border-b-0">
-                <div className="font-mono text-xs uppercase tracking-[0.18em] text-zinc-500">
-                  scope
-                </div>
-                <div className="mt-1 break-words font-medium text-zinc-950">
-                  {formatScopeSummary(
-                    overview.latestRun.factor,
-                    overview.latestRun.axis,
-                  )}
-                </div>
-                {isCombinedScope(
-                  overview.latestRun.factor,
-                  overview.latestRun.axis,
-                ) ? (
-                  <div className="mt-1 break-words text-xs leading-5 text-zinc-500">
-                    {formatScopeDetail(
-                      overview.latestRun.factor,
-                      overview.latestRun.axis,
-                    )}
-                  </div>
-                ) : null}
-              </div>
-              <div className="border-b border-zinc-200 p-4 xl:border-r xl:border-b-0">
-                <div className="font-mono text-xs uppercase tracking-[0.18em] text-zinc-500">
-                  comparison
-                </div>
-                <div className="mt-1 break-words font-medium text-zinc-950">
-                  {overview.latestRun.comparisonSetType}/
-                  {overview.latestRun.comparisonSetKey}
-                </div>
-              </div>
-              <div className="border-b border-zinc-200 p-4 md:border-r md:border-b-0">
-                <div className="font-mono text-xs uppercase tracking-[0.18em] text-zinc-500">
-                  method
-                </div>
-                <div className="mt-1 break-words font-medium text-zinc-950">
-                  {overview.latestRun.normalizationMethod} +{" "}
-                  {overview.latestRun.clusterMethod}
-                </div>
-                <div className="mt-1 break-words font-mono text-[11px] text-zinc-500">
-                  {overview.latestRun.vectorMode ?? "vector"} /{" "}
-                  {overview.latestRun.vectorSourcePolicy ?? "source"}
-                </div>
-              </div>
-              <div className="p-4">
-                <div className="font-mono text-xs uppercase tracking-[0.18em] text-zinc-500">
-                  computed
-                </div>
-                <div className="mt-1 break-words font-medium text-zinc-950">
-                  {overview.latestRun.computedAt}
-                </div>
-              </div>
-            </WorkstationPanel>
-
-            <SignalComparisonMatrix profiles={overview.profiles} />
-
-            <section className="mt-6 grid gap-4 lg:grid-cols-2">
-              {overview.profiles.map((profile) => {
-                const tickerRows = tickersByCluster.get(profile.clusterId) ?? [];
-                const profileDisplay = buildProfileDisplay(profile);
-
-                return (
-                  <article
-                    key={profile.clusterId}
-                    className="border border-zinc-300 bg-white shadow-[4px_4px_0_0_rgba(24,24,27,0.08)]"
-                  >
-                    <div className="flex items-start justify-between gap-4 border-b border-zinc-200 bg-[#f2f3ef] px-5 py-4">
-                      <div>
-                        <div className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#6d5a2d]">
-                          {signalCohortView ? "Cohort" : "Cluster"}{" "}
-                          {profile.clusterId}
-                        </div>
-                        <h2 className="mt-2 text-lg font-semibold text-zinc-950">
-                          {profileDisplay.title}
-                        </h2>
-                        <p className="mt-1 max-w-xl text-sm leading-5 text-zinc-600">
-                          {profileDisplay.summary}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-semibold text-zinc-950">
-                          {profile.clusterSize}
-                        </div>
-                        <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-500">
-                          companies
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-0 border-b border-zinc-100 text-sm sm:grid-cols-3">
-                      <div>
-                        <div className="border-b border-zinc-100 px-5 py-3 sm:border-r sm:border-b-0">
-                          <div className="text-xs text-zinc-500">coverage</div>
-                          <div className="font-medium text-zinc-950">
-                            {formatPercent(profile.averageCoverageRatio)}
-                          </div>
-                        </div>
-                      </div>
-                      <div>
-                        <div className="border-b border-zinc-100 px-5 py-3 sm:border-r sm:border-b-0">
-                          <div className="text-xs text-zinc-500">distance</div>
-                          <div className="font-medium text-zinc-950">
-                            {formatNumber(profile.averageDistanceToCentroid)}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="px-5 py-3">
-                        <div className="text-xs text-zinc-500">
-                          {dimensionLabel}
-                        </div>
-                        <div className="font-medium text-zinc-950">
-                          {profile.featureCount}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="px-5 py-4">
-                      <h3 className="text-sm font-semibold text-zinc-950">
-                        Signal profile
-                      </h3>
-                      <div className="mt-3 grid gap-3">
-                        {getSignalProfileFeatures(profile, signalCohortView).map((feature) => (
-                          <SignalFeatureBar
-                            key={getClusterFeatureId(feature)}
-                            feature={feature}
-                          />
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="grid gap-5 border-t border-zinc-200 px-5 py-4 md:grid-cols-2">
-                      <CategoryMix title="Sector mix" stats={profile.sectorStats} />
-                      <CategoryMix
-                        title="Industry mix"
-                        stats={profile.industryStats}
-                      />
-                    </div>
-
-                    <div className="overflow-x-auto border-t border-zinc-200">
-                      <div className="flex flex-col gap-1 border-b border-zinc-200 bg-[#fbfaf5] px-5 py-3 sm:flex-row sm:items-end sm:justify-between">
-                        <h3 className="text-sm font-semibold text-zinc-950">
-                          Largest companies
-                        </h3>
-                        <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-zinc-500">
-                          sorted by market cap
-                        </p>
-                      </div>
-                      <table className="w-full min-w-[520px] text-left text-sm">
-                        <thead className="border-b border-zinc-200 bg-[#f2f3ef] font-mono text-xs uppercase tracking-[0.14em] text-zinc-500">
-                          <tr>
-                            <th className="py-2 pr-3 pl-5 font-medium">ticker</th>
-                            <th className="py-2 pr-3 font-medium">company</th>
-                            <th className="py-2 pr-3 font-medium">sector</th>
-                            <th className="py-2 pr-5 text-right font-medium">
-                              market cap
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-zinc-100">
-                          {tickerRows.map((ticker) => (
-                            <tr key={ticker.ticker} className="hover:bg-[#fbfaf5]">
-                              <td className="py-2 pr-3 pl-5 font-semibold text-zinc-950">
-                                <Link
-                                  href={`/tickers/${ticker.ticker}`}
-                                  className="underline decoration-[#b88a2f] underline-offset-4 hover:text-[#173b35]"
-                                >
-                                  {ticker.ticker}
-                                </Link>
-                              </td>
-                              <td className="py-2 pr-3 text-zinc-700">
-                                {ticker.companyName ?? "-"}
-                              </td>
-                              <td className="py-2 pr-3 text-zinc-600">
-                                {ticker.sector ?? "-"}
-                              </td>
-                              <td className="py-2 pr-5 text-right font-mono text-zinc-700">
-                                {formatMarketCap(ticker.marketCap)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </article>
-                );
-              })}
-            </section>
-          </>
-        )}
+      <SignalCombinationOverviewView overview={overview} />
     </MarketClusterOverviewShell>
-  );
-}
-
-function MarketClusterOverviewShell({ children }: { children: ReactNode }) {
-  return (
-    <WorkstationFrame
-      title="market signal workstation"
-      backHref="/dashboard"
-      backLabel="Dashboard"
-      maxWidthClassName="max-w-7xl"
-    >
-      {children}
-    </WorkstationFrame>
   );
 }

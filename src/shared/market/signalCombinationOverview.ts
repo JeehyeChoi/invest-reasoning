@@ -1,4 +1,8 @@
-import type { TickerClusterCategoryStat } from "@/shared/market/clusterOverview";
+export type TickerClusterCategoryStat = {
+  name: string;
+  count: number;
+  share: number;
+};
 
 export type TickerSignalCombinationOverview = {
   asOfDate: string | null;
@@ -15,6 +19,7 @@ export type TickerSignalCombinationOverview = {
   hammingThresholdCandidates: TickerSignalCombinationThresholdCandidate[];
   partitionAgreement: TickerSignalCombinationPartitionAgreement;
   idfWeightedPartitionAgreement: TickerSignalCombinationPartitionAgreement;
+  percolationBridgeAnalyses: TickerSignalCombinationPercolationBridgeAnalysis[];
   communityAnalyses: TickerSignalCombinationCommunityAnalysis[];
   groups: TickerSignalCombinationGroup[];
   unavailableReason?: string;
@@ -98,6 +103,35 @@ export type TickerSignalCombinationCommunitySummary = {
   industryStats: TickerClusterCategoryStat[];
 };
 
+export type TickerSignalCombinationPercolationBridgeAnalysis = {
+  lens: "idfWeightedJaccard" | "hamming";
+  label: string;
+  previousThreshold: number;
+  peakThreshold: number;
+  peakMoment: number;
+  largestBeforeSize: number;
+  largestBeforeTickerCount: number;
+  largestBeforeTickers?: string[];
+  largestAfterPieceCount: number;
+  largestAfterSize: number;
+  largestAfterTickerCount: number;
+  largestAfterTickers?: string[];
+  removedEdgeCount: number;
+  bridgeEdgeCount: number;
+  preBreakBaselineSignals: TickerSignalCombinationFamilySignalSummary[];
+  topBridgeSignals: TickerSignalCombinationBridgeSignalSummary[];
+  postBreakPieces: TickerSignalCombinationFamilySummary[];
+};
+
+export type TickerSignalCombinationBridgeSignalSummary = {
+  signal: TickerSignalCombinationSignal;
+  edgeCount: number;
+  share: number;
+  baselineShare: number;
+  lift: number | null;
+  averageSimilarity: number;
+};
+
 export type TickerSignalCombinationThresholdCandidate = {
   kind: "secondary_emergence" | "secondary_disappearance" | "giant_collapse";
   label: string;
@@ -115,12 +149,73 @@ export type TickerSignalCombinationFamilySummary = {
   tickerCount: number;
   topSignals: TickerSignalCombinationFamilySignalSummary[];
   sampleGroups: TickerSignalCombinationFamilyGroupSummary[];
+  marketAudit?: TickerSignalCombinationMarketAudit;
+  hammingAudit?: TickerSignalCombinationHammingAudit;
+  featureAudit?: TickerSignalCombinationFeatureAudit;
+};
+
+export type TickerSignalCombinationMarketAudit = {
+  totalMarketCap: number | null;
+  medianMarketCap: number | null;
+  sectorStats: TickerClusterCategoryStat[];
+  industryStats: TickerClusterCategoryStat[];
+  universeOverlaps: TickerSignalCombinationUniverseOverlap[];
+  topMembers: TickerSignalCombinationMember[];
+};
+
+export type TickerSignalCombinationUniverseOverlap = {
+  universeKey: string;
+  universeLabel: string;
+  count: number;
+  share: number;
+};
+
+export type TickerSignalCombinationFeatureAudit = {
+  baselineTickerCount: number;
+  pieceTickerCount: number;
+  topFeatures: TickerSignalCombinationFeatureContrast[];
+};
+
+export type TickerSignalCombinationFeatureContrast = {
+  featureToken: string;
+  factor: string;
+  axis: string;
+  metricKey: string;
+  featureKey: string;
+  pieceCoverage: number;
+  baselineCoverage: number;
+  pieceMedian: number;
+  baselineMedian: number;
+  delta: number;
+  robustDelta: number | null;
+};
+
+export type TickerSignalCombinationHammingAudit = {
+  threshold: number;
+  averageSimilarity: number | null;
+  subclusterCount: number;
+  largestSubclusterSize: number;
+  largestSubclusterShare: number;
+  singletonSubclusterCount: number;
+  stateDiversity: TickerSignalCombinationStateDiversity[];
+};
+
+export type TickerSignalCombinationStateDiversity = {
+  factorAxis: string;
+  dominantState: string;
+  dominantShare: number;
+  distinctStateCount: number;
 };
 
 export type TickerSignalCombinationFamilySignalSummary = {
   signal: TickerSignalCombinationSignal;
   groupCount: number;
+  tickerCount: number;
   share: number;
+  groupShare: number;
+  baselineShare?: number;
+  lift?: number | null;
+  contrastShare?: number;
 };
 
 export type TickerSignalCombinationFamilyGroupSummary = {

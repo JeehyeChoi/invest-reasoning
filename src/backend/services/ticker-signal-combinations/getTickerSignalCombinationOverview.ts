@@ -1,7 +1,13 @@
 import { createHash } from "crypto";
 import { db } from "@/backend/config/db";
-import type { TickerClusterCategoryStat } from "@/shared/market/clusterOverview";
+import {
+  SIGNAL_TIMELINE_AXIS_SCOPE_OPTIONS,
+  type SignalTimelineAxisScope,
+} from "@/shared/market/signalCombinationTimeline";
+import { UNIVERSE_LABELS } from "@/shared/universe/universes";
 import type {
+  TickerClusterCategoryStat,
+  TickerSignalCombinationFeatureAudit,
   TickerSignalCombinationGroup,
   TickerSignalCombinationCommunityAnalysis,
   TickerSignalCombinationFamilySummary,
@@ -9,6 +15,7 @@ import type {
   TickerSignalCombinationMatchedFamily,
   TickerSignalCombinationNearestGroup,
   TickerSignalCombinationOverview,
+  TickerSignalCombinationPercolationBridgeAnalysis,
   TickerSignalCombinationPartitionAgreement,
   TickerSignalCombinationSimilarityBucket,
   TickerSignalCombinationSignal,
@@ -29,8 +36,26 @@ type SignalCombinationRow = {
   signal_effective_date: Date | string;
 };
 
+type FeatureValueRow = {
+  ticker: string;
+  factor: string;
+  axis: string;
+  metric_key: string;
+  feature_key: string;
+  feature_value: number | string | null;
+  effective_date: Date | string;
+};
+
+type UniverseMembershipRow = {
+  ticker: string;
+  universe_key: string;
+};
+
 export type GetTickerSignalCombinationOverviewInput = {
   asOfDate?: string;
+  detailMode?: "full" | "percolation" | "latestFlow";
+  axisScope?: SignalTimelineAxisScope;
+  includePercolationMemberTickers?: boolean;
 };
 
 export async function getTickerSignalCombinationOverview(
@@ -67,12 +92,60 @@ export async function getTickerSignalCombinationOverview(
           bestCell: null,
           bestMatchedFamilies: [],
         },
+        percolationBridgeAnalyses: [],
         communityAnalyses: [],
         groups: [],
       };
     }
 
-    return buildOverview(rows, input);
+    const featureRows =
+      input.detailMode === "latestFlow"
+        ? []
+        : await loadLatestFeatureValueRows(input, [
+            ...new Set(rows.map((row) => row.ticker)),
+          ]);
+    const universeRows =
+      input.detailMode === "latestFlow"
+        ? []
+        : await loadUniverseMembershipRows([
+            ...new Set(rows.map((row) => row.ticker)),
+          ]);
+
+    if (rows.length === 0) {
+      return {
+        asOfDate: input.asOfDate ?? null,
+        tickerCount: 0,
+        signalDimensionCount: 0,
+        factorAxisCount: 0,
+        groupCount: 0,
+        hammingSimilarityDistribution: [],
+        thresholdStats: [],
+        thresholdCandidates: [],
+        idfWeightedJaccardThresholdStats: [],
+        idfWeightedJaccardThresholdCandidates: [],
+        hammingThresholdStats: [],
+        hammingThresholdCandidates: [],
+        partitionAgreement: {
+          jaccardThresholds: [],
+          hammingThresholds: [],
+          cells: [],
+          bestCell: null,
+          bestMatchedFamilies: [],
+        },
+        idfWeightedPartitionAgreement: {
+          jaccardThresholds: [],
+          hammingThresholds: [],
+          cells: [],
+          bestCell: null,
+          bestMatchedFamilies: [],
+        },
+        percolationBridgeAnalyses: [],
+        communityAnalyses: [],
+        groups: [],
+      };
+    }
+
+    return buildOverview(rows, input, featureRows, universeRows);
   } catch (error) {
     if (isUndefinedTableError(error)) {
       return {
@@ -102,6 +175,7 @@ export async function getTickerSignalCombinationOverview(
           bestCell: null,
           bestMatchedFamilies: [],
         },
+        percolationBridgeAnalyses: [],
         communityAnalyses: [],
         groups: [],
         unavailableReason:
@@ -131,9 +205,20 @@ async function loadLatestSignalRows(
           s.signal_label,
           s.signal_effective_date
         FROM public.ticker_factor_signals s
+        JOIN public.ticker_signal_clustering_question_policies qp
+          ON qp.model_key = s.model_key
+         AND qp.model_version = s.model_version
+         AND qp.factor = s.factor
+         AND qp.axis = s.axis
+         AND qp.is_active = true
+         AND qp.status IN ('use', 'review')
         WHERE s.model_key = 'factor_signal'
           AND s.model_version = 'v0'
           AND ($1::date IS NULL OR s.signal_effective_date <= $1)
+          AND (
+            cardinality($2::text[]) = 0
+            OR s.axis = ANY($2::text[])
+          )
           AND s.signal_key IS NOT NULL
         ORDER BY
           s.ticker,
@@ -166,7 +251,89 @@ async function loadLatestSignalRows(
         s.axis,
         s.signal_key
     `,
-    [input.asOfDate ?? null],
+    [input.asOfDate ?? null, resolveAxisFilter(input.axisScope)],
+  );
+
+  return result.rows;
+}
+
+const MARKET_AUDIT_UNIVERSE_KEYS = [
+  "sp500",
+  "sp400",
+  "sp600",
+] as const;
+
+async function loadUniverseMembershipRows(
+  tickers: string[],
+): Promise<UniverseMembershipRow[]> {
+  if (tickers.length === 0) return [];
+
+  const result = await db.query<UniverseMembershipRow>(
+    `
+      SELECT
+        ticker,
+        universe_key
+      FROM public.universe_memberships
+      WHERE ticker = ANY($1::text[])
+        AND universe_key = ANY($2::text[])
+        AND is_active = true
+      ORDER BY
+        ticker,
+        universe_key
+    `,
+    [tickers, [...MARKET_AUDIT_UNIVERSE_KEYS]],
+  );
+
+  return result.rows;
+}
+
+async function loadLatestFeatureValueRows(
+  input: GetTickerSignalCombinationOverviewInput,
+  tickers: string[],
+): Promise<FeatureValueRow[]> {
+  if (tickers.length === 0) return [];
+
+  const result = await db.query<FeatureValueRow>(
+    `
+      SELECT DISTINCT ON (
+        f.ticker,
+        f.factor,
+        f.axis,
+        f.metric_key,
+        f.feature_key
+      )
+        f.ticker,
+        f.factor,
+        f.axis,
+        f.metric_key,
+        f.feature_key,
+        f.feature_value,
+        f.effective_date
+      FROM public.ticker_factor_metric_features f
+      JOIN public.ticker_signal_clustering_question_policies qp
+        ON qp.model_key = 'factor_signal'
+       AND qp.model_version = 'v0'
+       AND qp.factor = f.factor
+       AND qp.axis = f.axis
+       AND qp.is_active = true
+       AND qp.status IN ('use', 'review')
+      WHERE f.ticker = ANY($1::text[])
+        AND ($2::date IS NULL OR f.effective_date <= $2)
+        AND (
+          cardinality($3::text[]) = 0
+          OR f.axis = ANY($3::text[])
+        )
+        AND f.feature_value IS NOT NULL
+      ORDER BY
+        f.ticker,
+        f.factor,
+        f.axis,
+        f.metric_key,
+        f.feature_key,
+        f.effective_date DESC,
+        f.period_end DESC
+    `,
+    [tickers, input.asOfDate ?? null, resolveAxisFilter(input.axisScope)],
   );
 
   return result.rows;
@@ -175,6 +342,8 @@ async function loadLatestSignalRows(
 function buildOverview(
   rows: SignalCombinationRow[],
   input: GetTickerSignalCombinationOverviewInput,
+  featureRows: FeatureValueRow[] = [],
+  universeRows: UniverseMembershipRow[] = [],
 ): TickerSignalCombinationOverview {
   const tickerGroups = new Map<string, TickerSignalCombinationDraft>();
   const allFactorAxes = new Set<string>();
@@ -268,6 +437,109 @@ function buildOverview(
     sortedGroupDrafts,
     signalWeights,
   );
+  const featureMatrix = buildFeatureMatrix(featureRows);
+  const universeMembershipsByTicker = buildUniverseMembershipsByTicker(universeRows);
+  const idfWeightedJaccardThresholdStats = buildThresholdStats(
+    sortedGroupDrafts,
+    pairwiseSimilarities,
+    "idfWeightedJaccard",
+  );
+  if (input.detailMode === "latestFlow") {
+    const percolationBridgeAnalyses = buildPercolationBridgeAnalyses({
+      groups: sortedGroupDrafts,
+      groupIdsByKey,
+      pairwiseSimilarities,
+      idfWeightedJaccardThresholdStats,
+      hammingThresholdStats: [],
+      featureMatrix,
+      universeMembershipsByTicker,
+      includeAudits: false,
+      includeMemberTickers: input.includePercolationMemberTickers,
+    });
+
+    return {
+      asOfDate,
+      tickerCount: tickerGroups.size,
+      signalDimensionCount: allDirectionalSignalTokens.size,
+      factorAxisCount: factorAxisKeys.length,
+      groupCount: sortedGroupDrafts.length,
+      hammingSimilarityDistribution: [],
+      thresholdStats: [],
+      thresholdCandidates: [],
+      idfWeightedJaccardThresholdStats,
+      idfWeightedJaccardThresholdCandidates: [],
+      hammingThresholdStats: [],
+      hammingThresholdCandidates: [],
+      partitionAgreement: {
+        jaccardThresholds: [],
+        hammingThresholds: [],
+        cells: [],
+        bestCell: null,
+        bestMatchedFamilies: [],
+      },
+      idfWeightedPartitionAgreement: {
+        jaccardThresholds: [],
+        hammingThresholds: [],
+        cells: [],
+        bestCell: null,
+        bestMatchedFamilies: [],
+      },
+      percolationBridgeAnalyses,
+      communityAnalyses: [],
+      groups: [],
+    };
+  }
+
+  const hammingThresholdStats = buildThresholdStats(
+    sortedGroupDrafts,
+    pairwiseSimilarities,
+    "hamming",
+  );
+  const percolationBridgeAnalyses = buildPercolationBridgeAnalyses({
+    groups: sortedGroupDrafts,
+    groupIdsByKey,
+    pairwiseSimilarities,
+    idfWeightedJaccardThresholdStats,
+    hammingThresholdStats,
+    featureMatrix,
+    universeMembershipsByTicker,
+    includeMemberTickers: input.includePercolationMemberTickers,
+  });
+
+  if (input.detailMode === "percolation") {
+    return {
+      asOfDate,
+      tickerCount: tickerGroups.size,
+      signalDimensionCount: allDirectionalSignalTokens.size,
+      factorAxisCount: factorAxisKeys.length,
+      groupCount: sortedGroupDrafts.length,
+      hammingSimilarityDistribution: [],
+      thresholdStats: [],
+      thresholdCandidates: [],
+      idfWeightedJaccardThresholdStats,
+      idfWeightedJaccardThresholdCandidates: [],
+      hammingThresholdStats,
+      hammingThresholdCandidates: [],
+      partitionAgreement: {
+        jaccardThresholds: [],
+        hammingThresholds: [],
+        cells: [],
+        bestCell: null,
+        bestMatchedFamilies: [],
+      },
+      idfWeightedPartitionAgreement: {
+        jaccardThresholds: [],
+        hammingThresholds: [],
+        cells: [],
+        bestCell: null,
+        bestMatchedFamilies: [],
+      },
+      percolationBridgeAnalyses,
+      communityAnalyses: [],
+      groups: [],
+    };
+  }
+
   const nearestGroupsByKey = buildNearestGroups(
     sortedGroupDrafts,
     groupIdsByKey,
@@ -284,11 +556,6 @@ function buildOverview(
     thresholdStats,
     similarity: "jaccard",
   });
-  const idfWeightedJaccardThresholdStats = buildThresholdStats(
-    sortedGroupDrafts,
-    pairwiseSimilarities,
-    "idfWeightedJaccard",
-  );
   const idfWeightedJaccardThresholdCandidates = buildThresholdCandidates({
     groups: sortedGroupDrafts,
     groupIdsByKey,
@@ -299,11 +566,6 @@ function buildOverview(
   const hammingSimilarities = buildHammingSimilarities(sortedGroupDrafts);
   const hammingSimilarityDistribution =
     buildHammingSimilarityDistribution(hammingSimilarities);
-  const hammingThresholdStats = buildThresholdStats(
-    sortedGroupDrafts,
-    pairwiseSimilarities,
-    "hamming",
-  );
   const hammingThresholdCandidates = buildThresholdCandidates({
     groups: sortedGroupDrafts,
     groupIdsByKey,
@@ -376,9 +638,19 @@ function buildOverview(
     hammingThresholdCandidates,
     partitionAgreement,
     idfWeightedPartitionAgreement,
+    percolationBridgeAnalyses,
     communityAnalyses,
     groups,
   };
+}
+
+function resolveAxisFilter(axisScope: SignalTimelineAxisScope | undefined) {
+  const option =
+    SIGNAL_TIMELINE_AXIS_SCOPE_OPTIONS.find(
+      (item) => item.key === (axisScope ?? "all"),
+    ) ?? SIGNAL_TIMELINE_AXIS_SCOPE_OPTIONS[0];
+
+  return option.axes ?? [];
 }
 
 type TickerSignalCombinationDraft = TickerSignalCombinationMember & {
@@ -466,12 +738,81 @@ type SimilarityLens = "jaccard" | "idfWeightedJaccard" | "hamming";
 
 const MAX_SIGNAL_IDF_WEIGHT = 3;
 
+type FeatureValueMatrix = {
+  valuesByTicker: Map<string, Map<string, number>>;
+  definitionsByToken: Map<
+    string,
+    {
+      factor: string;
+      axis: string;
+      metricKey: string;
+      featureKey: string;
+    }
+  >;
+};
+
+type UniverseMembershipsByTicker = Map<string, Set<string>>;
+
+function buildUniverseMembershipsByTicker(
+  rows: UniverseMembershipRow[],
+): UniverseMembershipsByTicker {
+  const membershipsByTicker = new Map<string, Set<string>>();
+
+  for (const row of rows) {
+    const memberships = membershipsByTicker.get(row.ticker) ?? new Set<string>();
+
+    memberships.add(row.universe_key);
+    membershipsByTicker.set(row.ticker, memberships);
+  }
+
+  return membershipsByTicker;
+}
+
+function buildFeatureMatrix(rows: FeatureValueRow[]): FeatureValueMatrix {
+  const valuesByTicker = new Map<string, Map<string, number>>();
+  const definitionsByToken = new Map<
+    string,
+    {
+      factor: string;
+      axis: string;
+      metricKey: string;
+      featureKey: string;
+    }
+  >();
+
+  for (const row of rows) {
+    const featureValue = toNullableNumber(row.feature_value);
+    if (featureValue === null || !Number.isFinite(featureValue)) continue;
+
+    const featureToken = buildFeatureToken(row);
+    const tickerValues = valuesByTicker.get(row.ticker) ?? new Map<string, number>();
+
+    tickerValues.set(featureToken, featureValue);
+    valuesByTicker.set(row.ticker, tickerValues);
+    definitionsByToken.set(featureToken, {
+      factor: row.factor,
+      axis: row.axis,
+      metricKey: row.metric_key,
+      featureKey: row.feature_key,
+    });
+  }
+
+  return {
+    valuesByTicker,
+    definitionsByToken,
+  };
+}
+
 function getPairSimilarity(pair: PairwiseSimilarity, similarity: SimilarityLens) {
   if (similarity === "jaccard") return pair.jaccardSimilarity;
   if (similarity === "idfWeightedJaccard") {
     return pair.idfWeightedJaccardSimilarity;
   }
   return pair.hammingSimilarity;
+}
+
+function isConnectedAtThreshold(pairSimilarity: number, threshold: number) {
+  return pairSimilarity > 0 && pairSimilarity >= threshold;
 }
 
 function buildSignalWeights(groups: CombinationGroupDraft[]): Map<string, number> {
@@ -614,21 +955,35 @@ function buildThresholdStats(
   const groupIndexesByKey = new Map(
     groups.map((group, index) => [group.combinationKey, index]),
   );
+  const edgeBuckets = Array.from({ length: 101 }, () => [] as {
+    aIndex: number;
+    bIndex: number;
+  }[]);
 
-  return Array.from({ length: 101 }, (_, thresholdIndex) => {
+  for (const pair of pairwiseSimilarities) {
+    const pairSimilarity = getPairSimilarity(pair, similarity);
+
+    if (pairSimilarity <= 0) continue;
+
+    const aIndex = groupIndexesByKey.get(pair.aCombinationKey);
+    const bIndex = groupIndexesByKey.get(pair.bCombinationKey);
+
+    if (aIndex === undefined || bIndex === undefined) continue;
+
+    edgeBuckets[Math.min(100, Math.floor(pairSimilarity * 100))].push({
+      aIndex,
+      bIndex,
+    });
+  }
+
+  const disjointSet = new DisjointSet(groups.length);
+  const statsByThreshold = new Map<number, TickerSignalCombinationThresholdStat>();
+
+  for (let thresholdIndex = 100; thresholdIndex >= 0; thresholdIndex -= 1) {
     const threshold = thresholdIndex / 100;
-    const disjointSet = new DisjointSet(groups.length);
 
-    for (const pair of pairwiseSimilarities) {
-      const pairSimilarity = getPairSimilarity(pair, similarity);
-
-      if (pairSimilarity < threshold) continue;
-
-      const aIndex = groupIndexesByKey.get(pair.aCombinationKey);
-      const bIndex = groupIndexesByKey.get(pair.bCombinationKey);
-
-      if (aIndex === undefined || bIndex === undefined) continue;
-      disjointSet.union(aIndex, bIndex);
+    for (const edge of edgeBuckets[thresholdIndex]) {
+      disjointSet.union(edge.aIndex, edge.bIndex);
     }
 
     const familySizes = disjointSet.familySizes().sort((a, b) => b - a);
@@ -642,7 +997,7 @@ function buildThresholdStats(
       0,
     );
 
-    return {
+    statsByThreshold.set(threshold, {
       threshold,
       familyCount: familySizes.length,
       largestFamilySize: familySizes[0] ?? 0,
@@ -651,8 +1006,652 @@ function buildThresholdStats(
       finiteClusterSecondMoment,
       finiteClusterMeanSize:
         finiteNodeCount === 0 ? 0 : finiteClusterSecondMoment / finiteNodeCount,
-    };
+    });
+  }
+
+  return Array.from({ length: 101 }, (_, thresholdIndex) => {
+    const threshold = thresholdIndex / 100;
+
+    return (
+      statsByThreshold.get(threshold) ?? {
+        threshold,
+        familyCount: groups.length,
+        largestFamilySize: groups.length === 0 ? 0 : 1,
+        secondLargestFamilySize: groups.length > 1 ? 1 : 0,
+        singletonFamilyCount: groups.length,
+        finiteClusterSecondMoment: Math.max(0, groups.length - 1),
+        finiteClusterMeanSize: groups.length <= 1 ? 0 : 1,
+      }
+    );
   });
+}
+
+function buildPercolationBridgeAnalyses(input: {
+  groups: CombinationGroupDraft[];
+  groupIdsByKey: Map<string, number>;
+  pairwiseSimilarities: PairwiseSimilarity[];
+  idfWeightedJaccardThresholdStats: TickerSignalCombinationThresholdStat[];
+  hammingThresholdStats: TickerSignalCombinationThresholdStat[];
+  featureMatrix: FeatureValueMatrix;
+  universeMembershipsByTicker: UniverseMembershipsByTicker;
+  includeAudits?: boolean;
+  includeMemberTickers?: boolean;
+}): TickerSignalCombinationPercolationBridgeAnalysis[] {
+  const hammingPeakThreshold =
+    [...input.hammingThresholdStats].sort(
+      (a, b) => b.finiteClusterMeanSize - a.finiteClusterMeanSize,
+    )[0]?.threshold ?? 0.6;
+  const firstLargestSplitStat = pickFirstLargestSplitStat(
+    input.idfWeightedJaccardThresholdStats,
+  );
+  const firstLargestSplitAnalysis = firstLargestSplitStat
+    ? buildPercolationBridgeAnalysis({
+        groups: input.groups,
+        groupIdsByKey: input.groupIdsByKey,
+        pairwiseSimilarities: input.pairwiseSimilarities,
+        thresholdStats: input.idfWeightedJaccardThresholdStats,
+        targetStat: firstLargestSplitStat,
+        lens: "idfWeightedJaccard",
+        label: "IDF Jaccard first largest split",
+        hammingAuditThreshold: hammingPeakThreshold,
+        featureMatrix: input.featureMatrix,
+        universeMembershipsByTicker: input.universeMembershipsByTicker,
+        includeAudits: input.includeAudits,
+        includeMemberTickers: input.includeMemberTickers,
+      })
+    : null;
+  const idfAnalysis = buildPercolationBridgeAnalysis({
+    groups: input.groups,
+    groupIdsByKey: input.groupIdsByKey,
+    pairwiseSimilarities: input.pairwiseSimilarities,
+    thresholdStats: input.idfWeightedJaccardThresholdStats,
+    lens: "idfWeightedJaccard",
+    label: "IDF Jaccard percolation split",
+    hammingAuditThreshold: hammingPeakThreshold,
+    featureMatrix: input.featureMatrix,
+    universeMembershipsByTicker: input.universeMembershipsByTicker,
+    includeAudits: input.includeAudits,
+    includeMemberTickers: input.includeMemberTickers,
+  });
+
+  return [firstLargestSplitAnalysis, idfAnalysis].filter(
+    (analysis): analysis is TickerSignalCombinationPercolationBridgeAnalysis =>
+      analysis !== null,
+  );
+}
+
+function pickFirstLargestSplitStat(
+  stats: TickerSignalCombinationThresholdStat[],
+) {
+  for (let index = 1; index < stats.length; index += 1) {
+    const previous = stats[index - 1];
+    const current = stats[index];
+
+    if (
+      current.largestFamilySize < previous.largestFamilySize &&
+      current.secondLargestFamilySize > 0
+    ) {
+      return current;
+    }
+  }
+
+  return null;
+}
+
+function buildPercolationBridgeAnalysis(input: {
+  groups: CombinationGroupDraft[];
+  groupIdsByKey: Map<string, number>;
+  pairwiseSimilarities: PairwiseSimilarity[];
+  thresholdStats: TickerSignalCombinationThresholdStat[];
+  targetStat?: TickerSignalCombinationThresholdStat;
+  lens: "idfWeightedJaccard" | "hamming";
+  label: string;
+  hammingAuditThreshold?: number;
+  featureMatrix: FeatureValueMatrix;
+  universeMembershipsByTicker: UniverseMembershipsByTicker;
+  includeAudits?: boolean;
+  includeMemberTickers?: boolean;
+}): TickerSignalCombinationPercolationBridgeAnalysis | null {
+  const peakStat =
+    input.targetStat ??
+    [...input.thresholdStats].sort(
+      (a, b) => b.finiteClusterMeanSize - a.finiteClusterMeanSize,
+    )[0];
+
+  if (!peakStat) return null;
+  const includeAudits = input.includeAudits ?? true;
+
+  const peakIndex = input.thresholdStats.findIndex(
+    (stat) => stat.threshold === peakStat.threshold,
+  );
+  const previousStat = input.thresholdStats[Math.max(0, peakIndex - 1)] ?? peakStat;
+  const beforePartition = buildPartitionAtThreshold({
+    groups: input.groups,
+    pairwiseSimilarities: input.pairwiseSimilarities,
+    threshold: previousStat.threshold,
+    similarity: input.lens,
+  });
+  const afterPartition = buildPartitionAtThreshold({
+    groups: input.groups,
+    pairwiseSimilarities: input.pairwiseSimilarities,
+    threshold: peakStat.threshold,
+    similarity: input.lens,
+  });
+  const beforeLargestFamily = beforePartition.families[0] ?? [];
+  const beforeLargestSet = new Set(beforeLargestFamily);
+  const afterFamilyIdsByGroupIndex = buildFamilyIdsByGroupIndex(
+    afterPartition.families,
+  );
+  const afterPieceIndexesByFamilyId = new Map<number, number[]>();
+
+  for (const groupIndex of beforeLargestFamily) {
+    const familyId = afterFamilyIdsByGroupIndex.get(groupIndex);
+
+    if (!familyId) continue;
+
+    const indexes = afterPieceIndexesByFamilyId.get(familyId) ?? [];
+    indexes.push(groupIndex);
+    afterPieceIndexesByFamilyId.set(familyId, indexes);
+  }
+
+  if (beforeLargestFamily.length <= 1 || afterPieceIndexesByFamilyId.size <= 1) {
+    return null;
+  }
+
+  const groupIndexesByKey = new Map(
+    input.groups.map((group, index) => [group.combinationKey, index]),
+  );
+  const removedEdges = input.pairwiseSimilarities.filter((pair) => {
+    const similarity = getPairSimilarity(pair, input.lens);
+    return (
+      similarity > 0 &&
+      similarity >= previousStat.threshold &&
+      similarity < peakStat.threshold
+    );
+  });
+  const bridgeEdges = removedEdges.filter((pair) => {
+    const aIndex = groupIndexesByKey.get(pair.aCombinationKey);
+    const bIndex = groupIndexesByKey.get(pair.bCombinationKey);
+
+    if (aIndex === undefined || bIndex === undefined) return false;
+    if (!beforeLargestSet.has(aIndex) || !beforeLargestSet.has(bIndex)) {
+      return false;
+    }
+
+    return (
+      afterFamilyIdsByGroupIndex.get(aIndex) !==
+      afterFamilyIdsByGroupIndex.get(bIndex)
+    );
+  });
+  const signalEdgeCounts = new Map<
+    string,
+    {
+      signal: TickerSignalCombinationSignal;
+      edgeCount: number;
+      similarityTotal: number;
+    }
+  >();
+
+  for (const edge of bridgeEdges) {
+    const similarity = getPairSimilarity(edge, input.lens);
+
+    for (const signal of edge.sharedSignals) {
+      const current = signalEdgeCounts.get(signal.token) ?? {
+        signal,
+        edgeCount: 0,
+        similarityTotal: 0,
+      };
+      current.edgeCount += 1;
+      current.similarityTotal += similarity;
+      signalEdgeCounts.set(signal.token, current);
+    }
+  }
+
+  const preBreakBaselineSignals = buildTopSignalsForGroupIndexes(
+    input.groups,
+    beforeLargestFamily,
+  );
+  const largestBeforeTickerCount = countTickersForGroupIndexes(
+    input.groups,
+    beforeLargestFamily,
+  );
+  const largestBeforeTickers = input.includeMemberTickers
+    ? getTickersForGroupIndexes(input.groups, beforeLargestFamily)
+    : undefined;
+  const baselineSharesByToken = buildSignalShareMapForGroupIndexes(
+    input.groups,
+    beforeLargestFamily,
+  );
+  const postBreakPieces = [...afterPieceIndexesByFamilyId.values()]
+    .sort((a, b) => b.length - a.length || a[0] - b[0])
+    .map((groupIndexes, index) => ({
+      ...buildFamilySummary(groupIndexes, input),
+      familyId: index + 1,
+    }));
+  const postBreakSignalSharesByPiece = [...afterPieceIndexesByFamilyId.values()]
+    .sort((a, b) => b.length - a.length || a[0] - b[0])
+    .map((groupIndexes) =>
+      buildSignalShareMapForGroupIndexes(input.groups, groupIndexes),
+    );
+  const meaningfulPieceSize = Math.max(
+    10,
+    Math.ceil(beforeLargestFamily.length * 0.02),
+  );
+  const majorPieceIndexes = postBreakPieces
+    .map((piece, index) => ({ index, groupCount: piece.groupCount }))
+    .filter((piece) => piece.groupCount >= meaningfulPieceSize)
+    .map((piece) => piece.index);
+  const enrichedPostBreakPieces = postBreakPieces
+    .slice(0, 4)
+    .map((piece, pieceIndex) => ({
+      ...piece,
+      topSignals: piece.topSignals.map((item) => {
+        const baselineShare = baselineSharesByToken.get(item.signal.token) ?? 0;
+        const otherPieceShare = Math.max(
+          0,
+          ...majorPieceIndexes
+            .filter((index) => index !== pieceIndex)
+            .map(
+              (index) =>
+                postBreakSignalSharesByPiece[index]?.get(item.signal.token) ?? 0,
+            ),
+        );
+
+        return {
+          ...item,
+          baselineShare,
+          lift: baselineShare === 0 ? null : item.share / baselineShare,
+          contrastShare: item.share - otherPieceShare,
+        };
+      }),
+      hammingAudit:
+        !includeAudits || input.hammingAuditThreshold === undefined
+          ? undefined
+          : buildHammingAuditForGroupIndexes({
+              groups: input.groups,
+              pairwiseSimilarities: input.pairwiseSimilarities,
+              groupIndexes:
+                [...afterPieceIndexesByFamilyId.values()].sort(
+                  (a, b) => b.length - a.length || a[0] - b[0],
+                )[pieceIndex] ?? [],
+              threshold: input.hammingAuditThreshold,
+            }),
+      featureAudit: includeAudits
+        ? buildFeatureAuditForGroupIndexes({
+            groups: input.groups,
+            baselineGroupIndexes: beforeLargestFamily,
+            pieceGroupIndexes:
+              [...afterPieceIndexesByFamilyId.values()].sort(
+                (a, b) => b.length - a.length || a[0] - b[0],
+              )[pieceIndex] ?? [],
+            featureMatrix: input.featureMatrix,
+          })
+        : undefined,
+      marketAudit: includeAudits
+        ? buildMarketAuditForGroupIndexes({
+            groups: input.groups,
+            groupIndexes:
+              [...afterPieceIndexesByFamilyId.values()].sort(
+                (a, b) => b.length - a.length || a[0] - b[0],
+              )[pieceIndex] ?? [],
+            universeMembershipsByTicker: input.universeMembershipsByTicker,
+          })
+        : undefined,
+    }));
+
+  return {
+    lens: input.lens,
+    label: input.label,
+    previousThreshold: previousStat.threshold,
+    peakThreshold: peakStat.threshold,
+    peakMoment: peakStat.finiteClusterMeanSize,
+    largestBeforeSize: beforeLargestFamily.length,
+    largestBeforeTickerCount,
+    ...(largestBeforeTickers ? { largestBeforeTickers } : {}),
+    largestAfterPieceCount: afterPieceIndexesByFamilyId.size,
+    largestAfterSize: enrichedPostBreakPieces[0]?.groupCount ?? 0,
+    largestAfterTickerCount: enrichedPostBreakPieces[0]?.tickerCount ?? 0,
+    ...(input.includeMemberTickers
+      ? {
+          largestAfterTickers: getTickersForGroupIndexes(
+            input.groups,
+            [...afterPieceIndexesByFamilyId.values()].sort(
+              (a, b) => b.length - a.length || a[0] - b[0],
+            )[0] ?? [],
+          ),
+        }
+      : {}),
+    removedEdgeCount: removedEdges.length,
+    bridgeEdgeCount: bridgeEdges.length,
+    preBreakBaselineSignals,
+    topBridgeSignals: [...signalEdgeCounts.values()]
+      .sort(
+        (a, b) =>
+          b.edgeCount - a.edgeCount ||
+          b.similarityTotal - a.similarityTotal ||
+          a.signal.token.localeCompare(b.signal.token),
+      )
+      .slice(0, 8)
+      .map((item) => {
+        const share =
+          bridgeEdges.length === 0 ? 0 : item.edgeCount / bridgeEdges.length;
+        const baselineShare = baselineSharesByToken.get(item.signal.token) ?? 0;
+
+        return {
+          signal: item.signal,
+          edgeCount: item.edgeCount,
+          share,
+          baselineShare,
+          lift: baselineShare === 0 ? null : share / baselineShare,
+          averageSimilarity:
+            item.edgeCount === 0 ? 0 : item.similarityTotal / item.edgeCount,
+        };
+      }),
+    postBreakPieces: enrichedPostBreakPieces,
+  };
+}
+
+function buildHammingAuditForGroupIndexes(input: {
+  groups: CombinationGroupDraft[];
+  pairwiseSimilarities: PairwiseSimilarity[];
+  groupIndexes: number[];
+  threshold: number;
+}) {
+  if (input.groupIndexes.length === 0) {
+    return {
+      threshold: input.threshold,
+      averageSimilarity: null,
+      subclusterCount: 0,
+      largestSubclusterSize: 0,
+      largestSubclusterShare: 0,
+      singletonSubclusterCount: 0,
+      stateDiversity: [],
+    };
+  }
+
+  const globalToLocalIndex = new Map(
+    input.groupIndexes.map((groupIndex, localIndex) => [groupIndex, localIndex]),
+  );
+  const groupIndexesByKey = new Map(
+    input.groups.map((group, index) => [group.combinationKey, index]),
+  );
+  const disjointSet = new DisjointSet(input.groupIndexes.length);
+  let similarityTotal = 0;
+  let similarityPairCount = 0;
+
+  for (const pair of input.pairwiseSimilarities) {
+    const aGlobalIndex = groupIndexesByKey.get(pair.aCombinationKey);
+    const bGlobalIndex = groupIndexesByKey.get(pair.bCombinationKey);
+
+    if (aGlobalIndex === undefined || bGlobalIndex === undefined) continue;
+
+    const aLocalIndex = globalToLocalIndex.get(aGlobalIndex);
+    const bLocalIndex = globalToLocalIndex.get(bGlobalIndex);
+
+    if (aLocalIndex === undefined || bLocalIndex === undefined) continue;
+
+    similarityTotal += pair.hammingSimilarity;
+    similarityPairCount += 1;
+
+    if (pair.hammingSimilarity >= input.threshold) {
+      disjointSet.union(aLocalIndex, bLocalIndex);
+    }
+  }
+
+  const subclusterSizes = disjointSet.familySizes().sort((a, b) => b - a);
+
+  return {
+    threshold: input.threshold,
+    averageSimilarity:
+      similarityPairCount === 0 ? null : similarityTotal / similarityPairCount,
+    subclusterCount: subclusterSizes.length,
+    largestSubclusterSize: subclusterSizes[0] ?? 0,
+    largestSubclusterShare:
+      input.groupIndexes.length === 0
+        ? 0
+        : (subclusterSizes[0] ?? 0) / input.groupIndexes.length,
+    singletonSubclusterCount: subclusterSizes.filter((size) => size === 1).length,
+    stateDiversity: buildStateDiversity(input.groups, input.groupIndexes),
+  };
+}
+
+function buildFeatureAuditForGroupIndexes(input: {
+  groups: CombinationGroupDraft[];
+  baselineGroupIndexes: number[];
+  pieceGroupIndexes: number[];
+  featureMatrix: FeatureValueMatrix;
+}): TickerSignalCombinationFeatureAudit | undefined {
+  if (
+    input.featureMatrix.valuesByTicker.size === 0 ||
+    input.baselineGroupIndexes.length === 0 ||
+    input.pieceGroupIndexes.length === 0
+  ) {
+    return undefined;
+  }
+
+  const baselineTickers = getTickersForGroupIndexes(
+    input.groups,
+    input.baselineGroupIndexes,
+  );
+  const pieceTickers = getTickersForGroupIndexes(
+    input.groups,
+    input.pieceGroupIndexes,
+  );
+  const baselineStats = buildFeatureStatsForTickers(
+    baselineTickers,
+    input.featureMatrix,
+  );
+  const pieceStats = buildFeatureStatsForTickers(
+    pieceTickers,
+    input.featureMatrix,
+  );
+  const minPieceCoverage = pieceTickers.length < 20 ? 0.4 : 0.2;
+  const minBaselineCoverage = 0.1;
+  const topFeatures = [...pieceStats.entries()]
+    .map(([featureToken, pieceStat]) => {
+      const baselineStat = baselineStats.get(featureToken);
+      const definition = input.featureMatrix.definitionsByToken.get(featureToken);
+
+      if (!baselineStat || !definition) return null;
+      if (
+        pieceStat.coverage < minPieceCoverage ||
+        baselineStat.coverage < minBaselineCoverage
+      ) {
+        return null;
+      }
+
+      const delta = pieceStat.median - baselineStat.median;
+      const iqr = baselineStat.q3 - baselineStat.q1;
+      const robustDelta = iqr === 0 ? null : delta / iqr;
+
+      if (robustDelta === null || !Number.isFinite(robustDelta)) return null;
+
+      return {
+        featureToken,
+        factor: definition.factor,
+        axis: definition.axis,
+        metricKey: definition.metricKey,
+        featureKey: definition.featureKey,
+        pieceCoverage: pieceStat.coverage,
+        baselineCoverage: baselineStat.coverage,
+        pieceMedian: pieceStat.median,
+        baselineMedian: baselineStat.median,
+        delta,
+        robustDelta,
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null)
+    .sort(
+      (a, b) =>
+        Math.abs(b.robustDelta ?? 0) - Math.abs(a.robustDelta ?? 0) ||
+        b.pieceCoverage - a.pieceCoverage ||
+        a.featureToken.localeCompare(b.featureToken),
+    )
+    .slice(0, 5);
+
+  if (topFeatures.length === 0) return undefined;
+
+  return {
+    baselineTickerCount: baselineTickers.length,
+    pieceTickerCount: pieceTickers.length,
+    topFeatures,
+  };
+}
+
+function buildMarketAuditForGroupIndexes(input: {
+  groups: CombinationGroupDraft[];
+  groupIndexes: number[];
+  universeMembershipsByTicker: UniverseMembershipsByTicker;
+}) {
+  const members = input.groupIndexes.flatMap(
+    (groupIndex) => input.groups[groupIndex].members,
+  );
+
+  if (members.length === 0) return undefined;
+
+  const sectorCounts = new Map<string, number>();
+  const industryCounts = new Map<string, number>();
+  const universeCounts = new Map<string, number>();
+  const marketCaps = members
+    .map((member) => member.marketCap)
+    .filter((value): value is number => value !== null && Number.isFinite(value))
+    .sort((a, b) => a - b);
+
+  for (const member of members) {
+    incrementCount(sectorCounts, member.sector ?? "Unclassified");
+    incrementCount(industryCounts, member.industry ?? "Unclassified");
+
+    const memberships = input.universeMembershipsByTicker.get(member.ticker);
+    if (!memberships) continue;
+
+    for (const universeKey of MARKET_AUDIT_UNIVERSE_KEYS) {
+      if (memberships.has(universeKey)) {
+        incrementCount(universeCounts, universeKey);
+      }
+    }
+  }
+
+  return {
+    totalMarketCap:
+      marketCaps.length === 0
+        ? null
+        : marketCaps.reduce((total, value) => total + value, 0),
+    medianMarketCap: marketCaps.length === 0 ? null : quantile(marketCaps, 0.5),
+    sectorStats: toCategoryStats(sectorCounts, members.length, 5),
+    industryStats: toCategoryStats(industryCounts, members.length, 5),
+    universeOverlaps: MARKET_AUDIT_UNIVERSE_KEYS.map((universeKey) => ({
+      universeKey,
+      universeLabel: UNIVERSE_LABELS[universeKey],
+      count: universeCounts.get(universeKey) ?? 0,
+      share: members.length === 0 ? 0 : (universeCounts.get(universeKey) ?? 0) / members.length,
+    })).filter((overlap) => overlap.count > 0),
+    topMembers: members.sort(compareMembers).slice(0, 5),
+  };
+}
+
+function getTickersForGroupIndexes(
+  groups: CombinationGroupDraft[],
+  groupIndexes: number[],
+) {
+  return groupIndexes.flatMap((groupIndex) =>
+    groups[groupIndex].members.map((member) => member.ticker),
+  );
+}
+
+function buildFeatureStatsForTickers(
+  tickers: string[],
+  featureMatrix: FeatureValueMatrix,
+) {
+  const valuesByFeature = new Map<string, number[]>();
+
+  for (const ticker of tickers) {
+    const tickerValues = featureMatrix.valuesByTicker.get(ticker);
+    if (!tickerValues) continue;
+
+    for (const [featureToken, value] of tickerValues.entries()) {
+      const values = valuesByFeature.get(featureToken) ?? [];
+      values.push(value);
+      valuesByFeature.set(featureToken, values);
+    }
+  }
+
+  return new Map(
+    [...valuesByFeature.entries()].map(([featureToken, values]) => {
+      const sortedValues = values
+        .filter((value) => Number.isFinite(value))
+        .sort((a, b) => a - b);
+
+      return [
+        featureToken,
+        {
+          coverage: tickers.length === 0 ? 0 : sortedValues.length / tickers.length,
+          median: quantile(sortedValues, 0.5),
+          q1: quantile(sortedValues, 0.25),
+          q3: quantile(sortedValues, 0.75),
+        },
+      ];
+    }),
+  );
+}
+
+function quantile(sortedValues: number[], percentile: number) {
+  if (sortedValues.length === 0) return 0;
+  if (sortedValues.length === 1) return sortedValues[0];
+
+  const index = (sortedValues.length - 1) * percentile;
+  const lowerIndex = Math.floor(index);
+  const upperIndex = Math.ceil(index);
+  const lowerValue = sortedValues[lowerIndex] ?? sortedValues[0];
+  const upperValue = sortedValues[upperIndex] ?? sortedValues[sortedValues.length - 1];
+  const weight = index - lowerIndex;
+
+  return lowerValue + (upperValue - lowerValue) * weight;
+}
+
+function buildStateDiversity(
+  groups: CombinationGroupDraft[],
+  groupIndexes: number[],
+) {
+  const stateCountsByFactorAxis = new Map<string, Map<string, number>>();
+
+  for (const groupIndex of groupIndexes) {
+    for (const state of groups[groupIndex].stateVector) {
+      const separatorIndex = state.indexOf("=");
+      const factorAxis =
+        separatorIndex === -1 ? state : state.slice(0, separatorIndex);
+      const stateValue =
+        separatorIndex === -1 ? "unknown" : state.slice(separatorIndex + 1);
+      const stateCounts =
+        stateCountsByFactorAxis.get(factorAxis) ?? new Map<string, number>();
+
+      stateCounts.set(stateValue, (stateCounts.get(stateValue) ?? 0) + 1);
+      stateCountsByFactorAxis.set(factorAxis, stateCounts);
+    }
+  }
+
+  return [...stateCountsByFactorAxis.entries()]
+    .map(([factorAxis, stateCounts]) => {
+      const sortedStates = [...stateCounts.entries()].sort(
+        (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
+      );
+      const [dominantState, dominantCount] = sortedStates[0] ?? ["unknown", 0];
+
+      return {
+        factorAxis,
+        dominantState,
+        dominantShare:
+          groupIndexes.length === 0 ? 0 : dominantCount / groupIndexes.length,
+        distinctStateCount: stateCounts.size,
+      };
+    })
+    .filter((item) => item.distinctStateCount > 1)
+    .sort(
+      (a, b) =>
+        1 - b.dominantShare - (1 - a.dominantShare) ||
+        b.distinctStateCount - a.distinctStateCount ||
+        a.factorAxis.localeCompare(b.factorAxis),
+    )
+    .slice(0, 5);
 }
 
 type SignalSimilarityGraph = {
@@ -1361,7 +2360,7 @@ function buildPartitionAtThreshold(input: {
   for (const pair of input.pairwiseSimilarities) {
     const pairSimilarity = getPairSimilarity(pair, input.similarity);
 
-    if (pairSimilarity < input.threshold) continue;
+    if (!isConnectedAtThreshold(pairSimilarity, input.threshold)) continue;
 
     const aIndex = groupIndexesByKey.get(pair.aCombinationKey);
     const bIndex = groupIndexesByKey.get(pair.bCombinationKey);
@@ -1473,6 +2472,16 @@ function buildTopMembersForGroupIndexes(
     .slice(0, 5);
 }
 
+function countTickersForGroupIndexes(
+  groups: CombinationGroupDraft[],
+  groupIndexes: number[],
+) {
+  return groupIndexes.reduce(
+    (total, groupIndex) => total + groups[groupIndex].members.length,
+    0,
+  );
+}
+
 function buildFamilyIdsByGroupIndex(families: number[][]) {
   const familyIdsByGroupIndex = new Map<number, number>();
 
@@ -1491,16 +2500,28 @@ function buildTopSignalsForGroupIndexes(
 ) {
   const signalCounts = new Map<
     string,
-    { signal: TickerSignalCombinationSignal; groupCount: number }
+    {
+      signal: TickerSignalCombinationSignal;
+      groupCount: number;
+      tickerCount: number;
+    }
   >();
+  const totalTickerCount = groupIndexes.reduce(
+    (total, groupIndex) => total + groups[groupIndex].members.length,
+    0,
+  );
 
   for (const groupIndex of groupIndexes) {
+    const tickerCount = groups[groupIndex].members.length;
+
     for (const signal of groups[groupIndex].activeSignals) {
       const current = signalCounts.get(signal.token) ?? {
         signal,
         groupCount: 0,
+        tickerCount: 0,
       };
       current.groupCount += 1;
+      current.tickerCount += tickerCount;
       signalCounts.set(signal.token, current);
     }
   }
@@ -1508,6 +2529,7 @@ function buildTopSignalsForGroupIndexes(
   return [...signalCounts.values()]
     .sort(
       (a, b) =>
+        b.tickerCount - a.tickerCount ||
         b.groupCount - a.groupCount ||
         a.signal.factor.localeCompare(b.signal.factor) ||
         a.signal.axis.localeCompare(b.signal.axis) ||
@@ -1517,9 +2539,41 @@ function buildTopSignalsForGroupIndexes(
     .map((signalCount) => ({
       signal: signalCount.signal,
       groupCount: signalCount.groupCount,
+      tickerCount: signalCount.tickerCount,
       share:
+        totalTickerCount === 0 ? 0 : signalCount.tickerCount / totalTickerCount,
+      groupShare:
         groupIndexes.length === 0 ? 0 : signalCount.groupCount / groupIndexes.length,
     }));
+}
+
+function buildSignalShareMapForGroupIndexes(
+  groups: CombinationGroupDraft[],
+  groupIndexes: number[],
+) {
+  const signalCounts = new Map<string, number>();
+  const totalTickerCount = groupIndexes.reduce(
+    (total, groupIndex) => total + groups[groupIndex].members.length,
+    0,
+  );
+
+  for (const groupIndex of groupIndexes) {
+    const tickerCount = groups[groupIndex].members.length;
+
+    for (const signal of groups[groupIndex].activeSignals) {
+      signalCounts.set(
+        signal.token,
+        (signalCounts.get(signal.token) ?? 0) + tickerCount,
+      );
+    }
+  }
+
+  return new Map(
+    [...signalCounts.entries()].map(([token, count]) => [
+      token,
+      totalTickerCount === 0 ? 0 : count / totalTickerCount,
+    ]),
+  );
 }
 
 function adjustedRandIndex(aLabels: number[], bLabels: number[]) {
@@ -1672,7 +2726,7 @@ function buildFamilySummariesAtThreshold(input: {
   for (const pair of input.pairwiseSimilarities) {
     const pairSimilarity = getPairSimilarity(pair, input.similarity);
 
-    if (pairSimilarity < input.threshold) continue;
+    if (!isConnectedAtThreshold(pairSimilarity, input.threshold)) continue;
 
     const aIndex = groupIndexesByKey.get(pair.aCombinationKey);
     const bIndex = groupIndexesByKey.get(pair.bCombinationKey);
@@ -1709,16 +2763,24 @@ function buildFamilySummary(
   const groups = familyIndexes.map((index) => input.groups[index]);
   const signalCounts = new Map<
     string,
-    { signal: TickerSignalCombinationSignal; groupCount: number }
+    {
+      signal: TickerSignalCombinationSignal;
+      groupCount: number;
+      tickerCount: number;
+    }
   >();
 
   for (const group of groups) {
+    const tickerCount = group.members.length;
+
     for (const signal of group.activeSignals) {
       const current = signalCounts.get(signal.token) ?? {
         signal,
         groupCount: 0,
+        tickerCount: 0,
       };
       current.groupCount += 1;
+      current.tickerCount += tickerCount;
       signalCounts.set(signal.token, current);
     }
   }
@@ -1731,6 +2793,7 @@ function buildFamilySummary(
   const topSignals = [...signalCounts.values()]
     .sort(
       (a, b) =>
+        b.tickerCount - a.tickerCount ||
         b.groupCount - a.groupCount ||
         a.signal.factor.localeCompare(b.signal.factor) ||
         a.signal.axis.localeCompare(b.signal.axis) ||
@@ -1740,7 +2803,9 @@ function buildFamilySummary(
     .map((signalCount) => ({
       signal: signalCount.signal,
       groupCount: signalCount.groupCount,
-      share: groupCount === 0 ? 0 : signalCount.groupCount / groupCount,
+      tickerCount: signalCount.tickerCount,
+      share: tickerCount === 0 ? 0 : signalCount.tickerCount / tickerCount,
+      groupShare: groupCount === 0 ? 0 : signalCount.groupCount / groupCount,
     }));
   const sampleGroups = groups
     .map((group) => ({
@@ -1788,6 +2853,15 @@ function buildSignalToken(row: {
   signal_key: string;
 }) {
   return `${row.factor}.${row.axis}.${row.signal_key}`;
+}
+
+function buildFeatureToken(row: {
+  factor: string;
+  axis: string;
+  metric_key: string;
+  feature_key: string;
+}) {
+  return `${row.factor}.${row.axis}.${row.metric_key}.${row.feature_key}`;
 }
 
 function buildStateVector(
