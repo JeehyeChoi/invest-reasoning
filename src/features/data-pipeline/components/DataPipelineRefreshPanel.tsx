@@ -18,6 +18,10 @@ import {
   UNIVERSE_KEYS,
   type UniverseKey,
 } from "@/shared/universe/universes";
+import {
+  SIGNAL_TIMELINE_AXIS_SCOPE_OPTIONS,
+  type SignalTimelineAxisScope,
+} from "@/shared/market/signalCombinationTimeline";
 
 import type { PipelineStatus } from "@/shared/data-pipeline/status";
 import type { SecBulkIngestState } from "@/features/data-pipeline/schemas/secBulkIngestState";
@@ -28,18 +32,41 @@ import { fetchPipelineStatus } from "@/features/data-pipeline/services/fetchPipe
 import { fetchSecBulkIngestState } from "@/features/data-pipeline/services/fetchSecBulkIngestState";
 import { fetchDatabaseSizeReport } from "@/features/data-pipeline/services/fetchDatabaseSizeReport";
 
-type ButtonAction = "run" | "status" | "secBulk" | "dbSize";
+type ButtonAction =
+  | "run"
+  | "status"
+  | "secBulk"
+  | "dbSize"
+  | "tagExperiment";
+const STATUS_POLL_INTERVAL_OPTIONS = [
+  { label: "15s", value: 15_000 },
+  { label: "30s", value: 30_000 },
+  { label: "60s", value: 60_000 },
+] as const;
 type TickerDailyPriceTargetMode = "universe" | "specific";
 type TickerCoreTargetMode = "universe" | "specific";
+type DataPipelineLockGroup =
+  | "universe_memberships"
+  | "ticker_core"
+  | "macro_fred"
+  | "daily_price_history"
+  | "sec_companyfacts"
+  | "derived_metrics"
+  | "factor_features"
+  | "factor_outputs";
 
 const SEC_COMPANYFACT_JOB_KEYS: DataPipelineRefreshJobKey[] = [
   "sec_bulk_ingest",
   "series_validation",
 ];
 
-const ENRICHED_OUTPUT_JOB_KEYS: DataPipelineRefreshJobKey[] = [
+const PREPARED_SERIES_JOB_KEYS: DataPipelineRefreshJobKey[] = [
   "sec_metric_series_enriched",
-  "valuation_metric_series_enriched",
+  "derived_metric_series",
+];
+
+const EXPECTATION_JOB_KEYS: DataPipelineRefreshJobKey[] = [
+  "ticker_implied_financial_expectations",
 ];
 
 const UNIVERSE_MEMBERSHIP_JOB_KEYS: DataPipelineRefreshJobKey[] = [
@@ -51,8 +78,11 @@ const COMPANY_PROFILE_JOB_KEYS: DataPipelineRefreshJobKey[] = [
 ];
 
 const FEATURE_JOB_KEYS: DataPipelineRefreshJobKey[] = [
-  "factor_metric_features",
+  "fundamentals_based_factor_features",
+  "valuation_factor_features",
   "market_price_factor_features",
+  "etf_exposure_factor_features",
+  "macro_linked_factor_features",
 ];
 
 const MARKET_DATA_JOB_KEYS: DataPipelineRefreshJobKey[] = [
@@ -62,18 +92,26 @@ const MARKET_DATA_JOB_KEYS: DataPipelineRefreshJobKey[] = [
 
 const SIGNAL_JOB_KEYS: DataPipelineRefreshJobKey[] = [
   "factor_signals",
-  "factor_metric_clustering",
+  "signal_percolation_timeline",
+];
+
+const DEFAULT_DESELECTED_JOB_KEYS: DataPipelineRefreshJobKey[] = [
+  "universe_memberships_sync",
+  "ticker_core_sync",
+  "macro_fred_series_sync",
+  "ticker_daily_price_history_sync",
+  "sec_bulk_ingest",
+  "metric_series",
+  "sec_metric_series_experiment",
+  "series_validation",
+  ...PREPARED_SERIES_JOB_KEYS,
+  ...EXPECTATION_JOB_KEYS,
+  ...FEATURE_JOB_KEYS,
+  ...SIGNAL_JOB_KEYS,
 ];
 
 const DEFAULT_SELECTED_JOB_KEYS = DATA_PIPELINE_REFRESH_JOB_KEYS.filter(
-  (job) =>
-    job !== "universe_memberships_sync" &&
-    job !== "ticker_core_sync" &&
-    job !== "macro_fred_series_sync" &&
-    job !== "ticker_daily_price_history_sync" &&
-    job !== "sec_bulk_ingest" &&
-    job !== "metric_series" &&
-    job !== "series_validation",
+  (job) => !DEFAULT_DESELECTED_JOB_KEYS.includes(job),
 );
 
 function formatLocalDateTime(value?: string | null) {
@@ -129,6 +167,106 @@ function formatDataPipelineJobLabel(job: DataPipelineRefreshJobKey) {
   return DATA_PIPELINE_REFRESH_JOB_LABELS[job] ?? job;
 }
 
+function formatLockGroupLabel(group: string) {
+  const labels: Record<string, string> = {
+    universe_memberships: "Universe memberships",
+    ticker_core: "Company profile",
+    macro_fred: "Macro FRED",
+    daily_price_history: "Daily price history",
+    sec_companyfacts: "SEC Companyfacts",
+    derived_metrics: "Derived metrics",
+    factor_features: "Factor features",
+    factor_outputs: "Factor outputs",
+  };
+
+  return labels[group] ?? group;
+}
+
+function getLockGroupsForJobs(jobs: DataPipelineRefreshJobKey[]) {
+  const groups = new Set<DataPipelineLockGroup>();
+
+  for (const job of jobs) {
+    for (const group of getLockGroupsForJob(job)) {
+      groups.add(group);
+    }
+  }
+
+  return [...groups];
+}
+
+function getLockGroupsForJob(job: DataPipelineRefreshJobKey): DataPipelineLockGroup[] {
+  switch (job) {
+    case "universe_memberships_sync":
+      return ["universe_memberships"];
+    case "ticker_core_sync":
+      return ["ticker_core"];
+    case "macro_fred_series_sync":
+      return ["macro_fred"];
+    case "ticker_daily_price_history_sync":
+      return ["daily_price_history"];
+    case "sec_bulk_ingest":
+    case "metric_series":
+    case "sec_metric_series_experiment":
+    case "series_validation":
+    case "sec_metric_series_enriched":
+      return ["sec_companyfacts"];
+    case "derived_metric_series":
+      return [
+        "derived_metrics",
+        "daily_price_history",
+        "sec_companyfacts",
+        "macro_fred",
+      ];
+    case "ticker_implied_financial_expectations":
+      return ["derived_metrics"];
+    case "fundamentals_based_factor_features":
+      return ["factor_features", "sec_companyfacts"];
+    case "valuation_factor_features":
+      return ["factor_features", "derived_metrics"];
+    case "market_price_factor_features":
+    case "etf_exposure_factor_features":
+      return ["factor_features", "daily_price_history"];
+    case "macro_linked_factor_features":
+      return ["factor_features", "sec_companyfacts", "macro_fred"];
+    case "factor_signals":
+    case "signal_percolation_timeline":
+      return ["factor_outputs", "factor_features"];
+  }
+}
+
+function formatDuration(valueMs?: number | null) {
+  if (valueMs === null || valueMs === undefined || valueMs < 0) return "-";
+
+  const totalSeconds = Math.floor(valueMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m ${seconds}s`;
+  }
+
+  if (minutes > 0) {
+    return `${minutes}m ${seconds}s`;
+  }
+
+  return `${seconds}s`;
+}
+
+function getDurationBetweenMs(
+  startedAt?: string | null,
+  finishedAt?: string | null,
+) {
+  if (!startedAt || !finishedAt) return null;
+
+  const started = new Date(startedAt).getTime();
+  const finished = new Date(finishedAt).getTime();
+
+  if (!Number.isFinite(started) || !Number.isFinite(finished)) return null;
+
+  return Math.max(0, finished - started);
+}
+
 export function DataPipelineRefreshPanel() {
   const [secBulkState, setSecBulkState] =
     useState<SecBulkIngestState | null>(null);
@@ -152,6 +290,14 @@ export function DataPipelineRefreshPanel() {
     useState<DataPipelineCompanyScope>("bulk_changed");
   const [secTagCandidateDiscovery, setSecTagCandidateDiscovery] =
     useState(false);
+  const [
+    secMetricSeriesExperimentMaxCiks,
+    setSecMetricSeriesExperimentMaxCiks,
+  ] = useState(50);
+  const [
+    secMetricSeriesExperimentClearBeforeRun,
+    setSecMetricSeriesExperimentClearBeforeRun,
+  ] = useState(false);
   const [universeRefreshMode] =
     useState<DataPipelineUniverseRefreshMode>("skip");
   const [selectedUniverseKeys, setSelectedUniverseKeys] =
@@ -171,6 +317,12 @@ export function DataPipelineRefreshPanel() {
     useState("");
   const [tickerDailyPriceTargetMode, setTickerDailyPriceTargetMode] =
     useState<TickerDailyPriceTargetMode>("universe");
+  const [signalPercolationAxisScopes, setSignalPercolationAxisScopes] =
+    useState<SignalTimelineAxisScope[]>([]);
+  const [
+    signalPercolationClearBeforeRun,
+    setSignalPercolationClearBeforeRun,
+  ] = useState(false);
 
   const [status, setStatus] = useState<PipelineStatus>({
     status: "idle",
@@ -183,12 +335,19 @@ export function DataPipelineRefreshPanel() {
     action: ButtonAction;
     message: string;
   } | null>(null);
+  const [statusPollIntervalMs, setStatusPollIntervalMs] = useState(30_000);
   const [hasMounted, setHasMounted] = useState(false);
   const buttonNoticeTimeoutRef = useRef<number | null>(null);
   const shouldPollStatusRef = useRef(false);
   const lastStatusRef = useRef<PipelineStatus["status"]>("idle");
 
   const isRunning = status.status === "running";
+  const isSignalPercolationSelected = selectedJobs.includes(
+    "signal_percolation_timeline",
+  );
+  const hasSignalPercolationAxisScope =
+    !isSignalPercolationSelected ||
+    signalPercolationAxisScopes.length > 0;
   const tickerCoreInputTickers = parseTickerInput(tickerCoreTickerInput);
   const tickerCoreTickers =
     tickerCoreTargetMode === "specific" ? tickerCoreInputTickers : [];
@@ -215,6 +374,10 @@ export function DataPipelineRefreshPanel() {
         ? "SEC bulk ingest is running."
         : "SEC bulk archive download is running."
       : status.message;
+  const statusDurationMs = getDurationBetweenMs(
+    status.startedAt,
+    status.finishedAt ?? (isRunning ? new Date().toISOString() : null),
+  );
   shouldPollStatusRef.current = isRunning || isTriggering;
 
   function showButtonNotice(action: ButtonAction, message: string) {
@@ -272,7 +435,18 @@ export function DataPipelineRefreshPanel() {
       setDatabaseSizeReportError("Failed to load database size report.");
     }
   }, []);
-  async function runRefresh() {
+  async function runRefresh(targetSlot: number) {
+    const shouldClearSignalPercolation =
+      isSignalPercolationSelected && signalPercolationClearBeforeRun;
+
+    if (shouldClearSignalPercolation) {
+      const confirmed = window.confirm(
+        `Delete stored signal percolation timeline snapshots and forward returns for the selected lenses, then rebuild in slot ${targetSlot}?`,
+      );
+
+      if (!confirmed) return;
+    }
+
     setIsTriggering(true);
     setActiveButtonAction("run");
 
@@ -305,15 +479,24 @@ export function DataPipelineRefreshPanel() {
         tickerDailyPriceMaxTickers,
         tickerDailyPriceMaxRequests,
         tickerDailyPriceTickers,
+        signalPercolationAxisScopes,
+        signalPercolationClearBeforeRun: shouldClearSignalPercolation,
+        targetSlot,
       });
 
       if (response.status === 409) {
+        const result = (await response.json().catch(() => null)) as {
+          message?: string;
+        } | null;
+        const message =
+          result?.message ?? "Data pipeline refresh is already running.";
+
         setStatus({
           status: "running",
-          message: "Data pipeline refresh is already running.",
+          message,
         });
         lastStatusRef.current = "running";
-        showButtonNotice("run", "Pipeline refresh is already running.");
+        showButtonNotice("run", message);
         return;
       }
 
@@ -323,11 +506,11 @@ export function DataPipelineRefreshPanel() {
 
       setStatus({
         status: "running",
-        message: "Data pipeline refresh started.",
+        message: `Data pipeline refresh started in slot ${targetSlot}.`,
         startedAt: new Date().toISOString(),
       });
       lastStatusRef.current = "running";
-      showButtonNotice("run", "Pipeline refresh started.");
+      showButtonNotice("run", `Pipeline refresh started in slot ${targetSlot}.`);
     } catch {
       lastStatusRef.current = "failed";
       setStatus({
@@ -335,6 +518,60 @@ export function DataPipelineRefreshPanel() {
         error: "Failed to trigger pipeline refresh.",
       });
       showButtonNotice("run", "Failed to trigger pipeline refresh.");
+    } finally {
+      setIsTriggering(false);
+      setActiveButtonAction(null);
+    }
+  }
+
+  async function runTagExperiment() {
+    setIsTriggering(true);
+    setActiveButtonAction("tagExperiment");
+
+    try {
+      const response = await triggerDataPipelineRefresh({
+        jobs: ["sec_metric_series_experiment"],
+        rebuild: true,
+        rebuildMode,
+        companyScope,
+        universeRefreshMode: selectedJobs.includes("universe_memberships_sync")
+          ? "selected"
+          : universeRefreshMode,
+        universeKeys: selectedUniverseKeys,
+        tickerCoreSyncMode,
+        tickerCoreMaxRequests,
+        tickerCoreTickers: [],
+        secTagCandidateDiscovery: false,
+        secMetricSeriesExperimentMaxCiks,
+        secMetricSeriesExperimentClearBeforeRun,
+        tickerDailyPriceEndDate: "2026-05-05",
+        tickerDailyPriceYearsBack,
+        tickerDailyPriceMaxTickers,
+        tickerDailyPriceMaxRequests,
+        tickerDailyPriceTickers: [],
+        signalPercolationAxisScopes,
+        signalPercolationClearBeforeRun: false,
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.message ?? "Failed to start tag experiment.");
+      }
+
+      const data = await response.json().catch(() => null);
+      showButtonNotice(
+        "tagExperiment",
+        data?.status === "started"
+          ? `Tag experiment started in slot ${data.slot ?? "-"}.`
+          : "Tag experiment started.",
+      );
+      shouldPollStatusRef.current = true;
+      await loadStatus();
+    } catch (error) {
+      showButtonNotice(
+        "tagExperiment",
+        error instanceof Error ? error.message : "Failed to start tag experiment.",
+      );
     } finally {
       setIsTriggering(false);
       setActiveButtonAction(null);
@@ -374,12 +611,12 @@ export function DataPipelineRefreshPanel() {
       if (!shouldPollStatusRef.current) return;
 
       void loadStatus();
-    }, 5000);
+    }, statusPollIntervalMs);
 
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [loadStatus]);
+  }, [loadStatus, statusPollIntervalMs]);
 
   useEffect(() => {
     return () => {
@@ -406,6 +643,8 @@ export function DataPipelineRefreshPanel() {
   }
 
   function renderJobCheckbox(job: DataPipelineRefreshJobKey) {
+    const isSignalPercolationJob = job === "signal_percolation_timeline";
+
     return (
       <label key={job} className="block bg-[#f5f5f5] p-2 text-sm">
         <span className="flex items-start gap-2">
@@ -413,6 +652,17 @@ export function DataPipelineRefreshPanel() {
             type="checkbox"
             checked={selectedJobs.includes(job)}
             onChange={(event) => {
+              if (isSignalPercolationJob) {
+                setSignalPercolationAxisScopes(
+                  event.target.checked
+                    ? SIGNAL_TIMELINE_AXIS_SCOPE_OPTIONS.map((option) => option.key)
+                    : [],
+                );
+                if (!event.target.checked) {
+                  setSignalPercolationClearBeforeRun(false);
+                }
+              }
+
               setSelectedJobs((current) =>
                 event.target.checked
                   ? [...current, job]
@@ -434,6 +684,66 @@ export function DataPipelineRefreshPanel() {
                 <li>3. Extract transient tag rows and optional candidate stats.</li>
                 <li>4. Build persistent metric series, then delete tag/raw rows.</li>
               </ol>
+            ) : null}
+            {isSignalPercolationJob ? (
+              <div className="mt-3 border-t border-gray-300 pt-2">
+                <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-gray-600">
+                  Axis lenses to calculate
+                </div>
+                <div className="grid gap-1">
+                  {SIGNAL_TIMELINE_AXIS_SCOPE_OPTIONS.map((option) => {
+                    const checked = signalPercolationAxisScopes.includes(
+                      option.key,
+                    );
+
+                    return (
+                      <label key={option.key} className="flex items-start gap-2">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(event) => {
+                            const nextChecked = event.target.checked;
+
+                            setSignalPercolationAxisScopes((current) => {
+                              const next = nextChecked
+                                ? [...current, option.key].filter(
+                                    (value, index, values) =>
+                                      values.indexOf(value) === index,
+                                  )
+                                : current.filter((value) => value !== option.key);
+
+                              setSelectedJobs((currentJobs) => {
+                                if (next.length === 0) {
+                                  setSignalPercolationClearBeforeRun(false);
+                                  return currentJobs.filter((item) => item !== job);
+                                }
+
+                                return currentJobs.includes(job)
+                                  ? currentJobs
+                                  : [...currentJobs, job];
+                              });
+
+                              return next;
+                            });
+                          }}
+                        />
+                        <span>
+                          <span className="block font-bold">{option.label}</span>
+                          <span className="block text-[11px] text-gray-600">
+                            {option.axes?.join(" + ") ?? "all signal axes"}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {selectedJobs.includes(job) &&
+                signalPercolationAxisScopes.length === 0 ? (
+                  <p className="mt-2 text-[11px] text-amber-700">
+                    Select at least one lens before running this job.
+                  </p>
+                ) : null}
+              </div>
             ) : null}
           </span>
         </span>
@@ -486,6 +796,14 @@ export function DataPipelineRefreshPanel() {
 								{formatLocalDateTime(status.finishedAt)}
 							</p>
 						) : null}
+						{statusDurationMs !== null ? (
+							<p>
+								<span className="font-bold">
+									{isRunning ? "Elapsed:" : "Duration:"}
+								</span>{" "}
+								{formatDuration(statusDurationMs)}
+							</p>
+						) : null}
 						{status.updatedAt ? (
 							<p>
 								<span className="font-bold">Updated:</span>{" "}
@@ -504,6 +822,132 @@ export function DataPipelineRefreshPanel() {
 								{secBulkState.ingest_status}
 							</p>
 						) : null}
+					</div>
+					<div className="grid gap-2 text-xs sm:grid-cols-2">
+						{[1, 2].map((slot) => {
+							const run = status.activeRuns?.find(
+								(activeRun) => activeRun.slot === slot,
+							);
+							const completedRun = status.completedRuns
+								?.filter((item) => item.slot === slot)
+								.slice(-1)[0];
+							const selectedGroups = getLockGroupsForJobs(selectedJobs);
+							const activeGroups = new Set(
+								status.activeRuns?.flatMap((activeRun) => activeRun.groups) ??
+									[],
+							);
+							const conflictingGroups = selectedGroups.filter((group) =>
+								activeGroups.has(group),
+							);
+							const isSlotStarting =
+								isTriggering && activeButtonAction === "run";
+							const hasSelectedJobConflict = conflictingGroups.length > 0;
+							const isRunDisabled =
+								Boolean(run) ||
+								isTriggering ||
+								selectedJobs.length === 0 ||
+								!hasSignalPercolationAxisScope ||
+								hasSelectedJobConflict ||
+								activeButtonAction !== null;
+
+							return (
+								<div
+									key={slot}
+									className="border border-black bg-white p-2"
+								>
+									<div className="flex items-center justify-between gap-2">
+										<h3 className="font-bold">Slot {slot}</h3>
+										<span
+											className={
+												run
+													? "font-bold text-green-700"
+													: "text-gray-500"
+											}
+										>
+											{run ? "running" : "idle"}
+										</span>
+									</div>
+									{run ? (
+										<div className="mt-2 space-y-1">
+											<p>
+												<span className="font-bold">Started:</span>{" "}
+												{formatLocalDateTime(run.startedAt)}
+											</p>
+											<p>
+												<span className="font-bold">Age:</span>{" "}
+												{formatDuration(run.ageMs)}
+											</p>
+											<p>
+												<span className="font-bold">Jobs:</span>{" "}
+												{run.jobs.map(formatDataPipelineJobLabel).join(", ")}
+											</p>
+										</div>
+									) : (
+										<div className="mt-2 space-y-1 text-gray-600">
+											{completedRun ? (
+												<>
+													<p>
+														<span className="font-bold">Last result:</span>{" "}
+														<span
+															className={
+																completedRun.status === "success"
+																	? "text-green-700"
+																	: "text-red-700"
+															}
+														>
+															{completedRun.status}
+														</span>
+													</p>
+													<p>
+														<span className="font-bold">Started:</span>{" "}
+														{formatLocalDateTime(completedRun.startedAt)}
+													</p>
+													<p>
+														<span className="font-bold">Finished:</span>{" "}
+														{formatLocalDateTime(completedRun.finishedAt)}
+													</p>
+													<p>
+														<span className="font-bold">Duration:</span>{" "}
+														{formatDuration(completedRun.durationMs)}
+													</p>
+													<p>
+														<span className="font-bold">Jobs:</span>{" "}
+														{completedRun.jobs
+															.map(formatDataPipelineJobLabel)
+															.join(", ")}
+													</p>
+												</>
+											) : (
+												<p>No active run.</p>
+											)}
+										</div>
+									)}
+									<button
+										type="button"
+										onClick={() => runRefresh(slot)}
+										disabled={isRunDisabled}
+										className="mt-2 w-full border border-black bg-[#c0c0c0] px-3 py-1 text-xs font-bold disabled:opacity-50"
+									>
+										{run
+											? "Running..."
+											: hasSelectedJobConflict
+												? "Blocked"
+											: isSlotStarting
+												? "Starting..."
+												: `Run in slot ${slot}`}
+									</button>
+									{!run && hasSelectedJobConflict ? (
+										<p className="mt-1 text-[11px] text-amber-700">
+											Selected jobs conflict with running group:{" "}
+											{conflictingGroups
+												.map(formatLockGroupLabel)
+												.join(", ")}
+											.
+										</p>
+									) : null}
+								</div>
+							);
+						})}
 					</div>
 					{status.events?.length ? (
 						<div className="max-h-72 overflow-auto border border-black bg-white p-2 text-xs xl:max-h-[58vh]">
@@ -533,30 +977,27 @@ export function DataPipelineRefreshPanel() {
 						</div>
 					) : null}
 					<div className="flex flex-wrap gap-2 border-t border-black pt-3">
-						<div className="flex flex-col gap-1">
-							<button
-								type="button"
-								onClick={runRefresh}
-								disabled={
-									isTriggering ||
-									isRunning ||
-									selectedJobs.length === 0 ||
-									activeButtonAction !== null
-								}
-								className="border border-black bg-[#c0c0c0] px-3 py-1 text-xs font-bold disabled:opacity-50"
+						{buttonNotice?.action === "run" ? (
+							<p className="basis-full text-xs text-gray-600" aria-live="polite">
+								{buttonNotice.message}
+							</p>
+						) : null}
+						<label className="flex items-center gap-2 border border-black bg-white px-3 py-1 text-xs">
+							<span className="font-bold">Auto refresh</span>
+							<select
+								value={statusPollIntervalMs}
+								onChange={(event) => {
+									setStatusPollIntervalMs(Number(event.target.value));
+								}}
+								className="border border-black bg-white px-1 py-0.5 font-mono"
 							>
-								{activeButtonAction === "run" || isTriggering
-									? "Starting..."
-									: isRunning
-									? "Running..."
-									: "Run pipeline refresh"}
-							</button>
-							{buttonNotice?.action === "run" ? (
-								<p className="text-xs text-gray-600" aria-live="polite">
-									{buttonNotice.message}
-								</p>
-							) : null}
-						</div>
+								{STATUS_POLL_INTERVAL_OPTIONS.map((option) => (
+									<option key={option.value} value={option.value}>
+										{option.label}
+									</option>
+								))}
+							</select>
+						</label>
 						<div className="flex flex-col gap-1">
 							<button
 								type="button"
@@ -611,7 +1052,8 @@ export function DataPipelineRefreshPanel() {
 								<p className="text-xs text-gray-600">
 									If this job is unchecked, downstream jobs use stored active
 									memberships for the selected universes. If checked, selected
-									memberships sync first.
+									memberships sync first. S&amp;P 500, S&amp;P 400, S&amp;P 600,
+									and DJIA use ETF holdings files.
 								</p>
 							</div>
 							<div className="space-y-2 border-t border-black pt-3">
@@ -838,9 +1280,10 @@ export function DataPipelineRefreshPanel() {
 											</h4>
 											<p className="mt-1 text-[11px] leading-4 text-gray-600">
 												Applies to SEC bulk ingest, metric series, series
-												validation, and enriched outputs. Fiscal
-												profile and tag extraction are internal SEC bulk ingest
-												steps because they require temporary raw rows.
+												validation, SEC enriched outputs, derived metric series,
+												and SEC/valuation feature jobs. Fiscal profile and tag
+												extraction are internal SEC bulk ingest steps because
+												they require temporary raw rows.
 											</p>
 										</div>
 										<div className="grid gap-2 sm:grid-cols-2">
@@ -865,7 +1308,9 @@ export function DataPipelineRefreshPanel() {
 														</span>
 														<span className="block text-[11px] leading-4 text-gray-600">
 															Reread every mapped CIK from the SEC archive, then
-															run the selected SEC jobs across the full mapped set.
+															run selected SEC-driven jobs across the full mapped
+															set. Price-history sync still follows Market Data
+															settings.
 														</span>
 													</span>
 												</span>
@@ -891,7 +1336,9 @@ export function DataPipelineRefreshPanel() {
 														</span>
 														<span className="block text-[11px] leading-4 text-gray-600">
 															Read only new or file-size-changed CIKs, then run
-															the selected SEC jobs for that changed set.
+															selected SEC-driven jobs for that changed set.
+															Daily-price jobs use explicit tickers, just-processed
+															price tickers, or price-state changes instead.
 														</span>
 													</span>
 												</span>
@@ -900,7 +1347,9 @@ export function DataPipelineRefreshPanel() {
 										<div className="border-t border-gray-300 pt-2 text-[11px] leading-4 text-gray-600">
 											A no-change bulk skip produces an empty changed-company
 											scope. Use All SEC companies for full rebuilds after logic
-											changes.
+											changes. When SEC-driven and price-driven jobs run together,
+											downstream signals use the union of SEC changed tickers and
+											price changed tickers.
 										</div>
 										<label className="flex items-start gap-2 border-t border-gray-300 pt-2 text-xs">
 											<input
@@ -922,24 +1371,101 @@ export function DataPipelineRefreshPanel() {
 												</span>
 											</span>
 										</label>
+										<div className="space-y-2 border-t border-gray-300 pt-2 text-xs">
+											<div className="flex flex-wrap items-end gap-2">
+												<label className="block">
+													<span className="block font-bold">
+														Tag experiment max CIKs
+													</span>
+													<input
+														type="number"
+														min={1}
+														max={500}
+														value={secMetricSeriesExperimentMaxCiks}
+														onChange={(event) => {
+															const value = Number(event.target.value);
+															setSecMetricSeriesExperimentMaxCiks(
+																Number.isFinite(value)
+																	? Math.min(500, Math.max(1, Math.trunc(value)))
+																	: 50,
+															);
+														}}
+														className="mt-1 block w-24 border border-black px-2 py-1"
+													/>
+												</label>
+												<label className="flex items-start gap-2 border border-gray-300 bg-white p-2">
+													<input
+														type="checkbox"
+														checked={secMetricSeriesExperimentClearBeforeRun}
+														onChange={(event) =>
+															setSecMetricSeriesExperimentClearBeforeRun(
+																event.target.checked,
+															)
+														}
+													/>
+													<span>
+														<span className="block font-bold">
+															Clear experiment table
+														</span>
+														<span className="block text-[11px] leading-4 text-gray-600">
+															Truncate sec_companyfact_metric_series_experiment
+															before this run.
+														</span>
+													</span>
+												</label>
+												<button
+													type="button"
+													onClick={runTagExperiment}
+													disabled={activeButtonAction !== null || isTriggering}
+													className="border border-black bg-white px-3 py-1 text-xs font-bold disabled:opacity-50"
+												>
+													{activeButtonAction === "tagExperiment"
+														? "Starting..."
+														: "Run tag experiment"}
+												</button>
+											</div>
+											<p className="text-[11px] leading-4 text-gray-600">
+												Reads enabled tags from tagMetaExperment, selects CIKs
+												from candidate stats, restages only that capped target
+												set, and writes to sec_companyfact_metric_series_experiment.
+											</p>
+											{buttonNotice?.action === "tagExperiment" ? (
+												<p className="text-[11px] text-gray-600" aria-live="polite">
+													{buttonNotice.message}
+												</p>
+											) : null}
+										</div>
 									</div>
 								</div>
 							</div>
 							<div className="space-y-2 border-t border-black pt-3">
-								<h3 className="font-bold">Enriched Outputs</h3>
+								<h3 className="font-bold">Prepared Series</h3>
 								<p className="text-xs text-gray-600">
-									These jobs read cleaned series and build enriched input
-									tables. Feature rows are calculated later in Features.
+									These jobs build reusable input tables before feature rows.
+									SEC enriched series prepares SEC-derived inputs; Derived
+									metric series uses prepared inputs plus price or macro data.
 								</p>
 								<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-									{ENRICHED_OUTPUT_JOB_KEYS.map(renderJobCheckbox)}
+									{PREPARED_SERIES_JOB_KEYS.map(renderJobCheckbox)}
+								</div>
+							</div>
+							<div className="space-y-2 border-t border-black pt-3">
+								<h3 className="font-bold">Expectations</h3>
+								<p className="text-xs text-gray-600">
+									Scenario outputs that reverse current ticker valuation into
+									implied future financial requirements. These jobs use stored
+									price history and prepared SEC financial series.
+								</p>
+								<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+									{EXPECTATION_JOB_KEYS.map(renderJobCheckbox)}
 								</div>
 							</div>
 							<div className="space-y-2 border-t border-black pt-3">
 								<h3 className="font-bold">Features</h3>
 								<p className="text-xs text-gray-600">
-									Feature jobs convert prepared SEC, valuation, and market data
-									into factor-owned feature rows and comparison outputs.
+									Axis feature jobs convert prepared source, derived, and
+									market data into factor-owned feature rows and comparison
+									outputs.
 								</p>
 								<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
 									{FEATURE_JOB_KEYS.map(renderJobCheckbox)}
@@ -954,6 +1480,31 @@ export function DataPipelineRefreshPanel() {
 								</p>
 								<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
 									{SIGNAL_JOB_KEYS.map(renderJobCheckbox)}
+								</div>
+								<div className="border border-red-800 bg-red-50 p-3 text-xs text-red-900">
+									<label className="flex items-start gap-2">
+										<input
+											type="checkbox"
+											checked={signalPercolationClearBeforeRun}
+											disabled={!isSignalPercolationSelected}
+											onChange={(event) => {
+												setSignalPercolationClearBeforeRun(
+													event.target.checked,
+												);
+											}}
+										/>
+										<span>
+											<span className="block font-bold">
+												Clear stored timeline before run
+											</span>
+											<span className="block leading-4">
+												When checked, the next normal Run deletes stored signal
+												percolation snapshots and forward returns for the
+												selected axis lenses before rebuilding. Leave unchecked
+												for a normal refresh/upsert run.
+											</span>
+										</span>
+									</label>
 								</div>
 							</div>
 						</div>

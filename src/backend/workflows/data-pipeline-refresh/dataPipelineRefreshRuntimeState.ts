@@ -3,6 +3,7 @@
 import type { PipelineStatus } from "@/shared/data-pipeline/status";
 
 const MAX_STATUS_EVENTS = 200;
+const MAX_COMPLETED_RUNS = 10;
 
 type DataPipelineRefreshRuntimeGlobal = typeof globalThis & {
   __geoPortfolioDataPipelineRefreshStatus?: PipelineStatus;
@@ -93,5 +94,21 @@ export function addDataPipelineRefreshEvent(
         timestamp,
       },
     ].slice(-MAX_STATUS_EVENTS),
+  });
+}
+
+export function addDataPipelineRefreshCompletedRun(
+  run: NonNullable<PipelineStatus["completedRuns"]>[number],
+) {
+  const status = getStoredStatus();
+  const completedRuns = [
+    ...(status.completedRuns ?? []).filter((item) => item.id !== run.id),
+    run,
+  ].slice(-MAX_COMPLETED_RUNS);
+
+  setStoredStatus({
+    ...status,
+    updatedAt: run.finishedAt,
+    completedRuns,
   });
 }
