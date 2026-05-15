@@ -1,6 +1,10 @@
 import type { EtfHoldingRecord } from "@/backend/clients/etfHoldings/types";
 import yauzl from "yauzl";
 
+const ISHARES_IVV_HOLDINGS_URL =
+  "https://www.ishares.com/us/products/239726/ishares-core-sp-500-etf" +
+  "/1467271812596.ajax?fileType=csv&fileName=IVV_holdings&dataType=fund";
+
 const ISHARES_IJH_HOLDINGS_URL =
   "https://www.ishares.com/us/products/239763/ishares-core-sp-midcap-etf" +
   "/1467271812596.ajax?fileType=csv&fileName=IJH_holdings&dataType=fund";
@@ -66,6 +70,15 @@ export async function fetchIsharesIjhHoldings(): Promise<EtfHoldingRecord[]> {
   return parseIsharesHoldingsCsv(csv);
 }
 
+export async function fetchIsharesIvvHoldings(): Promise<EtfHoldingRecord[]> {
+  const csv = await fetchEtfText(
+    ISHARES_IVV_HOLDINGS_URL,
+    "iShares IVV holdings request failed",
+  );
+
+  return parseIsharesHoldingsCsv(csv);
+}
+
 export async function fetchIsharesIjrHoldings(): Promise<EtfHoldingRecord[]> {
   const csv = await fetchEtfText(
     ISHARES_IJR_HOLDINGS_URL,
@@ -99,9 +112,11 @@ function parseIsharesHoldingsCsv(csv: string): EtfHoldingRecord[] {
   const assetClassIndex = header.indexOf("Asset Class");
   const exchangeIndex = header.indexOf("Exchange");
 
-  return rows.slice(headerIndex + 1).flatMap((row) => {
+  const holdingRows = takeIsharesHoldingRows(rows.slice(headerIndex + 1), tickerIndex);
+
+  return holdingRows.flatMap((row) => {
     const ticker = normalizeTicker(row[tickerIndex]);
-    if (!ticker) return [];
+    if (!ticker || !isEtfHoldingTickerSymbol(ticker)) return [];
 
     return {
       ticker,
@@ -112,6 +127,35 @@ function parseIsharesHoldingsCsv(csv: string): EtfHoldingRecord[] {
       sourcePayload: rowToPayload(header, row),
     };
   });
+}
+
+function takeIsharesHoldingRows(
+  rows: string[][],
+  tickerIndex: number,
+): string[][] {
+  const result: string[][] = [];
+
+  for (const row of rows) {
+    const rawTicker = normalizeText(row[tickerIndex]);
+
+    if (isIsharesHoldingsFooterRow(rawTicker)) break;
+    result.push(row);
+  }
+
+  return result;
+}
+
+function isIsharesHoldingsFooterRow(ticker: string | null): boolean {
+  if (!ticker) return false;
+
+  const normalized = ticker.toLowerCase();
+
+  return (
+    normalized.startsWith("the content contained herein") ||
+    normalized.startsWith("holdings subject to change") ||
+    normalized.includes("blackrock") ||
+    normalized.includes("ishares.com")
+  );
 }
 
 async function parseSsgaHoldingsXlsx(
@@ -141,7 +185,7 @@ async function parseSsgaHoldingsXlsx(
 
   return sheetRows.slice(headerIndex + 1).flatMap((row) => {
     const ticker = normalizeTicker(row[tickerIndex]);
-    if (!ticker) return [];
+    if (!ticker || !isEtfHoldingTickerSymbol(ticker)) return [];
 
     return {
       ticker,
@@ -314,6 +358,10 @@ function rowToPayload(
 function normalizeTicker(value: string | undefined): string | null {
   const normalized = normalizeText(value)?.toUpperCase();
   return normalized ? normalized.replace(/\s+/g, ".") : null;
+}
+
+function isEtfHoldingTickerSymbol(value: string): boolean {
+  return /^[A-Z][A-Z0-9.-]{0,9}$/.test(value);
 }
 
 function normalizeText(value: string | undefined): string | null {

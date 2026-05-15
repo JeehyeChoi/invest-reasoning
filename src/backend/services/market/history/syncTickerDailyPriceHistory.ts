@@ -42,6 +42,7 @@ export type SyncTickerDailyPriceHistoryResult = {
   targetEndDate: string;
   candidateCount: number;
   processedCount: number;
+  processedTickers: string[];
   failedCount: number;
   requestCount: number;
   rowCount: number;
@@ -58,6 +59,7 @@ const DEFAULT_OUTPUT_SIZE = 5000;
 const DEFAULT_REQUEST_DELAY_MS = 8000;
 const DEFAULT_BACKFILL_END_DATE = "2026-05-05";
 const BACKFILL_WINDOW_YEARS = 10;
+const MAX_PRICE_STALENESS_DAYS = 7;
 
 export async function syncTickerDailyPriceHistory(
   input: SyncTickerDailyPriceHistoryInput = {},
@@ -89,6 +91,7 @@ export async function syncTickerDailyPriceHistory(
         universeKeys,
         provider: providerKey,
         adjustmentPolicy,
+        targetEndDate,
         limit: maxTickers,
       });
 
@@ -104,6 +107,7 @@ export async function syncTickerDailyPriceHistory(
   let rowCount = 0;
   let stoppedByRequestBudget = false;
   let stoppedByProviderLimit = false;
+  const processedTickers: string[] = [];
 
   for (let index = 0; index < candidates.length; index += 1) {
     const ticker = candidates[index];
@@ -138,10 +142,9 @@ export async function syncTickerDailyPriceHistory(
       const upsertedCount = await upsertTickerDailyPriceRows(result.rows);
       rowCount += upsertedCount;
 
+      const isFresh = isDailyPriceResultFresh(result.rows, targetEndDate);
       const status =
-        result.rows.length === 0
-          ? "no_data"
-          : "completed";
+        result.rows.length === 0 ? "no_data" : isFresh ? "completed" : "partial";
 
       await upsertTickerDailyPriceSyncState({
         ticker,
@@ -150,9 +153,13 @@ export async function syncTickerDailyPriceHistory(
         providerSymbol: result.providerSymbol,
         targetStartDate,
         status,
+        lastError: isFresh
+          ? null
+          : `Latest price date is older than targetEndDate by more than ${MAX_PRICE_STALENESS_DAYS} days.`,
       });
 
       processedCount += 1;
+      processedTickers.push(ticker);
 
       input.onProgress?.({
         message: `Synced: ${ticker}. rows=${upsertedCount}, requests=${requestCount}.`,
@@ -213,6 +220,7 @@ export async function syncTickerDailyPriceHistory(
     targetEndDate,
     candidateCount: candidates.length,
     processedCount,
+    processedTickers,
     failedCount,
     requestCount,
     rowCount,
@@ -380,6 +388,28 @@ function normalizeDateKey(value: string | undefined, fallback: string): string {
   return toDateKey(date);
 }
 
+function isDailyPriceResultFresh(
+  rows: TickerDailyPriceRow[],
+  targetEndDate: string,
+): boolean {
+  const latestPriceDate = rows
+    .map((row) => row.priceDate)
+    .sort((a, b) => b.localeCompare(a))[0];
+  if (!latestPriceDate) return false;
+
+  return daysBetween(latestPriceDate, targetEndDate) <= MAX_PRICE_STALENESS_DAYS;
+}
+
+function daysBetween(leftDate: string, rightDate: string): number {
+  const left = Date.parse(`${leftDate}T00:00:00.000Z`);
+  const right = Date.parse(`${rightDate}T00:00:00.000Z`);
+  if (!Number.isFinite(left) || !Number.isFinite(right)) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  return Math.abs(right - left) / 86_400_000;
+}
+
 function normalizeTickerList(tickers: string[]): string[] {
   const seen = new Set<string>();
   const normalized: string[] = [];
@@ -387,11 +417,15 @@ function normalizeTickerList(tickers: string[]): string[] {
   for (const ticker of tickers) {
     const value = ticker.trim().toUpperCase();
 
-    if (!value || seen.has(value)) continue;
+    if (!value || seen.has(value) || !isDailyPriceTickerCandidate(value)) continue;
 
     seen.add(value);
     normalized.push(value);
   }
 
   return normalized;
+}
+
+function isDailyPriceTickerCandidate(value: string): boolean {
+  return /^[A-Z][A-Z0-9.-]{0,9}$/.test(value);
 }

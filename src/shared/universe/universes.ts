@@ -3,25 +3,26 @@ export const UNIVERSE_KEYS = [
   "sp400",
   "sp600",
   "djia",
-  "russell1000",
-  "russell2000",
-  "russell3000",
   "factor_proxy_etfs",
+  "watchlist",
 ] as const;
 
 export type UniverseKey = (typeof UNIVERSE_KEYS)[number];
 
-export const DEFAULT_UNIVERSE_KEYS: UniverseKey[] = ["sp500", "sp400"];
+export const DEFAULT_UNIVERSE_KEYS: UniverseKey[] = [
+  "sp500",
+  "sp400",
+  "sp600",
+  "watchlist",
+];
 
 export const UNIVERSE_LABELS = {
   sp500: "S&P 500",
   sp400: "S&P 400",
   sp600: "S&P 600",
   djia: "DJIA",
-  russell1000: "Russell 1000",
-  russell2000: "Russell 2000",
-  russell3000: "Russell 3000",
   factor_proxy_etfs: "Factor Proxy ETFs",
+  watchlist: "Watchlist",
 } as const satisfies Record<UniverseKey, string>;
 
 export function isUniverseKey(value: unknown): value is UniverseKey {

@@ -3,10 +3,7 @@ import {
   formatFmpUsageSnapshot,
   recordFmpApiUsage,
 } from "@/backend/clients/fmpUsage";
-import type {
-  FmpSp500ConstituentRecord,
-  FmpTickerProfileRecord,
-} from "@/backend/clients/fmp/types";
+import type { FmpTickerProfileRecord } from "@/backend/clients/fmp/types";
 
 /**
  * ----------------------------------------
@@ -79,30 +76,4 @@ export async function fetchFmpTickerProfile(
   }
 
   return json[0];
-}
-
-/**
- * ----------------------------------------
- * API: S&P 500 Constituents
- * ----------------------------------------
- */
-
-export async function fetchFmpSp500Constituents(): Promise<
-  FmpSp500ConstituentRecord[]
-> {
-  const url =
-    `https://financialmodelingprep.com/stable/sp500-constituent` +
-    `?apikey=${ENV.FMP_API_KEY}`;
-
-  const json = await fetchFmpJson<FmpSp500ConstituentRecord[]>(
-    url,
-    "stable/sp500-constituent",
-    "FMP S&P 500 constituents request failed"
-  );
-
-  if (!Array.isArray(json)) {
-    throw new Error("Invalid S&P 500 constituents response from FMP");
-  }
-
-  return json;
 }

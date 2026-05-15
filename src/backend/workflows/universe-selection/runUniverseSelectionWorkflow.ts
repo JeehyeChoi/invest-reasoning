@@ -1,6 +1,5 @@
 import { loadUniverseTickers } from "@/backend/services/universe/loadUniverseTickers";
 import { syncEtfUniverseMemberships } from "@/backend/services/universe/syncEtfUniverseMemberships";
-import { syncSp500UniverseMemberships } from "@/backend/services/universe/syncSp500UniverseMemberships";
 import {
   normalizeUniverseKeys,
   type UniverseKey,
@@ -30,17 +29,18 @@ export async function runUniverseSelectionWorkflow(
 
   if (refreshMode === "selected") {
     for (const universeKey of universeKeys) {
-      if (universeKey === "sp500") {
-        await syncSp500UniverseMemberships();
-        refreshedUniverseKeys.push(universeKey);
-      } else if (
+      if (
+        universeKey === "sp500" ||
         universeKey === "sp400" ||
         universeKey === "sp600" ||
         universeKey === "djia"
       ) {
         await syncEtfUniverseMemberships(universeKey);
         refreshedUniverseKeys.push(universeKey);
-      } else if (universeKey === "factor_proxy_etfs") {
+      } else if (
+        universeKey === "factor_proxy_etfs" ||
+        universeKey === "watchlist"
+      ) {
         // Manual seed universe maintained by db/universes.sql.
       } else {
         unsupportedRefreshUniverseKeys.push(universeKey);

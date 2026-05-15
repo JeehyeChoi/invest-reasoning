@@ -1,13 +1,17 @@
 import {
   fetchIsharesIjhHoldings,
   fetchIsharesIjrHoldings,
+  fetchIsharesIvvHoldings,
   fetchSsgaDiaHoldings,
 } from "@/backend/clients/etfHoldings";
 import type { EtfHoldingRecord } from "@/backend/clients/etfHoldings/types";
 import { db } from "@/backend/config/db";
 import type { UniverseKey } from "@/shared/universe/universes";
 
-type EtfUniverseKey = Extract<UniverseKey, "sp400" | "sp600" | "djia">;
+type EtfUniverseKey = Extract<
+  UniverseKey,
+  "sp500" | "sp400" | "sp600" | "djia"
+>;
 
 type EtfUniverseSource = {
   universeKey: EtfUniverseKey;
@@ -19,6 +23,15 @@ type EtfUniverseSource = {
 };
 
 const ETF_UNIVERSE_SOURCES = {
+  sp500: {
+    universeKey: "sp500",
+    name: "S&P 500",
+    provider: "ishares",
+    description:
+      "Large-cap U.S. equity universe approximated from iShares IVV daily ETF holdings.",
+    source: "ishares_ivv_holdings",
+    fetchHoldings: fetchIsharesIvvHoldings,
+  },
   sp400: {
     universeKey: "sp400",
     name: "S&P MidCap 400",
@@ -182,7 +195,7 @@ function normalizeHoldings(records: EtfHoldingRecord[]) {
   >();
 
   for (const record of records) {
-    const ticker = record.ticker.trim().toUpperCase();
+    const ticker = resolveEtfUniverseTicker(record);
     if (!ticker || ticker === "-" || ticker === "USD") continue;
     if (!isTickerLike(ticker)) continue;
 
@@ -202,6 +215,31 @@ function normalizeHoldings(records: EtfHoldingRecord[]) {
   }
 
   return [...byTicker.values()].sort((a, b) => a.ticker.localeCompare(b.ticker));
+}
+
+function resolveEtfUniverseTicker(record: EtfHoldingRecord): string {
+  const ticker = record.ticker.trim().toUpperCase();
+  const compactShareClassTicker = resolveCompactShareClassTicker(
+    ticker,
+    record.name,
+  );
+
+  return compactShareClassTicker ?? ticker;
+}
+
+function resolveCompactShareClassTicker(
+  ticker: string,
+  companyName: string | undefined,
+): string | null {
+  const shareClass = companyName?.match(/\bCLASS\s+([A-C])\b/i)?.[1]?.toUpperCase();
+
+  if (!shareClass || !ticker.endsWith(shareClass)) return null;
+  if (!/^[A-Z]{3,5}$/.test(ticker)) return null;
+
+  const baseTicker = ticker.slice(0, -1);
+  if (baseTicker.length < 2 || baseTicker.length > 4) return null;
+
+  return `${baseTicker}-${shareClass}`;
 }
 
 function normalizeText(value: string | undefined): string | null {

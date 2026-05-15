@@ -12,6 +12,7 @@ export type FindTickerDailyPriceSyncCandidatesInput = {
   universeKeys: UniverseKey[];
   provider: DailyPriceProviderKey;
   adjustmentPolicy: DailyPriceAdjustmentPolicy;
+  targetEndDate: string;
   limit: number;
 };
 
@@ -19,6 +20,7 @@ export async function findTickerDailyPriceSyncCandidates({
   universeKeys,
   provider,
   adjustmentPolicy,
+  targetEndDate,
   limit,
 }: FindTickerDailyPriceSyncCandidatesInput): Promise<string[]> {
   const result = await db.query<{ ticker: string }>(
@@ -34,15 +36,21 @@ export async function findTickerDailyPriceSyncCandidates({
       AND ps.provider = $2
     WHERE u.universe_key = ANY($1::text[])
       AND u.is_active = true
-      AND COALESCE(ps.status, 'verified') <> 'disabled'
+      AND u.ticker ~ '^[A-Z][A-Z0-9.-]{0,9}$'
+      AND NOT (
+        ps.status = 'disabled'
+        AND ps.source <> 'auto_skip_share_class'
+      )
       AND (
         s.ticker IS NULL
-        OR s.status IN ('pending', 'failed', 'no_data')
+        OR s.status IN ('pending', 'partial', 'failed', 'no_data')
+        OR s.latest_price_date IS NULL
+        OR s.latest_price_date < ($4::date - INTERVAL '7 days')
     )
     ORDER BY u.ticker
-    LIMIT $4
+    LIMIT $5
     `,
-    [universeKeys, provider, adjustmentPolicy, limit],
+    [universeKeys, provider, adjustmentPolicy, targetEndDate, limit],
   );
 
   return result.rows.map((row) => row.ticker);

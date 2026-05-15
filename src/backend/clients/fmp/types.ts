@@ -35,14 +35,3 @@ export type FmpTickerProfileRecord = {
   isAdr?: boolean;
   isFund?: boolean;
 };
-
-export type FmpSp500ConstituentRecord = {
-  symbol?: string;
-  name?: string;
-  sector?: string;
-  subSector?: string;
-  headQuarter?: string;
-  dateFirstAdded?: string;
-  cik?: string;
-  founded?: string;
-};

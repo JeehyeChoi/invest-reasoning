@@ -3,6 +3,7 @@ import {
   fetchTwelveDataStocksBySymbol,
   type TwelveDataStockRecord,
 } from "@/backend/clients/twelveDataStocks";
+import { buildTwelveDataShareClassTickerCandidates } from "@/backend/services/market/providerSymbols/buildTwelveDataShareClassTickerCandidates";
 import {
   getTickerProviderSymbol,
   upsertTickerProviderSymbol,
@@ -19,37 +20,22 @@ export async function resolveTwelveDataProviderSymbol(
   });
 
   if (
-    existing?.status === "disabled" ||
+    (existing?.status === "disabled" && existing.source !== "auto_skip_share_class") ||
     (existing?.status === "verified" && hasUsableProviderIdentity(existing))
   ) {
     return existing;
   }
 
-  if (isHyphenatedShareClassTicker(normalizedTicker)) {
-    await upsertTickerProviderSymbol({
-      ticker: normalizedTicker,
-      provider: "twelve_data",
-      providerSymbol: null,
-      status: "disabled",
-      source: "auto_skip_share_class",
-      candidateSymbols: [toDotShareClassTicker(normalizedTicker)],
-      lastError: `Hyphenated share-class ticker skipped for Twelve Data: ${normalizedTicker}`,
-    });
-
-    return getTickerProviderSymbol({
-      ticker: normalizedTicker,
-      provider: "twelve_data",
-    });
-  }
-
-  const stockRecords = await fetchTwelveDataStocksBySymbol(normalizedTicker);
-  const stockMatch = pickBestUsInstrumentMatch(stockRecords, normalizedTicker);
-  const etfRecords = stockMatch
+  const directResolution = await resolveTwelveDataCatalogSymbol(normalizedTicker);
+  const fallbackResolutions = directResolution.match
     ? []
-    : await fetchTwelveDataEtfsBySymbol(normalizedTicker);
-  const records = [...stockRecords, ...etfRecords];
-  const match =
-    stockMatch ?? pickBestUsInstrumentMatch(etfRecords, normalizedTicker);
+    : await resolveTwelveDataFallbackCatalogSymbols(normalizedTicker);
+  const fallbackResolution = fallbackResolutions.find((result) => result.match);
+  const records = dedupeTwelveDataRecordsBySymbol([
+    ...directResolution.records,
+    ...fallbackResolutions.flatMap((result) => result.records),
+  ]);
+  const match = directResolution.match ?? fallbackResolution?.match;
 
   if (!match?.symbol) {
     await upsertTickerProviderSymbol({
@@ -76,7 +62,7 @@ export async function resolveTwelveDataProviderSymbol(
     instrumentType: match.type ?? null,
     micCode: match.mic_code ?? null,
     status: "verified",
-    source: "auto",
+    source: fallbackResolution ? "auto_compact_share_class_fallback" : "auto",
     candidateSymbols: records
       .map((record) => record.symbol)
       .filter((symbol): symbol is string => Boolean(symbol)),
@@ -91,6 +77,40 @@ export async function resolveTwelveDataProviderSymbol(
     ticker: normalizedTicker,
     provider: "twelve_data",
   });
+}
+
+type TwelveDataCatalogResolution = {
+  querySymbol: string;
+  records: TwelveDataStockRecord[];
+  match: TwelveDataStockRecord | undefined;
+};
+
+async function resolveTwelveDataCatalogSymbol(
+  querySymbol: string,
+): Promise<TwelveDataCatalogResolution> {
+  const stockRecords = await fetchTwelveDataStocksBySymbol(querySymbol);
+  const stockMatch = pickBestUsInstrumentMatch(stockRecords, querySymbol);
+  const etfRecords = stockMatch ? [] : await fetchTwelveDataEtfsBySymbol(querySymbol);
+  const records = [...stockRecords, ...etfRecords];
+
+  return {
+    querySymbol,
+    records,
+    match: stockMatch ?? pickBestUsInstrumentMatch(etfRecords, querySymbol),
+  };
+}
+
+async function resolveTwelveDataFallbackCatalogSymbols(
+  ticker: string,
+): Promise<TwelveDataCatalogResolution[]> {
+  const candidateSymbols = buildTwelveDataShareClassTickerCandidates(ticker);
+  const results: TwelveDataCatalogResolution[] = [];
+
+  for (const candidateSymbol of candidateSymbols) {
+    results.push(await resolveTwelveDataCatalogSymbol(candidateSymbol));
+  }
+
+  return results;
 }
 
 function isSupportedUsEquityExchange(exchange: string | undefined): boolean {
@@ -114,10 +134,19 @@ function hasUsableProviderIdentity(row: TickerProviderSymbolRow): boolean {
   return Boolean(row.providerSymbol && (row.micCode || row.exchange || row.country));
 }
 
-function isHyphenatedShareClassTicker(ticker: string): boolean {
-  return /^[A-Z]+-[A-Z]$/.test(ticker);
-}
+function dedupeTwelveDataRecordsBySymbol(
+  records: TwelveDataStockRecord[],
+): TwelveDataStockRecord[] {
+  const seen = new Set<string>();
+  const result: TwelveDataStockRecord[] = [];
 
-function toDotShareClassTicker(ticker: string): string {
-  return ticker.replace("-", ".");
+  for (const record of records) {
+    const symbol = record.symbol?.toUpperCase();
+    if (!symbol || seen.has(symbol)) continue;
+
+    seen.add(symbol);
+    result.push(record);
+  }
+
+  return result;
 }

@@ -157,4 +157,58 @@ VALUES
   ('factor_proxy_etfs', 'IGV', 'iShares Expanded Tech-Software Sector ETF', NULL, NULL, NULL, 'manual_factor_proxy_etfs', '{"proxy_group":"ai_software","proxy_role":"software_platforms"}'::jsonb, NULL, NOW(), true, NOW(), NOW()),
   ('factor_proxy_etfs', 'SKYY', 'First Trust Cloud Computing ETF', NULL, NULL, NULL, 'manual_factor_proxy_etfs', '{"proxy_group":"ai_software","proxy_role":"cloud_computing"}'::jsonb, NULL, NOW(), true, NOW(), NOW()),
   ('factor_proxy_etfs', 'WCLD', 'WisdomTree Cloud Computing Fund', NULL, NULL, NULL, 'manual_factor_proxy_etfs', '{"proxy_group":"ai_software","proxy_role":"cloud_software"}'::jsonb, NULL, NOW(), true, NOW(), NOW()),
-  ('factor_proxy_etfs', 'QTUM', 'Defiance Quantum ETF', NULL, NULL, NULL, 'manual_factor_proxy_etfs', '{"proxy_group":"quantum","proxy_role":"quantum_computing"}'::jsonb, NULL, NOW(), true, NOW(), NOW());
+  ('factor_proxy_etfs', 'QTUM', 'Defiance Quantum ETF', NULL, NULL, NULL, 'manual_factor_proxy_etfs', '{"proxy_group":"quantum","proxy_role":"quantum_computing"}'::jsonb, NULL, NOW(), true, NOW(), NOW()),
+  ('factor_proxy_etfs', 'FXI', 'iShares China Large-Cap ETF', NULL, NULL, NULL, 'manual_factor_proxy_etfs', '{"proxy_group":"china_exposure","proxy_role":"china_large_cap"}'::jsonb, NULL, NOW(), true, NOW(), NOW()),
+  ('factor_proxy_etfs', 'MCHI', 'iShares MSCI China ETF', NULL, NULL, NULL, 'manual_factor_proxy_etfs', '{"proxy_group":"china_exposure","proxy_role":"china_broad_equity"}'::jsonb, NULL, NOW(), true, NOW(), NOW()),
+  ('factor_proxy_etfs', 'KWEB', 'KraneShares CSI China Internet ETF', NULL, NULL, NULL, 'manual_factor_proxy_etfs', '{"proxy_group":"china_exposure","proxy_role":"china_internet"}'::jsonb, NULL, NOW(), true, NOW(), NOW()),
+  ('factor_proxy_etfs', 'EEM', 'iShares MSCI Emerging Markets ETF', NULL, NULL, NULL, 'manual_factor_proxy_etfs', '{"proxy_group":"china_exposure","proxy_role":"emerging_markets"}'::jsonb, NULL, NOW(), true, NOW(), NOW());
+
+INSERT INTO universes (
+  key,
+  name,
+  provider,
+  description,
+  is_active,
+  created_at,
+  updated_at
+)
+VALUES (
+  'watchlist',
+  'Watchlist',
+  'manual',
+  'Manual interest list for tickers tracked outside the primary index universes.',
+  true,
+  NOW(),
+  NOW()
+)
+ON CONFLICT (key) DO UPDATE SET
+  name = EXCLUDED.name,
+  provider = EXCLUDED.provider,
+  description = EXCLUDED.description,
+  is_active = EXCLUDED.is_active,
+  updated_at = NOW();
+
+DELETE FROM universe_memberships
+WHERE universe_key = 'watchlist';
+
+INSERT INTO universe_memberships (
+  universe_key,
+  ticker,
+  company_name,
+  sector,
+  industry,
+  cik,
+  source,
+  source_payload,
+  effective_date,
+  fetched_at,
+  is_active,
+  created_at,
+  updated_at
+)
+VALUES
+  ('watchlist', 'IONQ', 'IonQ, Inc.', NULL, NULL, '0001824920', 'manual_watchlist', '{"watchlist_reason":"interest_outside_primary_index_universe"}'::jsonb, NULL, NOW(), true, NOW(), NOW()),
+  ('watchlist', 'RELX', 'RELX Plc', NULL, NULL, '0000929869', 'manual_watchlist', '{"watchlist_reason":"interest_outside_primary_index_universe"}'::jsonb, NULL, NOW(), true, NOW(), NOW()),
+  ('watchlist', 'SOFI', 'SoFi Technologies, Inc.', NULL, NULL, '0001818874', 'manual_watchlist', '{"watchlist_reason":"interest_outside_primary_index_universe"}'::jsonb, NULL, NOW(), true, NOW(), NOW()),
+  ('watchlist', 'TEM', 'Tempus AI, Inc.', NULL, NULL, '0001717115', 'manual_watchlist', '{"watchlist_reason":"interest_outside_primary_index_universe"}'::jsonb, NULL, NOW(), true, NOW(), NOW()),
+  ('watchlist', 'VEEV', 'Veeva Systems Inc.', NULL, NULL, '0001393052', 'manual_watchlist', '{"watchlist_reason":"interest_outside_primary_index_universe"}'::jsonb, NULL, NOW(), true, NOW(), NOW());
