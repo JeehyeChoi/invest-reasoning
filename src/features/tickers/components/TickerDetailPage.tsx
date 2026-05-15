@@ -14,6 +14,7 @@ import { TickerMetricTrendChartPanel } from "@/features/tickers/components/Ticke
 import { TickerDailyPriceHistoryPanel } from "@/features/tickers/components/TickerDailyPriceHistoryPanel";
 import { TickerVectorPreviewPanel } from "@/features/tickers/components/TickerVectorPreviewPanel";
 import { TickerAllFactorMetricsPanel } from "@/features/tickers/components/TickerAllFactorMetricsPanel";
+import { TickerImpliedFinancialExpectationsPanel } from "@/features/expectations/components/TickerImpliedFinancialExpectationsPanel";
 import { fetchTickerOverview } from "@/features/tickers/services/fetchTickerOverview";
 import { pickFactorInsightMetric } from "@/features/tickers/utils/pickFactorInsightMetric";
 
@@ -153,6 +154,10 @@ export function TickerDetailPage({ ticker }: Props) {
               defaultStartDate={isFundLike ? null : metricMaxWindowStartDate}
             />
           </section>
+
+          {!isFundLike ? (
+            <TickerImpliedFinancialExpectationsPanel ticker={data.ticker} />
+          ) : null}
 
           {!isFundLike ? (
             <section className="grid items-start gap-4 xl:grid-cols-[minmax(420px,0.9fr)_minmax(0,1.1fr)]">
