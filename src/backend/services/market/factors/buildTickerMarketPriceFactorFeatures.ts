@@ -9,6 +9,7 @@ export type BuildTickerMarketPriceFactorFeaturesInput = {
   asOfDate?: string;
   onProgress?: (progress: {
     message: string;
+    level?: "info" | "warning" | "error";
     current?: number;
     total?: number;
     label?: string;
@@ -19,7 +20,19 @@ export type BuildTickerMarketPriceFactorFeaturesResult = {
   tickerCount: number;
   featureRowCount: number;
   asOfDate: string | null;
+  skippedStaleTickerCount: number;
 };
+
+export type BuildTickerMarketPriceFactorFeaturesTimelineInput =
+  Omit<BuildTickerMarketPriceFactorFeaturesInput, "asOfDate"> & {
+    snapshotDates: string[];
+  };
+
+export type BuildTickerMarketPriceFactorFeaturesTimelineResult =
+  BuildTickerMarketPriceFactorFeaturesResult & {
+    snapshotDates: string[];
+    completedRuns: number;
+  };
 
 type PriceRow = {
   ticker: string;
@@ -60,11 +73,65 @@ const MARKET_PRICE_FACTORS = [
   "low_volatility",
   "high_beta",
   "rate_sensitive",
+  "credit_sensitive",
+  "duration_sensitive",
 ] as const satisfies FactorKey[];
 const PRICE_METRIC_KEY = "price";
+const MARKET_PRICE_FEATURE_METRIC_KEYS: Record<string, string> = {
+  downMarketDefense1Y: "down_market_defense_1y",
+  downMarketDefense3Y: "down_market_defense_3y",
+  volatilityStressDefense1Y: "volatility_stress_defense_1y",
+  volatilityStressDefense3Y: "volatility_stress_defense_3y",
+  drawdownDefense1Y: "drawdown_defense_1y",
+  downsideCaptureDefense1Y: "downside_capture_defense_1y",
+  priceReturn3M: "price_return_3m",
+  priceReturn6M: "price_return_6m",
+  priceReturn12M: "price_return_12m",
+  priceMomentum12MEx1M: "price_momentum_12m_ex_1m",
+  relativeReturn3M: "relative_return_3m",
+  relativeReturn6M: "relative_return_6m",
+  relativeReturn12M: "relative_return_12m",
+  relativeMomentum12MEx1M: "relative_momentum_12m_ex_1m",
+  momentumConsistency12M: "momentum_consistency_12m",
+  distanceFrom52WeekHigh: "distance_from_52_week_high",
+  realizedVolatility1Y: "realized_volatility_1y",
+  realizedVolatility3Y: "realized_volatility_3y",
+  downsideVolatility1Y: "downside_volatility_1y",
+  maxDrawdown1Y: "max_drawdown_1y",
+  marketBeta1Y: "market_beta_1y",
+  marketBeta3Y: "market_beta_3y",
+  correlationToMarket3Y: "correlation_to_market_3y",
+  upsideCapture1Y: "upside_capture_1y",
+  downsideCapture1Y: "downside_capture_1y",
+  qqqBeta1Y: "qqq_beta_1y",
+  qqqBeta3Y: "qqq_beta_3y",
+  qqqCorrelation3Y: "qqq_correlation_3y",
+  diaBeta1Y: "dia_beta_1y",
+  diaBeta3Y: "dia_beta_3y",
+  diaCorrelation3Y: "dia_correlation_3y",
+  rateUpRelativeReturn1Y: "rate_up_relative_return_1y",
+  rateUpRelativeReturn3Y: "rate_up_relative_return_3y",
+  rateShockRelativeReturn1Y: "rate_shock_relative_return_1y",
+  rateBeta3Y: "rate_beta_3y",
+  curveFlatteningRelativeReturn3Y: "curve_flattening_relative_return_3y",
+  creditSpreadWideningRelativeReturn1Y:
+    "credit_spread_widening_relative_return_1y",
+  creditSpreadWideningRelativeReturn3Y:
+    "credit_spread_widening_relative_return_3y",
+  creditShockRelativeReturn1Y: "credit_shock_relative_return_1y",
+  highYieldSpreadBeta3Y: "high_yield_spread_beta_3y",
+  investmentGradeSpreadBeta3Y: "investment_grade_spread_beta_3y",
+  shortRateBeta3Y: "short_rate_beta_3y",
+  intermediateRateBeta3Y: "intermediate_rate_beta_3y",
+  ultraLongRateBeta3Y: "ultra_long_rate_beta_3y",
+  yieldCurveBeta3Y: "yield_curve_beta_3y",
+  shortTreasuryBeta3Y: "short_treasury_beta_3y",
+  intermediateTreasuryBeta3Y: "intermediate_treasury_beta_3y",
+  longBondBeta3Y: "long_bond_beta_3y",
+};
 const SOURCE_TABLE = "ticker_daily_prices";
 const SOURCE_VERSION = "market_price_factor_features_v0";
-const BENCHMARK_TICKERS = ["SPY", "QQQ", "DIA"] as const;
+const BENCHMARK_TICKERS = ["SPY", "QQQ", "DIA", "SHY", "IEF", "TLT"] as const;
 const TRADING_DAYS_PER_YEAR = 252;
 const ONE_MONTH_DAYS = 21;
 const THREE_MONTH_DAYS = 63;
@@ -73,6 +140,8 @@ const ONE_YEAR_DAYS = 252;
 const THREE_YEAR_DAYS = 756;
 const VIX_STRESS_THRESHOLD = 25;
 const RATE_SHOCK_THRESHOLD = 0.0005;
+const CREDIT_SHOCK_THRESHOLD = 0.001;
+const MAX_PRICE_STALENESS_DAYS = 7;
 
 export async function buildTickerMarketPriceFactorFeatures(
   input: BuildTickerMarketPriceFactorFeaturesInput = {},
@@ -85,24 +154,72 @@ export async function buildTickerMarketPriceFactorFeatures(
     adjustmentPolicy,
     asOfDate: input.asOfDate,
   });
+  const marketReferenceAsOfDate = await loadReferenceAsOfDate({
+    provider,
+    adjustmentPolicy,
+    asOfDate: input.asOfDate,
+  });
   const vixByDate = await loadVixByDate(input.asOfDate);
   const tenYearRateChanges = await loadFredDailyChangesByDate({
     seriesId: "DGS10",
+    asOfDate: input.asOfDate,
+  });
+  const twoYearRateChanges = await loadFredDailyChangesByDate({
+    seriesId: "DGS2",
+    asOfDate: input.asOfDate,
+  });
+  const fiveYearRateChanges = await loadFredDailyChangesByDate({
+    seriesId: "DGS5",
+    asOfDate: input.asOfDate,
+  });
+  const thirtyYearRateChanges = await loadFredDailyChangesByDate({
+    seriesId: "DGS30",
     asOfDate: input.asOfDate,
   });
   const yieldCurveChanges = await loadFredDailyChangesByDate({
     seriesId: "T10Y2Y",
     asOfDate: input.asOfDate,
   });
+  const highYieldSpreadChanges = await loadFredDailyChangesByDate({
+    seriesId: "BAMLH0A0HYM2",
+    asOfDate: input.asOfDate,
+  });
+  const investmentGradeSpreadChanges = await loadFredDailyChangesByDate({
+    seriesId: "BAMLC0A0CM",
+    asOfDate: input.asOfDate,
+  });
   const benchmarkReturnsByTicker = buildBenchmarkReturnsByTicker(pointsByTicker);
   const rows: FeatureRow[] = [];
-  const entries = Array.from(pointsByTicker.entries())
+  const candidateEntries = Array.from(pointsByTicker.entries())
     .filter(([ticker]) => !isBenchmarkTicker(ticker))
     .sort(([a], [b]) => a.localeCompare(b));
+  const referenceAsOfDate =
+    input.asOfDate ??
+    marketReferenceAsOfDate ??
+    getLatestDate(candidateEntries.flatMap(([, points]) => points));
+  const entries = referenceAsOfDate
+    ? candidateEntries.filter(([, points]) =>
+        isFreshPriceSeries(points, referenceAsOfDate),
+      )
+    : candidateEntries;
+  const staleTickers = referenceAsOfDate
+    ? candidateEntries
+        .filter(([, points]) => !isFreshPriceSeries(points, referenceAsOfDate))
+        .map(([ticker]) => ticker)
+    : [];
+
+  if (staleTickers.length > 0) {
+    input.onProgress?.({
+      message: `Skipping stale market price feature inputs. referenceAsOf=${referenceAsOfDate}, maxStalenessDays=${MAX_PRICE_STALENESS_DAYS}, skipped=${staleTickers.length}.`,
+      level: "warning",
+      current: 0,
+      total: staleTickers.length,
+    });
+  }
 
   for (const [index, [ticker, points]] of entries.entries()) {
     input.onProgress?.({
-      message: `Market price factor features building ${ticker}.`,
+      message: `[${index + 1}/${entries.length}] Building ${ticker}.`,
       current: index + 1,
       total: entries.length,
       label: ticker,
@@ -115,14 +232,24 @@ export async function buildTickerMarketPriceFactorFeatures(
         benchmarkPointsByTicker: pointsByTicker,
         benchmarkReturnsByTicker,
         vixByDate,
+        twoYearRateChanges,
+        fiveYearRateChanges,
         tenYearRateChanges,
+        thirtyYearRateChanges,
         yieldCurveChanges,
+        highYieldSpreadChanges,
+        investmentGradeSpreadChanges,
       }),
     );
   }
 
-  await deleteExistingRows({
+  await deleteExistingRowsForEffectiveDates({
     tickers: entries.map(([ticker]) => ticker),
+    effectiveDates: getDistinctEffectiveDates(rows),
+  });
+  await deleteExistingRowsForTickersAtEffectiveDate({
+    tickers: staleTickers,
+    effectiveDate: referenceAsOfDate,
   });
   await upsertFeatureRows(rows);
 
@@ -130,7 +257,194 @@ export async function buildTickerMarketPriceFactorFeatures(
     tickerCount: entries.length,
     featureRowCount: rows.length,
     asOfDate: getLatestDate(entries.flatMap(([, points]) => points)),
+    skippedStaleTickerCount: staleTickers.length,
   };
+}
+
+export async function buildTickerMarketPriceFactorFeaturesTimeline(
+  input: BuildTickerMarketPriceFactorFeaturesTimelineInput,
+): Promise<BuildTickerMarketPriceFactorFeaturesTimelineResult> {
+  const snapshotDates = Array.from(new Set(input.snapshotDates)).sort();
+  if (snapshotDates.length === 0) {
+    return {
+      tickerCount: 0,
+      featureRowCount: 0,
+      asOfDate: null,
+      skippedStaleTickerCount: 0,
+      snapshotDates,
+      completedRuns: 0,
+    };
+  }
+
+  const provider = input.provider ?? DEFAULT_PROVIDER;
+  const adjustmentPolicy = input.adjustmentPolicy ?? DEFAULT_ADJUSTMENT_POLICY;
+  const maxSnapshotDate = snapshotDates.at(-1);
+  const allPointsByTicker = await loadPricePoints({
+    tickers: input.tickers,
+    provider,
+    adjustmentPolicy,
+    asOfDate: maxSnapshotDate,
+  });
+  const vixByDate = await loadVixByDate(maxSnapshotDate);
+  const tenYearRateChanges = await loadFredDailyChangesByDate({
+    seriesId: "DGS10",
+    asOfDate: maxSnapshotDate,
+  });
+  const twoYearRateChanges = await loadFredDailyChangesByDate({
+    seriesId: "DGS2",
+    asOfDate: maxSnapshotDate,
+  });
+  const fiveYearRateChanges = await loadFredDailyChangesByDate({
+    seriesId: "DGS5",
+    asOfDate: maxSnapshotDate,
+  });
+  const thirtyYearRateChanges = await loadFredDailyChangesByDate({
+    seriesId: "DGS30",
+    asOfDate: maxSnapshotDate,
+  });
+  const yieldCurveChanges = await loadFredDailyChangesByDate({
+    seriesId: "T10Y2Y",
+    asOfDate: maxSnapshotDate,
+  });
+  const highYieldSpreadChanges = await loadFredDailyChangesByDate({
+    seriesId: "BAMLH0A0HYM2",
+    asOfDate: maxSnapshotDate,
+  });
+  const investmentGradeSpreadChanges = await loadFredDailyChangesByDate({
+    seriesId: "BAMLC0A0CM",
+    asOfDate: maxSnapshotDate,
+  });
+
+  const contexts = snapshotDates.map((snapshotDate, snapshotIndex) => {
+    input.onProgress?.({
+      message: `[${snapshotIndex + 1}/${snapshotDates.length}] Preparing market price snapshot ${snapshotDate}.`,
+      current: snapshotIndex + 1,
+      total: snapshotDates.length,
+      label: snapshotDate,
+    });
+
+    const pointsByTicker = slicePointsByTickerAtDate(allPointsByTicker, snapshotDate);
+    const benchmarkReturnsByTicker = buildBenchmarkReturnsByTicker(pointsByTicker);
+    const candidateEntries = Array.from(pointsByTicker.entries())
+      .filter(([ticker]) => !isBenchmarkTicker(ticker))
+      .sort(([a], [b]) => a.localeCompare(b));
+    const referenceAsOfDate = getLatestDate(
+      candidateEntries.flatMap(([, points]) => points),
+    );
+    const entries = referenceAsOfDate
+      ? candidateEntries.filter(([, points]) =>
+          isFreshPriceSeries(points, referenceAsOfDate),
+        )
+      : candidateEntries;
+    const staleTickers = referenceAsOfDate
+      ? candidateEntries
+          .filter(([, points]) => !isFreshPriceSeries(points, referenceAsOfDate))
+          .map(([ticker]) => ticker)
+      : [];
+    const entriesByTicker = new Map(entries);
+
+    if (staleTickers.length > 0) {
+      input.onProgress?.({
+        message: `Skipping stale market price feature inputs. referenceAsOf=${referenceAsOfDate}, maxStalenessDays=${MAX_PRICE_STALENESS_DAYS}, skipped=${staleTickers.length}.`,
+        level: "warning",
+        current: 0,
+        total: staleTickers.length,
+      });
+    }
+
+    return {
+      snapshotDate,
+      pointsByTicker,
+      benchmarkReturnsByTicker,
+      referenceAsOfDate,
+      entries,
+      entriesByTicker,
+      staleTickers,
+    };
+  });
+
+  const timelineTickers = Array.from(
+    new Set(contexts.flatMap((context) => context.entries.map(([ticker]) => ticker))),
+  ).sort();
+  const effectiveDates = Array.from(
+    new Set(contexts.flatMap((context) => context.referenceAsOfDate ?? [])),
+  ).sort();
+
+  await deleteExistingRowsForEffectiveDates({
+    tickers: timelineTickers,
+    effectiveDates,
+  });
+
+  let featureRowCount = 0;
+
+  for (const [index, ticker] of timelineTickers.entries()) {
+    input.onProgress?.({
+      message: `[${index + 1}/${timelineTickers.length}] Building ${ticker} market price timeline.`,
+      current: index + 1,
+      total: timelineTickers.length,
+      label: ticker,
+    });
+
+    const rows: FeatureRow[] = [];
+
+    for (const context of contexts) {
+      const points = context.entriesByTicker.get(ticker);
+      if (!points) continue;
+
+      rows.push(
+        ...buildTickerFeatureRows({
+          ticker,
+          points,
+          benchmarkPointsByTicker: context.pointsByTicker,
+          benchmarkReturnsByTicker: context.benchmarkReturnsByTicker,
+          vixByDate,
+          twoYearRateChanges,
+          fiveYearRateChanges,
+          tenYearRateChanges,
+          thirtyYearRateChanges,
+          yieldCurveChanges,
+          highYieldSpreadChanges,
+          investmentGradeSpreadChanges,
+        }),
+      );
+    }
+
+    await upsertFeatureRows(rows);
+    featureRowCount += rows.length;
+  }
+
+  return {
+    tickerCount: timelineTickers.length,
+    featureRowCount,
+    asOfDate: contexts.at(-1)?.referenceAsOfDate ?? null,
+    skippedStaleTickerCount: contexts.reduce(
+      (sum, context) => sum + context.staleTickers.length,
+      0,
+    ),
+    snapshotDates,
+    completedRuns: snapshotDates.length,
+  };
+}
+
+async function loadReferenceAsOfDate(input: {
+  provider: string;
+  adjustmentPolicy: string;
+  asOfDate?: string;
+}): Promise<string | null> {
+  const result = await db.query<{ max_price_date: Date | string | null }>(
+    `
+    SELECT MAX(price_date) AS max_price_date
+    FROM public.ticker_daily_prices
+    WHERE provider = $1
+      AND adjustment_policy = $2
+      AND ($3::date IS NULL OR price_date <= $3::date)
+    `,
+    [input.provider, input.adjustmentPolicy, input.asOfDate ?? null],
+  );
+
+  return result.rows[0]?.max_price_date
+    ? toIsoDate(result.rows[0].max_price_date)
+    : null;
 }
 
 async function loadPricePoints(input: {
@@ -185,6 +499,19 @@ async function loadPricePoints(input: {
     Array.from(grouped.entries()).filter(
       ([, points]) => points.length >= ONE_YEAR_DAYS,
     ),
+  );
+}
+
+function slicePointsByTickerAtDate(
+  pointsByTicker: Map<string, PricePoint[]>,
+  asOfDate: string,
+): Map<string, PricePoint[]> {
+  return new Map(
+    Array.from(pointsByTicker.entries()).flatMap(([ticker, points]) => {
+      const sliced = points.filter((point) => point.date <= asOfDate);
+      if (sliced.length < ONE_YEAR_DAYS) return [];
+      return [[ticker, sliced]];
+    }),
   );
 }
 
@@ -256,8 +583,13 @@ function buildTickerFeatureRows(input: {
   benchmarkPointsByTicker: Map<string, PricePoint[]>;
   benchmarkReturnsByTicker: Map<string, DailyReturnPoint[]>;
   vixByDate: Map<string, number>;
+  twoYearRateChanges: Map<string, number>;
+  fiveYearRateChanges: Map<string, number>;
   tenYearRateChanges: Map<string, number>;
+  thirtyYearRateChanges: Map<string, number>;
   yieldCurveChanges: Map<string, number>;
+  highYieldSpreadChanges: Map<string, number>;
+  investmentGradeSpreadChanges: Map<string, number>;
 }): FeatureRow[] {
   const { ticker, points } = input;
   const latest = points.at(-1);
@@ -290,6 +622,18 @@ function buildTickerFeatureRows(input: {
   const diaPairs3Y = buildBenchmarkPairs({
     returns: threeYearReturns,
     benchmarkReturns: input.benchmarkReturnsByTicker.get("DIA") ?? [],
+  });
+  const shyPairs3Y = buildBenchmarkPairs({
+    returns: threeYearReturns,
+    benchmarkReturns: input.benchmarkReturnsByTicker.get("SHY") ?? [],
+  });
+  const iefPairs3Y = buildBenchmarkPairs({
+    returns: threeYearReturns,
+    benchmarkReturns: input.benchmarkReturnsByTicker.get("IEF") ?? [],
+  });
+  const tltPairs3Y = buildBenchmarkPairs({
+    returns: threeYearReturns,
+    benchmarkReturns: input.benchmarkReturnsByTicker.get("TLT") ?? [],
   });
   const rows: FeatureRow[] = [];
 
@@ -357,7 +701,7 @@ function buildTickerFeatureRows(input: {
     predicate: (change) => change >= RATE_SHOCK_THRESHOLD,
     minObservations: 10,
   }), latest.date);
-  addFeature(rows, ticker, "rate_sensitive", PRICE_METRIC_KEY, "rateBeta3Y", calcMacroBeta({
+  addFeature(rows, ticker, "rate_sensitive", PRICE_METRIC_KEY, "rateBeta3Y", calcMacroBetaPer100Bp({
     returns: threeYearReturns,
     macroChangesByDate: input.tenYearRateChanges,
     minObservations: 90,
@@ -369,6 +713,62 @@ function buildTickerFeatureRows(input: {
     predicate: (change) => change < 0,
     minObservations: 90,
   }), latest.date);
+
+  addFeature(rows, ticker, "credit_sensitive", PRICE_METRIC_KEY, "creditSpreadWideningRelativeReturn1Y", calcMacroConditionRelativeReturn({
+    returns: oneYearReturns,
+    benchmarkReturns: input.benchmarkReturnsByTicker.get("SPY") ?? [],
+    macroChangesByDate: input.highYieldSpreadChanges,
+    predicate: (change) => change > 0,
+    minObservations: 30,
+  }), latest.date);
+  addFeature(rows, ticker, "credit_sensitive", PRICE_METRIC_KEY, "creditSpreadWideningRelativeReturn3Y", calcMacroConditionRelativeReturn({
+    returns: threeYearReturns,
+    benchmarkReturns: input.benchmarkReturnsByTicker.get("SPY") ?? [],
+    macroChangesByDate: input.highYieldSpreadChanges,
+    predicate: (change) => change > 0,
+    minObservations: 90,
+  }), latest.date);
+  addFeature(rows, ticker, "credit_sensitive", PRICE_METRIC_KEY, "creditShockRelativeReturn1Y", calcMacroConditionRelativeReturn({
+    returns: oneYearReturns,
+    benchmarkReturns: input.benchmarkReturnsByTicker.get("SPY") ?? [],
+    macroChangesByDate: input.highYieldSpreadChanges,
+    predicate: (change) => change >= CREDIT_SHOCK_THRESHOLD,
+    minObservations: 10,
+  }), latest.date);
+  addFeature(rows, ticker, "credit_sensitive", PRICE_METRIC_KEY, "highYieldSpreadBeta3Y", calcMacroBetaPer100Bp({
+    returns: threeYearReturns,
+    macroChangesByDate: input.highYieldSpreadChanges,
+    minObservations: 90,
+  }), latest.date);
+  addFeature(rows, ticker, "credit_sensitive", PRICE_METRIC_KEY, "investmentGradeSpreadBeta3Y", calcMacroBetaPer100Bp({
+    returns: threeYearReturns,
+    macroChangesByDate: input.investmentGradeSpreadChanges,
+    minObservations: 90,
+  }), latest.date);
+
+  addFeature(rows, ticker, "duration_sensitive", PRICE_METRIC_KEY, "shortRateBeta3Y", calcMacroBetaPer100Bp({
+    returns: threeYearReturns,
+    macroChangesByDate: input.twoYearRateChanges,
+    minObservations: 90,
+  }), latest.date);
+  addFeature(rows, ticker, "duration_sensitive", PRICE_METRIC_KEY, "intermediateRateBeta3Y", calcMacroBetaPer100Bp({
+    returns: threeYearReturns,
+    macroChangesByDate: input.fiveYearRateChanges,
+    minObservations: 90,
+  }), latest.date);
+  addFeature(rows, ticker, "duration_sensitive", PRICE_METRIC_KEY, "ultraLongRateBeta3Y", calcMacroBetaPer100Bp({
+    returns: threeYearReturns,
+    macroChangesByDate: input.thirtyYearRateChanges,
+    minObservations: 90,
+  }), latest.date);
+  addFeature(rows, ticker, "duration_sensitive", PRICE_METRIC_KEY, "yieldCurveBeta3Y", calcMacroBetaPer100Bp({
+    returns: threeYearReturns,
+    macroChangesByDate: input.yieldCurveChanges,
+    minObservations: 90,
+  }), latest.date);
+  addFeature(rows, ticker, "duration_sensitive", PRICE_METRIC_KEY, "shortTreasuryBeta3Y", calcBeta(shyPairs3Y), latest.date);
+  addFeature(rows, ticker, "duration_sensitive", PRICE_METRIC_KEY, "intermediateTreasuryBeta3Y", calcBeta(iefPairs3Y), latest.date);
+  addFeature(rows, ticker, "duration_sensitive", PRICE_METRIC_KEY, "longBondBeta3Y", calcBeta(tltPairs3Y), latest.date);
 
   return rows;
 }
@@ -388,12 +788,32 @@ function addFeature(
     ticker,
     factor,
     axis: MARKET_PRICE_AXIS,
-    metricKey,
+    metricKey: MARKET_PRICE_FEATURE_METRIC_KEYS[featureKey] ?? metricKey,
     featureKey,
     featureValue,
     periodEnd,
     effectiveDate: periodEnd,
   });
+}
+
+function isFreshPriceSeries(
+  points: PricePoint[],
+  referenceAsOfDate: string,
+): boolean {
+  const latestDate = points.at(-1)?.date;
+  if (!latestDate) return false;
+
+  return daysBetween(latestDate, referenceAsOfDate) <= MAX_PRICE_STALENESS_DAYS;
+}
+
+function daysBetween(leftDate: string, rightDate: string): number {
+  const left = Date.parse(`${leftDate}T00:00:00.000Z`);
+  const right = Date.parse(`${rightDate}T00:00:00.000Z`);
+  if (!Number.isFinite(left) || !Number.isFinite(right)) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  return Math.abs(right - left) / 86_400_000;
 }
 
 function buildDailyLogReturns(points: PricePoint[]): DailyReturnPoint[] {
@@ -580,6 +1000,15 @@ function calcMacroBeta(input: {
   ) / variance;
 }
 
+function calcMacroBetaPer100Bp(input: {
+  returns: DailyReturnPoint[];
+  macroChangesByDate: Map<string, number>;
+  minObservations: number;
+}): number | null {
+  const betaPerUnitChange = calcMacroBeta(input);
+  return betaPerUnitChange === null ? null : betaPerUnitChange * 0.01;
+}
+
 function calcDrawdownDefense(
   points: PricePoint[],
   benchmarkPoints: PricePoint[],
@@ -721,8 +1150,15 @@ function covariance(left: number[], right: number[]): number {
   return sum / (length - 1);
 }
 
-async function deleteExistingRows(input: { tickers: string[] }): Promise<void> {
-  if (input.tickers.length === 0) return;
+function getDistinctEffectiveDates(rows: FeatureRow[]): string[] {
+  return [...new Set(rows.map((row) => row.effectiveDate))].sort();
+}
+
+async function deleteExistingRowsForEffectiveDates(input: {
+  tickers: string[];
+  effectiveDates: string[];
+}): Promise<void> {
+  if (input.tickers.length === 0 || input.effectiveDates.length === 0) return;
 
   await db.query(
     `
@@ -730,8 +1166,37 @@ async function deleteExistingRows(input: { tickers: string[] }): Promise<void> {
     WHERE axis = $1
       AND factor = ANY($2::text[])
       AND ticker = ANY($3::text[])
+      AND effective_date = ANY($4::date[])
     `,
-    [MARKET_PRICE_AXIS, [...MARKET_PRICE_FACTORS], input.tickers],
+    [
+      MARKET_PRICE_AXIS,
+      [...MARKET_PRICE_FACTORS],
+      input.tickers,
+      input.effectiveDates,
+    ],
+  );
+}
+
+async function deleteExistingRowsForTickersAtEffectiveDate(input: {
+  tickers: string[];
+  effectiveDate: string | null;
+}): Promise<void> {
+  if (input.tickers.length === 0 || !input.effectiveDate) return;
+
+  await db.query(
+    `
+    DELETE FROM public.ticker_factor_metric_features
+    WHERE axis = $1
+      AND factor = ANY($2::text[])
+      AND ticker = ANY($3::text[])
+      AND effective_date = $4::date
+    `,
+    [
+      MARKET_PRICE_AXIS,
+      [...MARKET_PRICE_FACTORS],
+      input.tickers,
+      input.effectiveDate,
+    ],
   );
 }
 

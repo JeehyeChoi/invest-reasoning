@@ -1,14 +1,14 @@
 import {
-  buildTickerMarketPriceFactorFeatures,
-  buildTickerMarketPriceFactorFeaturesTimeline,
-  type BuildTickerMarketPriceFactorFeaturesResult,
-} from "@/backend/services/market/factors/buildTickerMarketPriceFactorFeatures";
+  buildTickerEtfExposureFactorFeatures,
+  buildTickerEtfExposureFactorFeaturesTimeline,
+  type BuildTickerEtfExposureFactorFeaturesResult,
+} from "@/backend/services/market/factors/buildTickerEtfExposureFactorFeatures";
 import {
   resolveSnapshotDates,
   type SnapshotFrequency,
 } from "@/backend/workflows/utils/snapshotDates";
 
-export type RunTickerMarketPriceFactorFeaturesWorkflowInput = {
+export type RunTickerEtfExposureFactorFeaturesWorkflowInput = {
   tickers?: string[];
   provider?: string;
   adjustmentPolicy?: string;
@@ -19,28 +19,27 @@ export type RunTickerMarketPriceFactorFeaturesWorkflowInput = {
   frequency?: SnapshotFrequency;
   onProgress?: (progress: {
     message: string;
-    level?: "info" | "warning" | "error";
     current?: number;
     total?: number;
     label?: string;
   }) => void;
 };
 
-export type RunTickerMarketPriceFactorFeaturesWorkflowResult =
-  BuildTickerMarketPriceFactorFeaturesResult & {
+export type RunTickerEtfExposureFactorFeaturesWorkflowResult =
+  BuildTickerEtfExposureFactorFeaturesResult & {
     snapshotDates?: string[];
     completedRuns?: number;
   };
 
-export async function runTickerMarketPriceFactorFeaturesWorkflow(
-  input: RunTickerMarketPriceFactorFeaturesWorkflowInput = {},
-): Promise<RunTickerMarketPriceFactorFeaturesWorkflowResult> {
+export async function runTickerEtfExposureFactorFeaturesWorkflow(
+  input: RunTickerEtfExposureFactorFeaturesWorkflowInput = {},
+): Promise<RunTickerEtfExposureFactorFeaturesWorkflowResult> {
   const snapshotDates = resolveSnapshotDates({
     ...input,
     defaultToTimeline: !input.asOfDate,
   });
   if (snapshotDates.length > 0) {
-    return buildTickerMarketPriceFactorFeaturesTimeline({
+    return buildTickerEtfExposureFactorFeaturesTimeline({
       tickers: input.tickers,
       provider: input.provider,
       adjustmentPolicy: input.adjustmentPolicy,
@@ -49,7 +48,7 @@ export async function runTickerMarketPriceFactorFeaturesWorkflow(
     });
   }
 
-  return buildTickerMarketPriceFactorFeatures({
+  return buildTickerEtfExposureFactorFeatures({
     tickers: input.tickers,
     provider: input.provider,
     adjustmentPolicy: input.adjustmentPolicy,
